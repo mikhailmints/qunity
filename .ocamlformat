@@ -1,0 +1,6 @@
+if-then-else=fit-or-vertical
+break-cases=all
+space-around-lists=false
+indent-after-in=2
+exp-grouping=preserve
+margin=79
