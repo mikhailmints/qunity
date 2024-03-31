@@ -1,2 +1,3 @@
 (library
- (name qunity_prototypes))
+ (name qunity_prototypes)
+ (modules reals syntax typechecking))

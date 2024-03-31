@@ -1,6 +1,0 @@
-# dune init proj qunity_prototypes
-# OCAMLPARAM: unset
-# Shared cache: disabled
-# Shared cache location: /home/mmints/.cache/dune/db
-# Workspace root: /mnt/c/Users/mikha/source/repos/qunity_prototypes
-# Auto-detected concurrency: 12

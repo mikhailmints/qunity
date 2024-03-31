@@ -1,4 +1,4 @@
 (executable
- (public_name qunity_prototypes)
  (name main)
+ (public_name main)
  (libraries qunity_prototypes))

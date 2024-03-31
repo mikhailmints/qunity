@@ -1,2 +1,7 @@
-(test
- (name test_qunity_prototypes))
+(library
+ (name test_qunity_prototypes)
+ (modules test_typechecking)
+ (libraries qunity_prototypes)
+ (inline_tests (flags (-stop-on-error -verbose)))
+ (preprocess
+  (pps ppx_inline_test)))
