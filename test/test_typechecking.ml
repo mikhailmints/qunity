@@ -3,16 +3,16 @@ open Syntax
 open Typechecking
 
 let expect_expr_puretype (e : expr) (t : exprtype) : bool =
-  pure_type_check Context.empty Context.empty e = SomeE t
+  pure_type_check StringMap.empty StringMap.empty e = SomeE t
 
 let expect_expr_puretype_err (e : expr) : bool =
-  option_of_optionE (pure_type_check Context.empty Context.empty e) = None
+  option_of_optionE (pure_type_check StringMap.empty StringMap.empty e) = None
 
 let expect_expr_mixedtype (e : expr) (t : exprtype) : bool =
-  mixed_type_check Context.empty e = SomeE t
+  mixed_type_check StringMap.empty e = SomeE t
 
 let expect_expr_mixedtype_err (e : expr) : bool =
-  option_of_optionE (mixed_type_check Context.empty e) = None
+  option_of_optionE (mixed_type_check StringMap.empty e) = None
 
 let expect_prog_type (f : prog) (t : progtype) : bool =
   prog_type_check f = SomeE t

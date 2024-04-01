@@ -1,77 +1,11 @@
+open Util
 open Syntax
 
-type 'a optionE = SomeE of 'a | NoneE of string
-
-module Context = Map.Make (String)
-
-type context = exprtype Context.t
-
-module StringSet = Set.Make (String)
-
-let option_of_optionE (optE : 'a optionE) : 'a option =
-  match optE with
-  | NoneE _ -> None
-  | SomeE x -> Some x
+type context = exprtype StringMap.t
 
 (*
-Combine two contexts into one. If allow_dup is false: fails if
-the contexts share any bindings. If allow_dup is false: fails only if
-there is a type mismatch.
+Finds the free variables in an expression e.
 *)
-let context_merge (allow_dup : bool) (d0 : context) (d1 : context) :
-    context optionE =
-  let merged_with_opt =
-    Context.merge
-      (fun _ a b ->
-        match (a, b) with
-        | None, None -> None
-        | Some a', None -> Some (Some a')
-        | None, Some b' -> Some (Some b')
-        | Some a', Some b' ->
-            if allow_dup && a' = b' then Some (Some a') else Some None)
-      d0 d1
-  in
-    if Context.for_all (fun _ x -> x <> None) merged_with_opt then
-      SomeE
-        (Context.map
-           (fun x ->
-             match x with
-             | Some x' -> x'
-             | None -> failwith "unreachable")
-           merged_with_opt)
-    else
-      NoneE
-        (if allow_dup then
-           "Type mismatch in context merge"
-         else
-           "Expected disjoint contexts")
-
-(* Whether a context is included in another context *)
-let context_inclusion (d0 : context) (d1 : context) : bool =
-  Context.for_all (fun x t -> Context.find_opt x d1 = Some t) d0
-
-let context_dom (d : context) : StringSet.t =
-  StringSet.of_list (List.map fst (Context.bindings d))
-
-(* Restrict context to include only variables from a given set *)
-let context_restriction (d : context) (s : StringSet.t) : context =
-  Context.filter (fun x _ -> StringSet.mem x s) d
-
-(* Partition context d into part belonging to s and part not belonging to s *)
-let context_partition (d : context) (s : StringSet.t) : context * context =
-  ( context_restriction d s,
-    Context.filter (fun x _ -> not (StringSet.mem x s)) d )
-
-let fresh_string (s : StringSet.t) : string =
-  let rec fresh_string_helper (i : int) =
-    let candidate = "$" ^ string_of_int i in
-      if StringSet.mem candidate s then
-        fresh_string_helper (i + 1)
-      else
-        candidate
-  in
-    fresh_string_helper 0
-
 let rec free_vars (e : expr) : StringSet.t =
   match e with
   | Null -> StringSet.empty
@@ -249,10 +183,10 @@ with the classical context g ++ gj, this finds the quantum context of ej'.
 *)
 let rec first_pattern_context_check (g : context) (t : exprtype)
     (t' : exprtype) (ej : expr) (ej' : expr) : context optionE =
-  match context_check Context.empty t ej with
+  match context_check StringMap.empty t ej with
   | NoneE err -> NoneE err
   | SomeE gj -> begin
-      match context_merge false g gj with
+      match map_merge false g gj with
       | SomeE ggj -> context_check ggj t' ej'
       | NoneE err -> NoneE err
     end
@@ -263,10 +197,10 @@ control block under the contexts obtained from the first pattern in the block.
 *)
 and pattern_type_check (g : context) (d : context) (t : exprtype)
     (t' : exprtype) ((ej, ej') : expr * expr) : bool =
-  match context_check Context.empty t ej with
+  match context_check StringMap.empty t ej with
   | NoneE _ -> false
   | SomeE gj -> begin
-      match context_merge false g gj with
+      match map_merge false g gj with
       | SomeE ggj -> pure_type_check ggj d ej' = SomeE t'
       | NoneE _ -> false
     end
@@ -279,15 +213,15 @@ and mixed_type_check (d : context) (e : expr) : exprtype optionE =
   (* T-MIXEDPAIR *)
   | Qpair (e0, e1) -> begin
       if
-        StringSet.diff (context_dom d)
+        StringSet.diff (map_dom d)
           (StringSet.union (free_vars e0) (free_vars e1))
         <> StringSet.empty
       then
         NoneE "Irrelevant variables in quantum context"
       else
         match
-          ( mixed_type_check (context_restriction d (free_vars e0)) e0,
-            mixed_type_check (context_restriction d (free_vars e1)) e1 )
+          ( mixed_type_check (map_restriction d (free_vars e0)) e0,
+            mixed_type_check (map_restriction d (free_vars e1)) e1 )
         with
         | SomeE t0, SomeE t1 -> SomeE (ProdType (t0, t1))
         | NoneE err, _
@@ -296,7 +230,7 @@ and mixed_type_check (d : context) (e : expr) : exprtype optionE =
     end
   (* T-TRY *)
   | Try (e0, e1) -> begin
-      let d0, d1 = context_partition d (free_vars e0) in
+      let d0, d1 = map_partition d (free_vars e0) in
         match (mixed_type_check d0 e0, mixed_type_check d1 e1) with
         | SomeE t0, SomeE t1 ->
             if t0 = t1 then SomeE t0 else NoneE "Type mismatch in try block"
@@ -317,7 +251,7 @@ and mixed_type_check (d : context) (e : expr) : exprtype optionE =
       | _, NoneE err ->
           NoneE err
     end
-  | _ -> pure_type_check Context.empty d e
+  | _ -> pure_type_check StringMap.empty d e
 
 (*
 Finds the type of a pure expression e with a classical context g and a
@@ -328,10 +262,10 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
   (* T-UNIT *)
   | Null -> SomeE Qunit
   | Var x -> begin
-      match Context.bindings d with
+      match StringMap.bindings d with
       | [] -> begin
           (* T-CVAR *)
-          match Context.find_opt x g with
+          match StringMap.find_opt x g with
           | Some t -> SomeE t
           | None -> NoneE "Unbound variable"
         end
@@ -339,7 +273,7 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
           if x' <> x then
             NoneE "Irrelevant variables in quantum context"
           else begin (* T-QVAR *)
-            match Context.find_opt x g with
+            match StringMap.find_opt x g with
             | Some _ ->
                 NoneE "Variable appears in both classical and quantum context"
             | None -> SomeE t
@@ -349,15 +283,15 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
   (* T-PUREPAIR *)
   | Qpair (e0, e1) -> begin
       if
-        StringSet.diff (context_dom d)
+        StringSet.diff (map_dom d)
           (StringSet.union (free_vars e0) (free_vars e1))
         <> StringSet.empty
       then
         NoneE "Irrelevant variables in quantum context"
       else
         match
-          ( pure_type_check g (context_restriction d (free_vars e0)) e0,
-            pure_type_check g (context_restriction d (free_vars e1)) e1 )
+          ( pure_type_check g (map_restriction d (free_vars e0)) e0,
+            pure_type_check g (map_restriction d (free_vars e1)) e1 )
         with
         | SomeE t0, SomeE t1 -> SomeE (ProdType (t0, t1))
         | NoneE err, _
@@ -367,10 +301,10 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
   (* T-CTRL *)
   | Ctrl (e', t0, l, t1) -> begin
       let fve' = free_vars e' in
-      let g0 = context_restriction g fve' in
-      let d0 = context_restriction d fve' in
+      let g0 = map_restriction g fve' in
+      let d0 = map_restriction d fve' in
       let ej, ej' = List.split l in
-        match context_merge false g0 d0 with
+        match map_merge false g0 d0 with
         | NoneE err -> NoneE err
         | SomeE g0d0 ->
             if mixed_type_check g0d0 e' <> SomeE t0 then
@@ -379,7 +313,7 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
               NoneE "Ortho check failed"
             else if not (List.for_all (pattern_type_check g d t0 t1) l) then
               NoneE "Type mismatch in control block"
-            else if not (Context.for_all (fun x _ -> erases_check x ej') d0)
+            else if not (StringMap.for_all (fun x _ -> erases_check x ej') d0)
             then
               NoneE "Erasure check failed"
             else
@@ -410,7 +344,7 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
   (* T-MIXEDPAIR *)
   | Qpair (e0, e1), ProdType (t0, t1) -> begin
       match (mixed_context_check t0 e0, mixed_context_check t1 e1) with
-      | SomeE d0, SomeE d1 -> context_merge true d0 d1
+      | SomeE d0, SomeE d1 -> map_merge true d0 d1
       | NoneE err, _
       | _, NoneE err ->
           NoneE err
@@ -419,7 +353,7 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
   (* T-TRY *)
   | Try (e0, e1), _ -> begin
       match (mixed_context_check t e0, mixed_context_check t e1) with
-      | SomeE d0, SomeE d1 -> context_merge false d0 d1
+      | SomeE d0, SomeE d1 -> map_merge false d0 d1
       | NoneE err, _
       | _, NoneE err ->
           NoneE err
@@ -435,7 +369,7 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
             NoneE "Type mismatch in mixed application"
       | NoneE err -> NoneE err
     end
-  | _, _ -> context_check Context.empty t e
+  | _, _ -> context_check StringMap.empty t e
 
 (*
 Given a pure expression e expected to be of type t with classical context g,
@@ -444,22 +378,22 @@ find the quantum context of the expression.
 and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
   match (e, t) with
   (* T-UNIT *)
-  | Null, Qunit -> SomeE Context.empty
+  | Null, Qunit -> SomeE StringMap.empty
   | Var x, _ -> begin
-      match Context.find_opt x g with
+      match StringMap.find_opt x g with
       (* T-CVAR *)
       | Some t' ->
           if t = t' then
-            SomeE Context.empty
+            SomeE StringMap.empty
           else
             NoneE "Type mismatch in classical context"
       (* T-QVAR *)
-      | None -> SomeE (Context.singleton x t)
+      | None -> SomeE (StringMap.singleton x t)
     end
   (* T-PUREPAIR *)
   | Qpair (e0, e1), ProdType (t0, t1) -> begin
       match (context_check g t0 e0, context_check g t1 e1) with
-      | SomeE d0, SomeE d1 -> context_merge true d0 d1
+      | SomeE d0, SomeE d1 -> map_merge true d0 d1
       | NoneE err, _
       | _, NoneE err ->
           NoneE err
@@ -476,11 +410,11 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
               (* d is Gamma, Delta
                  g is Gamma, Gamma'
                  d0 is Delta, Delta' *)
-              match context_merge false g d0 with
+              match map_merge false g d0 with
               | NoneE err -> NoneE err
               | SomeE gd0 ->
                   let ej, ej' = List.split l in
-                    if not (context_inclusion d gd0) then
+                    if not (map_inclusion d gd0) then
                       NoneE "Context inclusion failed"
                     else if not (ortho_check t0 ej) then
                       NoneE "Ortho check failed"
@@ -489,7 +423,7 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
                     then
                       NoneE "Type mismatch in control block"
                     else if
-                      not (Context.for_all (fun x _ -> erases_check x ej') d)
+                      not (StringMap.for_all (fun x _ -> erases_check x ej') d)
                     then
                       NoneE "Erasure check failed"
                     else
@@ -512,8 +446,8 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
     end
   | _, _ -> NoneE "Type mismatch"
 
-and prog_type_check (p : prog) : progtype optionE =
-  match p with
+and prog_type_check (f : prog) : progtype optionE =
+  match f with
   (* T-GATE *)
   | U3 _ -> SomeE (Coherent (bit, bit))
   (* T-LEFT *)
@@ -521,15 +455,15 @@ and prog_type_check (p : prog) : progtype optionE =
   (* T-RIGHT *)
   | Right (t, t') -> SomeE (Coherent (t', SumType (t, t')))
   | Lambda (e, t, e') -> begin
-      match context_check Context.empty t e with
+      match context_check StringMap.empty t e with
       | NoneE err -> NoneE err
       | SomeE d -> (
-          match pure_type_check Context.empty d e' with
+          match pure_type_check StringMap.empty d e' with
           (* T-PUREABS *)
           | SomeE t' -> SomeE (Coherent (t, t'))
           | NoneE _ -> (
               match
-                mixed_type_check (context_restriction d (free_vars e')) e'
+                mixed_type_check (map_restriction d (free_vars e')) e'
               with
               | NoneE err -> NoneE err
               (* T-MIXEDABS *)
