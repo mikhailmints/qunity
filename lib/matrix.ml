@@ -1,12 +1,19 @@
-open Util
-
 type matrix = { r : int; c : int; f : int -> int -> Complex.t }
+
+let complex_sum : Complex.t list -> Complex.t =
+  List.fold_left Complex.add Complex.zero
+
+let rec complex_sum_to_n (n : int) (f : int -> Complex.t) =
+  if n <= 0 then
+    Complex.zero
+  else
+    Complex.add (f (n - 1)) (complex_sum_to_n (n - 1) f)
 
 let mat_well_formed (m : matrix) : bool = m.r > 0 && m.c > 0
 
 let mat_plus (m1 : matrix) (m2 : matrix) : matrix =
   if m1.r <> m2.r || m1.c <> m2.c then
-    invalid_arg "inconsistent matrix dimensions"
+    invalid_arg "Inconsistent matrix dimensions in matrix addition"
   else
     { r = m1.r; c = m1.c; f = (fun i j -> Complex.add (m1.f i j) (m2.f i j)) }
 
@@ -16,21 +23,19 @@ let mat_transpose (m : matrix) : matrix =
 let mat_adjoint (m : matrix) : matrix =
   { r = m.c; c = m.r; f = (fun i j -> Complex.conj (m.f j i)) }
 
-let rec sum_to_n (n : int) (f : int -> Complex.t) =
-  if n <= 0 then
-    Complex.zero
-  else
-    Complex.add (f n) (sum_to_n (n - 1) f)
+let mat_scalar_mul (z : Complex.t) (m : matrix) : matrix =
+  { r = m.r; c = m.c; f = (fun i j -> Complex.mul z (m.f i j)) }
 
 let mat_mul (m1 : matrix) (m2 : matrix) : matrix =
   if m1.c <> m2.r then
-    invalid_arg "inconsistent matrix dimensions"
+    invalid_arg "Inconsistent matrix dimensions in matrix multiplication"
   else
     {
       r = m1.r;
       c = m2.c;
       f =
-        (fun i j -> sum_to_n m1.c (fun k -> Complex.mul (m1.f i k) (m2.f k j)));
+        (fun i j ->
+          complex_sum_to_n m1.c (fun k -> Complex.mul (m1.f i k) (m2.f k j)));
     }
 
 let ( *@ ) = mat_mul
@@ -47,15 +52,24 @@ let mat_tensor (m1 : matrix) (m2 : matrix) : matrix =
           (m2.f (i mod m2.r) (j mod m2.c)));
   }
 
-let mat_dirsum (m1 : matrix) (m2 : matrix) : matrix =
+let vec_dirsum (m1 : matrix) (m2 : matrix) : matrix =
+  if m1.c <> 1 || m2.c <> 1 then
+    failwith "Direct sum only applies to vectors"
+  else
   {
     r = m1.r + m2.r;
-    c = m1.c + m2.c;
-    f = (fun i j -> if i < m1.r then m1.f i j else m2.f (i - m1.r) (j - m1.c));
+    c = 1;
+    f = (fun i _ -> if i < m1.r then m1.f i 0 else m2.f (i - m1.r) 0);
   }
 
 let mat_column (m : matrix) (c : int) : matrix =
   { r = m.r; c = 1; f = (fun i j -> if j = 0 then m.f i c else Complex.zero) }
+
+let mat_trace (m : matrix) : Complex.t =
+  if m.r <> m.c then
+    failwith "Matrix must be square"
+  else
+    complex_sum_to_n m.r (fun i -> m.f i i)
 
 let mat_from_basis_action (c : int) (bfun : int -> matrix) =
   let r = (bfun 0).r in
@@ -81,9 +95,6 @@ let mat_id (n : int) =
       f = (fun i j -> if i = j then Complex.one else Complex.zero);
     }
 
-let complex_from_polar (r : float) (theta : float) : Complex.t =
-  { re = r *. Float.cos theta; im = r *. Float.sin theta }
-
 let mat_from_u3 (theta : float) (phi : float) (lambda : float) : matrix =
   {
     r = 2;
@@ -92,10 +103,10 @@ let mat_from_u3 (theta : float) (phi : float) (lambda : float) : matrix =
       (fun i j ->
         begin
           match (i, j) with
-          | 0, 0 -> { re = Float.cos (theta /. 2.); im = 0. }
-          | 0, 1 -> complex_from_polar (-.Float.sin (theta /. 2.)) lambda
-          | 1, 0 -> complex_from_polar (Float.sin (theta /. 2.)) phi
-          | 1, 1 -> complex_from_polar (Float.cos (theta /. 2.)) (phi +. lambda)
+          | 0, 0 -> Complex.polar (Float.cos (theta /. 2.)) 0.
+          | 0, 1 -> Complex.polar (-.Float.sin (theta /. 2.)) lambda
+          | 1, 0 -> Complex.polar (Float.sin (theta /. 2.)) phi
+          | 1, 1 -> Complex.polar (Float.cos (theta /. 2.)) (phi +. lambda)
           | _ -> Complex.zero
         end);
   }
@@ -103,11 +114,19 @@ let mat_from_u3 (theta : float) (phi : float) (lambda : float) : matrix =
 let mat_zero (r : int) (c : int) = { r; c; f = (fun _ _ -> Complex.zero) }
 let vec_zero (dim : int) = mat_zero dim 1
 
-let complex_sum : Complex.t list -> Complex.t =
-  List.fold_left Complex.add Complex.zero
-
 let mat_sum r c : matrix list -> matrix =
   List.fold_left mat_plus (mat_zero r c)
+
+let string_of_complex (z : Complex.t) =
+  (string_of_float z.re) ^ "+" ^ (string_of_float z.im) ^ "i"
+
+let print_mat (m : matrix) =
+  for i = 0 to m.r - 1 do
+    for j = 0 to m.c - 1 do
+      Printf.printf "%-10s " (string_of_complex (m.f i j))
+    done;
+    Printf.printf "\n"
+  done
 
 type superoperator = {
   dim_from : int;
@@ -116,7 +135,26 @@ type superoperator = {
   f : int -> int -> int -> int -> Complex.t;
 }
 
-let superoperator_apply (super : superoperator) (m : matrix) : matrix =
+let superop_plus (super1 : superoperator) (super2 : superoperator) :
+    superoperator =
+  if super1.dim_from <> super2.dim_from || super1.dim_to <> super2.dim_to then
+    failwith "Inconsistent dimensions in superoperator addition"
+  else
+    {
+      dim_from = super1.dim_from;
+      dim_to = super1.dim_to;
+      f = (fun i j k l -> Complex.add (super1.f i j k l) (super2.f i j k l));
+    }
+
+let superop_scalar_mul (z : Complex.t) (super : superoperator) : superoperator
+    =
+  {
+    dim_from = super.dim_from;
+    dim_to = super.dim_to;
+    f = (fun i j k l -> Complex.mul z (super.f i j k l));
+  }
+
+let superop_apply (super : superoperator) (m : matrix) : matrix =
   if m.r <> super.dim_from || m.c <> super.dim_from then
     failwith "Inconsistent dimensions in superoperator application"
   else
@@ -125,12 +163,25 @@ let superoperator_apply (super : superoperator) (m : matrix) : matrix =
       c = super.dim_to;
       f =
         (fun i j ->
-          complex_sum
-            (List.map
-               (fun k ->
-                 complex_sum
-                   (List.map
-                      (fun l -> Complex.mul (m.f k l) (super.f i j k l))
-                      (range super.dim_from)))
-               (range super.dim_from)));
+          complex_sum_to_n super.dim_from (fun k ->
+              complex_sum_to_n super.dim_from (fun l ->
+                  Complex.mul (m.f k l) (super.f i j k l))));
     }
+
+let superop_from_basis_action (dim_from : int) (bfun : int -> int -> matrix) :
+    superoperator =
+  let dim_to = (bfun 0 0).r in
+    {
+      dim_from;
+      dim_to;
+      f =
+        (fun i j k l ->
+          let bmat = bfun k l in
+            if bmat.r <> dim_to || bmat.c <> dim_to then
+              failwith "Invalid basis action"
+            else
+              bmat.f i j);
+    }
+
+let superop_on_basis (super : superoperator) (k : int) (l : int) : matrix =
+  { r = super.dim_to; c = super.dim_to; f = (fun i j -> super.f i j k l) }

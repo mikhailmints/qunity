@@ -451,9 +451,9 @@ and prog_type_check (f : prog) : progtype optionE =
   (* T-GATE *)
   | U3 _ -> SomeE (Coherent (bit, bit))
   (* T-LEFT *)
-  | Left (t, t') -> SomeE (Coherent (t, SumType (t, t')))
+  | Left (t0, t1) -> SomeE (Coherent (t0, SumType (t0, t1)))
   (* T-RIGHT *)
-  | Right (t, t') -> SomeE (Coherent (t', SumType (t, t')))
+  | Right (t0, t1) -> SomeE (Coherent (t1, SumType (t0, t1)))
   | Lambda (e, t, e') -> begin
       match context_check StringMap.empty t e with
       | NoneE err -> NoneE err

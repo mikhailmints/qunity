@@ -16,6 +16,25 @@ type real =
   | Ln of real
   | Sqrt of real
 
+let rec string_of_real (r : real) : string =
+  match r with
+  | Pi -> "pi"
+  | Euler -> "e"
+  | Const x -> string_of_int x
+  | Negate r1 -> "-" ^ (string_of_real r1)
+  | Plus (r1, r2) -> Printf.sprintf "(%s) + (%s)" (string_of_real r1) (string_of_real r2)
+  | Times (r1, r2) -> Printf.sprintf "(%s) * (%s)" (string_of_real r1) (string_of_real r2)
+  | Div (r1, r2) -> Printf.sprintf "(%s) / (%s)" (string_of_real r1) (string_of_real r2)
+  | Sin (r1) -> Printf.sprintf "sin(%s)" (string_of_real r1)
+  | Cos (r1) -> Printf.sprintf "cos(%s)" (string_of_real r1)
+  | Tan (r1) -> Printf.sprintf "tan(%s)" (string_of_real r1)
+  | Arcsin (r1) -> Printf.sprintf "arcsin(%s)" (string_of_real r1)
+  | Arccos (r1) -> Printf.sprintf "arccos(%s)" (string_of_real r1)
+  | Arctan (r1) -> Printf.sprintf "arctan(%s)" (string_of_real r1)
+  | Exp (r1) -> Printf.sprintf "exp(%s)" (string_of_real r1)
+  | Ln (r1) -> Printf.sprintf "ln(%s)" (string_of_real r1)
+  | Sqrt (r1) -> Printf.sprintf "sqrt(%s)" (string_of_real r1)
+
 let rec float_of_real (r : real) : float =
   match r with
   | Pi -> Float.pi

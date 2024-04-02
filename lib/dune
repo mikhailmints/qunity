@@ -1,3 +1,8 @@
 (library
  (name qunity_prototypes)
  (modules util reals syntax typechecking matrix semantics))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))

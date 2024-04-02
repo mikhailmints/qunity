@@ -1,24 +1,86 @@
 open Qunity_prototypes
+open Util
 open Syntax
 open Typechecking
 
-let expect_expr_puretype (e : expr) (t : exprtype) : bool =
-  pure_type_check StringMap.empty StringMap.empty e = SomeE t
+let all_passed = ref true
 
-let expect_expr_puretype_err (e : expr) : bool =
-  option_of_optionE (pure_type_check StringMap.empty StringMap.empty e) = None
+let test_equality (testname : string) (a : 'a) (b : 'a) : unit =
+  Printf.printf "%s: " testname;
+  if a = b then
+    Printf.printf "passed\n"
+  else begin
+    Printf.printf "FAILED\n";
+    all_passed := false
+  end
 
-let expect_expr_mixedtype (e : expr) (t : exprtype) : bool =
-  mixed_type_check StringMap.empty e = SomeE t
+let test_equality_optionE (testname : string) (a : unit -> 'a optionE) (b : 'a)
+    (to_string : 'a -> string) : unit =
+  Printf.printf "%s: " testname;
+  try
+    match a () with
+    | SomeE b' ->
+        if b' = b then
+          Printf.printf "passed\n"
+        else begin
+          Printf.printf "FAILED\nExpected: %s\nGot: %s\n" (to_string b)
+            (to_string b');
+          all_passed := false
+        end
+    | NoneE err -> begin
+        Printf.printf "FAILED\nWith error: %s\n" err;
+        all_passed := false
+      end
+  with
+  | Failure err -> begin
+      Printf.printf "FAILED\nWith error: %s\n" err;
+      all_passed := false
+    end
 
-let expect_expr_mixedtype_err (e : expr) : bool =
-  option_of_optionE (mixed_type_check StringMap.empty e) = None
+let expect_noneE (testname : string) (a : unit -> 'a optionE)
+    (to_string : 'a -> string) : unit =
+  Printf.printf "%s: " testname;
+  try
+    match a () with
+    | SomeE b' -> begin
+        Printf.printf "FAILED\nExpected: failure\nGot: %s\n" (to_string b');
+        all_passed := false
+      end
+    | NoneE _ -> Printf.printf "passed\n"
+  with
+  | Failure err -> begin
+      Printf.printf "FAILED\nWith error: %s\n" err;
+      all_passed := false
+    end
 
-let expect_prog_type (f : prog) (t : progtype) : bool =
-  prog_type_check f = SomeE t
+let expect_expr_puretype (testname : string) (e : expr) (t : exprtype) : unit =
+  test_equality_optionE testname
+    (fun () -> pure_type_check StringMap.empty StringMap.empty e)
+    t string_of_type
 
-let expect_prog_type_err (f : prog) : bool =
-  option_of_optionE (prog_type_check f) = None
+let expect_expr_puretype_err (testname : string) (e : expr) : unit =
+  expect_noneE testname
+    (fun () -> pure_type_check StringMap.empty StringMap.empty e)
+    string_of_type
+
+let expect_expr_mixedtype (testname : string) (e : expr) (t : exprtype) : unit
+    =
+  test_equality_optionE testname
+    (fun () -> mixed_type_check StringMap.empty e)
+    t string_of_type
+
+let expect_expr_mixedtype_err (testname : string) (e : expr) : unit =
+  expect_noneE testname
+    (fun () -> mixed_type_check StringMap.empty e)
+    string_of_type
+
+let expect_prog_type (testname : string) (f : prog) (ft : progtype) : unit =
+  test_equality_optionE testname
+    (fun () -> prog_type_check f)
+    ft string_of_progtype
+
+let expect_prog_type_err (testname : string) (f : prog) : unit =
+  expect_noneE testname (fun () -> prog_type_check f) string_of_progtype
 
 let deutsch (f : prog) : expr =
   Apply
@@ -62,10 +124,6 @@ let deutsch_fail_ortho (f : prog) : expr =
                   bit ) ) ),
       Apply (had, bit0) )
 
-let%test "qunit_type" = expect_expr_puretype Null Qunit
-let%test "bit0_type" = expect_expr_puretype bit0 bit
-let%test "bit1_type" = expect_expr_puretype bit1 bit
-
 let big_expr =
   Qpair
     ( Qpair (Apply (Left (ProdType (bit, bit), bit), Qpair (bit0, bit1)), bit0),
@@ -76,37 +134,43 @@ let big_expr_type =
     ( ProdType (SumType (ProdType (bit, bit), bit), bit),
       SumType (SumType (bit, bit), bit) )
 
-let%test "big_sum_prod_type" = expect_expr_puretype big_expr big_expr_type
+let () =
+  begin
+    expect_expr_puretype "qunit_type" Null Qunit;
+    expect_expr_puretype "bit0_type" bit0 bit;
+    expect_expr_puretype "bit1_type" bit1 bit;
 
-let%test "bit_pair_type" =
-  expect_expr_puretype (Qpair (bit0, bit1)) (ProdType (bit, bit))
+    expect_expr_puretype "big_sum_prod_type" big_expr big_expr_type;
+    expect_expr_puretype "bit_pair_type"
+      (Qpair (bit0, bit1))
+      (ProdType (bit, bit));
 
-let%test "qid_unit_type" =
-  expect_prog_type (qid Qunit) (Coherent (Qunit, Qunit))
+    expect_prog_type "qid_unit_type" (qid Qunit) (Coherent (Qunit, Qunit));
 
-let%test "qid_bit_type" = expect_prog_type (qid bit) (Coherent (bit, bit))
-let%test "try_pure_err" = expect_expr_puretype_err (Try (Null, Null))
-let%test "try_unit_type" = expect_expr_mixedtype (Try (Null, Null)) Qunit
-let%test "span_list_qunit1" = span_list Qunit [Null] = Some [Null]
-let%test "span_list_qunit2" = span_list Qunit [] = Some [Null]
-let%test "span_list_bit1" = span_list bit [] = Some [Var "$0"]
-let%test "span_list_bit2" = span_list bit [bit0] = Some [bit0; bit1]
-let%test "span_list_bit3" = span_list bit [bit1] = Some [bit1; bit0]
+    expect_prog_type "qid_bit_type" (qid bit) (Coherent (bit, bit));
+    expect_expr_puretype_err "try_pure_err" (Try (Null, Null));
+    expect_expr_mixedtype "try_unit_type" (Try (Null, Null)) Qunit;
 
-let%test "span_list_2bit" =
-  span_list (ProdType (bit, bit)) [Qpair (bit0, bit0)]
-  = Some [Qpair (bit0, bit0); Qpair (bit1, Var "$0"); Qpair (bit0, bit1)]
+    test_equality "span_list_qunit1" (span_list Qunit [Null]) (Some [Null]);
+    test_equality "span_list_qunit2" (span_list Qunit []) (Some [Null]);
+    test_equality "span_list_bit1" (span_list bit []) (Some [Var "$0"]);
+    test_equality "span_list_bit2" (span_list bit [bit0]) (Some [bit0; bit1]);
+    test_equality "span_list_bit3" (span_list bit [bit1]) (Some [bit1; bit0]);
 
-let%test "deutsch_type" =
-  expect_expr_puretype (deutsch (qid bit)) (SumType (Qunit, Qunit))
+    test_equality "span_list_2bit"
+      (span_list (ProdType (bit, bit)) [Qpair (bit0, bit0)])
+      (Some [Qpair (bit0, bit0); Qpair (bit1, Var "$0"); Qpair (bit0, bit1)]);
 
-let%test "deutsch_of_qid_unit_err" =
-  expect_expr_puretype_err (deutsch (qid Qunit))
+    expect_expr_puretype "deutsch_type" (deutsch (qid bit)) bit;
 
-let%test "deutsch_fail_erase_err" =
-  expect_expr_puretype_err (deutsch_fail_erase (qid bit))
+    expect_expr_puretype_err "deutsch_of_qid_unit_err" (deutsch (qid Qunit));
 
-let%test "deutsch_fail_ortho_err" =
-  expect_expr_puretype_err (deutsch_fail_ortho (qid bit))
+    expect_expr_puretype_err "deutsch_fail_erase_err"
+      (deutsch_fail_erase (qid bit));
 
-let () = Printf.printf "ALL TESTS PASSED"
+    expect_expr_puretype_err "deutsch_fail_ortho_err"
+      (deutsch_fail_ortho (qid bit));
+
+    if !all_passed then
+      Printf.printf "\nALL TYPECHECKING TESTS PASSED"
+  end

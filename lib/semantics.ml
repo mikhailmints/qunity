@@ -27,10 +27,10 @@ let rec expr_to_basis_state (e : expr) : matrix =
     | Null, Qunit -> mat_id 1
     | Apply (Left (t0, t1), e0), SumType (t0', t1') when t0 = t0' && t1 = t1'
       ->
-        mat_dirsum (expr_to_basis_state e0) (vec_zero (type_dimension t1))
+        vec_dirsum (expr_to_basis_state e0) (vec_zero (type_dimension t1))
     | Apply (Right (t0, t1), e1), SumType (t0', t1') when t0 = t0' && t1 = t1'
       ->
-        mat_dirsum (vec_zero (type_dimension t0)) (expr_to_basis_state e1)
+        vec_dirsum (vec_zero (type_dimension t0)) (expr_to_basis_state e1)
     | Qpair (e1, e2), ProdType (_, _) ->
         mat_tensor (expr_to_basis_state e1) (expr_to_basis_state e2)
     | _, _ -> failwith "Type mismatch"
@@ -50,6 +50,12 @@ let rec all_basis_exprs (t : exprtype) : expr list =
 
 let all_basis_states (t : exprtype) : matrix list =
   List.map expr_to_basis_state (all_basis_exprs t)
+
+let index_to_basis_expr (t : exprtype) (i : int) : expr =
+  List.nth (all_basis_exprs t) i
+
+let index_to_basis_state (t : exprtype) (i : int) : matrix =
+  List.nth (all_basis_states t) i
 
 let valuation_to_basis_state (tau : valuation) : matrix =
   List.fold_left
@@ -74,10 +80,10 @@ let all_context_basis_valuations (d : context) : valuation list =
 let all_context_basis_states (d : context) : matrix list =
   List.map valuation_to_basis_state (all_context_basis_valuations d)
 
-let index_to_basis_valuation (d : context) (i : int) : valuation =
+let index_to_context_basis_valuation (d : context) (i : int) : valuation =
   List.nth (all_context_basis_valuations d) i
 
-let index_to_basis_state (d : context) (i : int) : matrix =
+let index_to_context_basis_state (d : context) (i : int) : matrix =
   List.nth (all_context_basis_states d) i
 
 (*
@@ -109,6 +115,22 @@ let basis_index_extension (g : context) (sigma : valuation) (d : context)
       | NoneE err -> failwith err
       | SomeE tau -> tau)
 
+let partial_trace (d : context) (fv : StringSet.t) (m : matrix) : matrix =
+  let d', d0 = map_partition d fv in
+    {
+      r = context_dimension d';
+      c = context_dimension d';
+      f =
+        (fun i j ->
+          complex_sum
+            (List.map
+               (fun tau ->
+                 let i0 = basis_index_extension d0 tau d' i in
+                 let j0 = basis_index_extension d0 tau d' j in
+                   m.f i0 j0)
+               (all_context_basis_valuations d0)));
+    }
+
 let rec pure_expr_semantics (g : context) (d : context) (e : expr)
     (sigma : valuation) : matrix =
   let t =
@@ -131,14 +153,12 @@ let rec pure_expr_semantics (g : context) (d : context) (e : expr)
         let fv1 = free_vars e1 in
         let d0 = map_restriction d fv0 in
         let d1 = map_restriction d fv1 in
-        let sigma0 = map_restriction sigma fv0 in
-        let sigma1 = map_restriction sigma fv1 in
           mat_from_basis_action ddim (fun i ->
               let i0 = basis_index_restriction d fv0 i in
               let i1 = basis_index_restriction d fv1 i in
                 mat_tensor
-                  (mat_column (pure_expr_semantics g d0 e sigma0) i0)
-                  (mat_column (pure_expr_semantics g d1 e sigma1) i1))
+                  (mat_column (pure_expr_semantics g d0 e0 sigma) i0)
+                  (mat_column (pure_expr_semantics g d1 e1 sigma) i1))
       end
     | Ctrl (e', t0, l, _) -> begin
         let fve' = free_vars e' in
@@ -155,9 +175,9 @@ let rec pure_expr_semantics (g : context) (d : context) (e : expr)
                         (List.map
                            (fun v ->
                              mat_adjoint v
-                             *@ superoperator_apply super0
+                             *@ superop_apply super0
                                   (mat_outer
-                                     (index_to_basis_state g0d0 i0g0d0))
+                                     (index_to_context_basis_state g0d0 i0g0d0))
                              *@ v
                              *@ mat_sum tdim ddim
                                   (List.map
@@ -195,7 +215,8 @@ let rec pure_expr_semantics (g : context) (d : context) (e : expr)
                                                   *@ v
                                                   *@ pure_expr_semantics ggj d
                                                        ej' sigmaj'
-                                                  *@ index_to_basis_state d i)
+                                                  *@ index_to_context_basis_state
+                                                       d i)
                                               (all_context_basis_valuations gj)))
                                      l))
                            (all_basis_states t0)))
@@ -205,7 +226,121 @@ let rec pure_expr_semantics (g : context) (d : context) (e : expr)
         pure_prog_semantics f *@ pure_expr_semantics g d e' sigma
 
 and mixed_expr_semantics (d : context) (e : expr) : superoperator =
-  failwith "TODO"
+  let t =
+    match mixed_type_check d e with
+    | SomeE t -> t
+    | NoneE err -> failwith err
+  in
+  let tdim = type_dimension t in
+  let ddim = context_dimension d in
+    match (e, pure_type_check StringMap.empty d e) with
+    | _, SomeE _ ->
+        let pure_sem =
+          pure_expr_semantics StringMap.empty d e StringMap.empty
+        in
+          superop_from_basis_action ddim (fun i j ->
+              if i = j then
+                let tau = index_to_context_basis_state d i in
+                  pure_sem *@ tau *@ mat_adjoint tau *@ mat_adjoint pure_sem
+              else
+                mat_zero tdim tdim)
+    | Qpair (e0, e1), _ -> begin
+        let fv0 = free_vars e0 in
+        let fv1 = free_vars e1 in
+        let d0 = map_restriction d fv0 in
+        let d1 = map_restriction d fv1 in
+          superop_from_basis_action ddim (fun i j ->
+              let i0 = basis_index_restriction d fv0 i in
+              let i1 = basis_index_restriction d fv1 i in
+              let j0 = basis_index_restriction d fv0 j in
+              let j1 = basis_index_restriction d fv1 j in
+                mat_tensor
+                  (superop_on_basis (mixed_expr_semantics d0 e0) i0 j0)
+                  (superop_on_basis (mixed_expr_semantics d1 e1) i1 j1))
+      end
+    | Try (e0, e1), _ -> begin
+        let fv0 = free_vars e0 in
+        let fv1 = free_vars e1 in
+        let d0 = map_restriction d fv0 in
+        let d1 = map_restriction d fv1 in
+          superop_from_basis_action ddim (fun i j ->
+              let i0 = basis_index_restriction d fv0 i in
+              let i1 = basis_index_restriction d fv1 i in
+              let j0 = basis_index_restriction d fv0 j in
+              let j1 = basis_index_restriction d fv1 j in
+              let mtry = superop_on_basis (mixed_expr_semantics d0 e0) i0 j0 in
+              let mcatch =
+                superop_on_basis (mixed_expr_semantics d1 e1) i1 j1
+              in
+                mat_plus mtry
+                  (mat_scalar_mul
+                     (Complex.sub Complex.one (mat_trace mtry))
+                     mcatch))
+      end
+    | Apply (f, e'), _ ->
+        superop_from_basis_action ddim (fun i j ->
+            superop_apply (mixed_prog_semantics f)
+              (superop_on_basis (mixed_expr_semantics d e') i j))
+    | _ -> failwith "Error in mixed expression semantics"
 
-and pure_prog_semantics (f : prog) : matrix = failwith "TODO"
-and mixed_prog_semantics (f : prog) : superoperator = failwith "TODO"
+and pure_prog_semantics (f : prog) : matrix =
+  match f with
+  | U3 (theta, phi, lambda) ->
+      mat_from_u3 (float_of_real theta) (float_of_real phi)
+        (float_of_real lambda)
+  | Left (t0, _) ->
+      mat_from_basis_action (type_dimension t0) (fun i ->
+          let e = index_to_basis_expr t0 i in
+            expr_to_basis_state (Apply (f, e)))
+  | Right (_, t1) ->
+      mat_from_basis_action (type_dimension t1) (fun i ->
+          let e = index_to_basis_expr t1 i in
+            expr_to_basis_state (Apply (f, e)))
+  | Lambda (e, t, e') -> begin
+      match context_check StringMap.empty t e with
+      | NoneE err -> failwith err
+      | SomeE d ->
+          pure_expr_semantics StringMap.empty d e' StringMap.empty
+          *@ mat_adjoint
+               (pure_expr_semantics StringMap.empty d e StringMap.empty)
+    end
+  | Gphase (t, r) ->
+      mat_scalar_mul
+        (Complex.polar 1. (float_of_real r))
+        (mat_id (type_dimension t))
+
+and mixed_prog_semantics (f : prog) : superoperator =
+  match (f, prog_type_check f) with
+  | _, SomeE (Coherent (t, _)) ->
+      superop_from_basis_action (type_dimension t) (fun i j ->
+          let pure_sem = pure_prog_semantics f in
+          let v = index_to_basis_state t i in
+          let v' = index_to_basis_state t j in
+            pure_sem *@ v *@ mat_adjoint v' *@ mat_adjoint pure_sem)
+  | Lambda (e, t, e'), SomeE (Channel _) -> begin
+      match context_check StringMap.empty t e with
+      | NoneE err -> failwith err
+      | SomeE d ->
+          let fve' = free_vars e' in
+          let d' = map_restriction d fve' in
+            superop_from_basis_action (type_dimension t) (fun i j ->
+                let v = index_to_basis_state t i in
+                let v' = index_to_basis_state t j in
+                let e_pure_sem =
+                  pure_expr_semantics StringMap.empty d e StringMap.empty
+                in
+                  superop_apply
+                    (mixed_expr_semantics d' e')
+                    (partial_trace d fve'
+                       (mat_adjoint e_pure_sem *@ v *@ mat_adjoint v'
+                      *@ e_pure_sem)))
+    end
+  | _, _ -> failwith "Error in mixed program semantics"
+
+let top_pure_expr_semantics (e : expr) : matrix =
+  pure_expr_semantics StringMap.empty StringMap.empty e StringMap.empty
+
+let top_mixed_expr_semantics (e : expr) : matrix =
+  superop_apply
+    (mixed_expr_semantics StringMap.empty e)
+    (expr_to_basis_state Null)
