@@ -260,7 +260,11 @@ quantum context d
 and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
   match e with
   (* T-UNIT *)
-  | Null -> SomeE Qunit
+  | Null -> begin
+      match StringMap.bindings d with
+      | [] -> SomeE Qunit
+      | _ -> NoneE "Irrelevant variables in quantum context"
+    end
   | Var x -> begin
       match StringMap.bindings d with
       | [] -> begin
@@ -462,9 +466,7 @@ and prog_type_check (f : prog) : progtype optionE =
           (* T-PUREABS *)
           | SomeE t' -> SomeE (Coherent (t, t'))
           | NoneE _ -> (
-              match
-                mixed_type_check (map_restriction d (free_vars e')) e'
-              with
+              match mixed_type_check (map_restriction d (free_vars e')) e' with
               | NoneE err -> NoneE err
               (* T-MIXEDABS *)
               | SomeE t' -> SomeE (Channel (t, t'))))

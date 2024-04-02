@@ -136,6 +136,11 @@ let big_expr_type =
 
 let () =
   begin
+    Printf.printf
+      "==========================\n\
+       RUNNING TYPECHECKING TESTS\n\
+       ==========================\n";
+
     expect_expr_puretype "qunit_type" Null Qunit;
     expect_expr_puretype "bit0_type" bit0 bit;
     expect_expr_puretype "bit1_type" bit1 bit;
@@ -172,5 +177,5 @@ let () =
       (deutsch_fail_ortho (qid bit));
 
     if !all_passed then
-      Printf.printf "\nALL TYPECHECKING TESTS PASSED"
+      Printf.printf "\nALL TYPECHECKING TESTS PASSED\n\n"
   end

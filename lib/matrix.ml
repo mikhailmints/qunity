@@ -1,3 +1,5 @@
+open Util
+
 type matrix = { r : int; c : int; f : int -> int -> Complex.t }
 
 let complex_sum : Complex.t list -> Complex.t =
@@ -13,7 +15,10 @@ let mat_well_formed (m : matrix) : bool = m.r > 0 && m.c > 0
 
 let mat_plus (m1 : matrix) (m2 : matrix) : matrix =
   if m1.r <> m2.r || m1.c <> m2.c then
-    invalid_arg "Inconsistent matrix dimensions in matrix addition"
+    invalid_arg
+      (Printf.sprintf
+         "Inconsistent matrix dimensions in matrix addition: %dx%d and %dx%d"
+         m1.r m1.c m2.r m2.c)
   else
     { r = m1.r; c = m1.c; f = (fun i j -> Complex.add (m1.f i j) (m2.f i j)) }
 
@@ -28,7 +33,11 @@ let mat_scalar_mul (z : Complex.t) (m : matrix) : matrix =
 
 let mat_mul (m1 : matrix) (m2 : matrix) : matrix =
   if m1.c <> m2.r then
-    invalid_arg "Inconsistent matrix dimensions in matrix multiplication"
+    invalid_arg
+      (Printf.sprintf
+         "Inconsistent matrix dimensions in matrix multiplication: %dx%d and \
+          %dx%d"
+         m1.r m1.c m2.r m2.c)
   else
     {
       r = m1.r;
@@ -56,11 +65,11 @@ let vec_dirsum (m1 : matrix) (m2 : matrix) : matrix =
   if m1.c <> 1 || m2.c <> 1 then
     failwith "Direct sum only applies to vectors"
   else
-  {
-    r = m1.r + m2.r;
-    c = 1;
-    f = (fun i _ -> if i < m1.r then m1.f i 0 else m2.f (i - m1.r) 0);
-  }
+    {
+      r = m1.r + m2.r;
+      c = 1;
+      f = (fun i _ -> if i < m1.r then m1.f i 0 else m2.f (i - m1.r) 0);
+    }
 
 let mat_column (m : matrix) (c : int) : matrix =
   { r = m.r; c = 1; f = (fun i j -> if j = 0 then m.f i c else Complex.zero) }
@@ -70,6 +79,12 @@ let mat_trace (m : matrix) : Complex.t =
     failwith "Matrix must be square"
   else
     complex_sum_to_n m.r (fun i -> m.f i i)
+
+let mat_to_scalar (m : matrix) : Complex.t =
+  if m.r <> 1 || m.c <> 1 then
+    failwith "Matrix must be 1x1"
+  else
+    mat_trace m
 
 let mat_from_basis_action (c : int) (bfun : int -> matrix) =
   let r = (bfun 0).r in
@@ -117,8 +132,13 @@ let vec_zero (dim : int) = mat_zero dim 1
 let mat_sum r c : matrix list -> matrix =
   List.fold_left mat_plus (mat_zero r c)
 
+let mat_from_list (l : Complex.t list list) : matrix =
+  let r = List.length l in
+  let c = List.length (List.hd l) in
+    { r; c; f = (fun i j -> List.nth (List.nth l i) j) }
+
 let string_of_complex (z : Complex.t) =
-  (string_of_float z.re) ^ "+" ^ (string_of_float z.im) ^ "i"
+  string_of_float z.re ^ "+" ^ string_of_float z.im ^ "i"
 
 let print_mat (m : matrix) =
   for i = 0 to m.r - 1 do
@@ -127,6 +147,16 @@ let print_mat (m : matrix) =
     done;
     Printf.printf "\n"
   done
+
+let mat_approx_equal (m1 : matrix) (m2 : matrix) : bool =
+  let eps = 1e-15 in
+    m1.r = m2.r && m1.c = m2.c
+    && List.for_all
+         (fun i ->
+           List.for_all
+             (fun j -> Complex.norm (Complex.sub (m1.f i j) (m2.f i j)) < eps)
+             (range m1.c))
+         (range m1.r)
 
 type superoperator = {
   dim_from : int;

@@ -171,54 +171,62 @@ let rec pure_expr_semantics (g : context) (d : context) (e : expr)
                 mat_from_basis_action ddim (fun i ->
                     let i0 = basis_index_restriction d fve' i in
                     let i0g0d0 = basis_index_extension g0 sigma d0 i0 in
-                      mat_sum tdim ddim
+                      mat_sum tdim 1
                         (List.map
                            (fun v ->
-                             mat_adjoint v
-                             *@ superop_apply super0
-                                  (mat_outer
-                                     (index_to_context_basis_state g0d0 i0g0d0))
-                             *@ v
-                             *@ mat_sum tdim ddim
-                                  (List.map
-                                     (fun (ej, ej') ->
-                                       let gj =
-                                         match
-                                           context_check StringMap.empty t0 ej
-                                         with
-                                         | NoneE err -> failwith err
-                                         | SomeE gj -> gj
-                                       in
-                                       let ggj =
-                                         match map_merge false g gj with
-                                         | NoneE err -> failwith err
-                                         | SomeE ggj -> ggj
-                                       in
-                                         mat_sum tdim ddim
-                                           (List.map
-                                              (fun sigmaj ->
-                                                let sigmaj' =
-                                                  match
-                                                    map_merge false sigma
-                                                      sigmaj
-                                                  with
-                                                  | NoneE err -> failwith err
-                                                  | SomeE sigmaj' -> sigmaj'
-                                                in
-                                                  mat_adjoint
-                                                    (valuation_to_basis_state
-                                                       sigmaj)
-                                                  *@ mat_adjoint
-                                                       (pure_expr_semantics
-                                                          StringMap.empty gj ej
-                                                          StringMap.empty)
-                                                  *@ v
-                                                  *@ pure_expr_semantics ggj d
-                                                       ej' sigmaj'
-                                                  *@ index_to_context_basis_state
-                                                       d i)
-                                              (all_context_basis_valuations gj)))
-                                     l))
+                             let prob =
+                               mat_to_scalar
+                                 (mat_adjoint v
+                                 *@ superop_apply super0
+                                      (mat_outer
+                                         (index_to_context_basis_state g0d0
+                                            i0g0d0))
+                                 *@ v)
+                             in
+                               mat_sum tdim 1
+                                 (List.map
+                                    (fun (ej, ej') ->
+                                      let gj =
+                                        match
+                                          context_check StringMap.empty t0 ej
+                                        with
+                                        | NoneE err -> failwith err
+                                        | SomeE gj -> gj
+                                      in
+                                      let ggj =
+                                        match map_merge false g gj with
+                                        | NoneE err -> failwith err
+                                        | SomeE ggj -> ggj
+                                      in
+                                        mat_sum tdim 1
+                                          (List.map
+                                             (fun sigmaj ->
+                                               let sigmaj' =
+                                                 match
+                                                   map_merge false sigma sigmaj
+                                                 with
+                                                 | NoneE err -> failwith err
+                                                 | SomeE sigmaj' -> sigmaj'
+                                               in
+                                               let proj =
+                                                 mat_to_scalar
+                                                   (mat_adjoint
+                                                      (valuation_to_basis_state
+                                                         sigmaj)
+                                                   *@ mat_adjoint
+                                                        (pure_expr_semantics
+                                                           StringMap.empty gj
+                                                           ej StringMap.empty)
+                                                   *@ v)
+                                               in
+                                                 mat_scalar_mul
+                                                   (Complex.mul prob proj)
+                                                   (pure_expr_semantics ggj d
+                                                      ej' sigmaj'
+                                                   *@ index_to_context_basis_state
+                                                        d i))
+                                             (all_context_basis_valuations gj)))
+                                    l))
                            (all_basis_states t0)))
       end
     | Try _ -> failwith "Try is not a pure expression"
@@ -284,19 +292,21 @@ and mixed_expr_semantics (d : context) (e : expr) : superoperator =
     | _ -> failwith "Error in mixed expression semantics"
 
 and pure_prog_semantics (f : prog) : matrix =
-  match f with
-  | U3 (theta, phi, lambda) ->
+  match f, prog_type_check f with
+  | _, NoneE err -> failwith err
+  | _, SomeE Channel _ -> failwith "Attempted pure semantics for mixed program"
+  | U3 (theta, phi, lambda), _ ->
       mat_from_u3 (float_of_real theta) (float_of_real phi)
         (float_of_real lambda)
-  | Left (t0, _) ->
+  | Left (t0, _), _ ->
       mat_from_basis_action (type_dimension t0) (fun i ->
           let e = index_to_basis_expr t0 i in
             expr_to_basis_state (Apply (f, e)))
-  | Right (_, t1) ->
+  | Right (_, t1), _ ->
       mat_from_basis_action (type_dimension t1) (fun i ->
           let e = index_to_basis_expr t1 i in
             expr_to_basis_state (Apply (f, e)))
-  | Lambda (e, t, e') -> begin
+  | Lambda (e, t, e'), _ -> begin
       match context_check StringMap.empty t e with
       | NoneE err -> failwith err
       | SomeE d ->
@@ -304,13 +314,14 @@ and pure_prog_semantics (f : prog) : matrix =
           *@ mat_adjoint
                (pure_expr_semantics StringMap.empty d e StringMap.empty)
     end
-  | Gphase (t, r) ->
+  | Gphase (t, r), _ ->
       mat_scalar_mul
         (Complex.polar 1. (float_of_real r))
         (mat_id (type_dimension t))
 
 and mixed_prog_semantics (f : prog) : superoperator =
   match (f, prog_type_check f) with
+  | _, NoneE err -> failwith err
   | _, SomeE (Coherent (t, _)) ->
       superop_from_basis_action (type_dimension t) (fun i j ->
           let pure_sem = pure_prog_semantics f in
