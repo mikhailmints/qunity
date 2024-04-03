@@ -1,6 +1,11 @@
 (library
  (name qunity_prototypes)
- (modules util reals syntax typechecking matrix semantics))
+ (modules util reals syntax typechecking matrix semantics parser lexer))
+
+(menhir
+ (modules parser))
+
+(ocamllex lexer)
 
 (env
  (dev

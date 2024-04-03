@@ -138,7 +138,7 @@ let mat_from_list (l : Complex.t list list) : matrix =
     { r; c; f = (fun i j -> List.nth (List.nth l i) j) }
 
 let string_of_complex (z : Complex.t) =
-  string_of_float z.re ^ "+" ^ string_of_float z.im ^ "i"
+  Printf.sprintf "%.2f%s%.2fi" z.re (if z.im >= 0. then "+" else "") z.im
 
 let print_mat (m : matrix) =
   for i = 0 to m.r - 1 do

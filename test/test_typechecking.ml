@@ -69,18 +69,18 @@ let expect_expr_mixedtype (testname : string) (e : expr) (t : exprtype) : unit
     (fun () -> mixed_type_check StringMap.empty e)
     t string_of_type
 
-let expect_expr_mixedtype_err (testname : string) (e : expr) : unit =
-  expect_noneE testname
-    (fun () -> mixed_type_check StringMap.empty e)
-    string_of_type
+(* let expect_expr_mixedtype_err (testname : string) (e : expr) : unit =
+   expect_noneE testname
+     (fun () -> mixed_type_check StringMap.empty e)
+     string_of_type *)
 
 let expect_prog_type (testname : string) (f : prog) (ft : progtype) : unit =
   test_equality_optionE testname
     (fun () -> prog_type_check f)
     ft string_of_progtype
 
-let expect_prog_type_err (testname : string) (f : prog) : unit =
-  expect_noneE testname (fun () -> prog_type_check f) string_of_progtype
+(* let expect_prog_type_err (testname : string) (f : prog) : unit =
+   expect_noneE testname (fun () -> prog_type_check f) string_of_progtype *)
 
 let deutsch (f : prog) : expr =
   Apply

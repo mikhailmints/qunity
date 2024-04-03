@@ -15,6 +15,8 @@
 
 (documentation https://url/to/documentation)
 
+(using menhir 3.0)
+
 (package
  (name qunity_prototypes)
  (synopsis "A short synopsis")
