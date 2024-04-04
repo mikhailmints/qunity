@@ -56,7 +56,7 @@ let rec string_of_expr (e : expr) : string =
       Printf.sprintf "Ctrl %s {%s, %s} [%s]" (string_of_expr e0)
         (string_of_type t0) (string_of_type t1)
         (List.fold_left
-           (fun s1 s2 -> if s1 = "" then s2 else s1 ^ ", " ^ s2)
+           (fun s1 s2 -> if s1 = "" then s2 else s1 ^ "; " ^ s2)
            ""
            (List.map
               (fun (ej, ej') ->
@@ -66,7 +66,7 @@ let rec string_of_expr (e : expr) : string =
   | Try (e0, e1) ->
       Printf.sprintf "try %s catch %s" (string_of_expr e0) (string_of_expr e1)
   | Apply (f, e') ->
-      Printf.sprintf "%s (%s)" (string_of_prog f) (string_of_expr e')
+      Printf.sprintf "(%s) (%s)" (string_of_prog f) (string_of_expr e')
 
 and string_of_prog (f : prog) : string =
   match f with

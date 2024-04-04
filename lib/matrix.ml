@@ -13,6 +13,15 @@ let rec complex_sum_to_n (n : int) (f : int -> Complex.t) =
 
 let mat_well_formed (m : matrix) : bool = m.r > 0 && m.c > 0
 
+let mat_optimize (m : matrix) : matrix =
+  let arr =
+    Array.of_list
+      (List.map
+         (fun i -> Array.of_list (List.map (fun j -> m.f i j) (range m.c)))
+         (range m.r))
+  in
+    { r = m.r; c = m.c; f = (fun i j -> arr.(i).(j)) }
+
 let mat_plus (m1 : matrix) (m2 : matrix) : matrix =
   if m1.r <> m2.r || m1.c <> m2.c then
     invalid_arg
@@ -39,13 +48,14 @@ let mat_mul (m1 : matrix) (m2 : matrix) : matrix =
           %dx%d"
          m1.r m1.c m2.r m2.c)
   else
-    {
-      r = m1.r;
-      c = m2.c;
-      f =
-        (fun i j ->
-          complex_sum_to_n m1.c (fun k -> Complex.mul (m1.f i k) (m2.f k j)));
-    }
+    mat_optimize
+      {
+        r = m1.r;
+        c = m2.c;
+        f =
+          (fun i j ->
+            complex_sum_to_n m1.c (fun k -> Complex.mul (m1.f i k) (m2.f k j)));
+      }
 
 let ( *@ ) = mat_mul
 let mat_outer (m : matrix) = m *@ mat_adjoint m
@@ -82,23 +92,24 @@ let mat_trace (m : matrix) : Complex.t =
 
 let mat_to_scalar (m : matrix) : Complex.t =
   if m.r <> 1 || m.c <> 1 then
-    failwith "Matrix must be 1x1"
+    failwith (Printf.sprintf "Matrix must be 1x1, instead got %dx%d" m.r m.c)
   else
     mat_trace m
 
 let mat_from_basis_action (c : int) (bfun : int -> matrix) =
   let r = (bfun 0).r in
-    {
-      r;
-      c;
-      f =
-        (fun i j ->
-          let bvec = bfun j in
-            if bvec.r <> r || bvec.c <> 1 then
-              failwith "Invalid basis action"
-            else
-              bvec.f i 0);
-    }
+    mat_optimize
+      {
+        r;
+        c;
+        f =
+          (fun i j ->
+            let bvec = bfun j in
+              if bvec.r <> r || bvec.c <> 1 then
+                failwith "Invalid basis action"
+              else
+                bvec.f i 0);
+      }
 
 let mat_id (n : int) =
   if n <= 0 then
@@ -149,14 +160,16 @@ let print_mat (m : matrix) =
   done
 
 let mat_approx_equal (m1 : matrix) (m2 : matrix) : bool =
-  let eps = 1e-15 in
-    m1.r = m2.r && m1.c = m2.c
-    && List.for_all
-         (fun i ->
-           List.for_all
-             (fun j -> Complex.norm (Complex.sub (m1.f i j) (m2.f i j)) < eps)
-             (range m1.c))
-         (range m1.r)
+  m1.r = m2.r && m1.c = m2.c
+  && List.for_all
+       (fun i ->
+         List.for_all
+           (fun j ->
+             float_approx_equal
+               (Complex.norm (Complex.sub (m1.f i j) (m2.f i j)))
+               0.)
+           (range m1.c))
+       (range m1.r)
 
 type superoperator = {
   dim_from : int;
@@ -164,6 +177,31 @@ type superoperator = {
   (* to_row, to_col, from_row, from_col *)
   f : int -> int -> int -> int -> Complex.t;
 }
+
+let superop_optimize (super : superoperator) : superoperator =
+  let arr =
+    Array.of_list
+      (List.map
+         (fun i ->
+           Array.of_list
+             (List.map
+                (fun j ->
+                  Array.of_list
+                    (List.map
+                       (fun k ->
+                         Array.of_list
+                           (List.map
+                              (fun l -> super.f i j k l)
+                              (range super.dim_from)))
+                       (range super.dim_from)))
+                (range super.dim_to)))
+         (range super.dim_to))
+  in
+    {
+      dim_from = super.dim_from;
+      dim_to = super.dim_to;
+      f = (fun i j k l -> arr.(i).(j).(k).(l));
+    }
 
 let superop_plus (super1 : superoperator) (super2 : superoperator) :
     superoperator =
@@ -188,30 +226,32 @@ let superop_apply (super : superoperator) (m : matrix) : matrix =
   if m.r <> super.dim_from || m.c <> super.dim_from then
     failwith "Inconsistent dimensions in superoperator application"
   else
-    {
-      r = super.dim_to;
-      c = super.dim_to;
-      f =
-        (fun i j ->
-          complex_sum_to_n super.dim_from (fun k ->
-              complex_sum_to_n super.dim_from (fun l ->
-                  Complex.mul (m.f k l) (super.f i j k l))));
-    }
+    mat_optimize
+      {
+        r = super.dim_to;
+        c = super.dim_to;
+        f =
+          (fun i j ->
+            complex_sum_to_n super.dim_from (fun k ->
+                complex_sum_to_n super.dim_from (fun l ->
+                    Complex.mul (m.f k l) (super.f i j k l))));
+      }
 
 let superop_from_basis_action (dim_from : int) (bfun : int -> int -> matrix) :
     superoperator =
   let dim_to = (bfun 0 0).r in
-    {
-      dim_from;
-      dim_to;
-      f =
-        (fun i j k l ->
-          let bmat = bfun k l in
-            if bmat.r <> dim_to || bmat.c <> dim_to then
-              failwith "Invalid basis action"
-            else
-              bmat.f i j);
-    }
+    superop_optimize
+      {
+        dim_from;
+        dim_to;
+        f =
+          (fun i j k l ->
+            let bmat = bfun k l in
+              if bmat.r <> dim_to || bmat.c <> dim_to then
+                failwith "Invalid basis action"
+              else
+                bmat.f i j);
+      }
 
 let superop_on_basis (super : superoperator) (k : int) (l : int) : matrix =
   { r = super.dim_to; c = super.dim_to; f = (fun i j -> super.f i j k l) }

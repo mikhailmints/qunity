@@ -1,0 +1,2 @@
+let x {Bit} = Bit0 |> Had in
+(x, (x, x))

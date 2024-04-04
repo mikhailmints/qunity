@@ -1,6 +1,15 @@
 (library
  (name qunity_prototypes)
- (modules util reals syntax typechecking matrix semantics parser lexer))
+ (modules
+  util
+  reals
+  syntax
+  typechecking
+  matrix
+  semantics
+  extended_syntax
+  parser
+  lexer))
 
 (menhir
  (modules parser))

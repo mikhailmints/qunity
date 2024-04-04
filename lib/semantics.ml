@@ -91,7 +91,7 @@ Converts an index i of a basis state in the space associated with a context d
 to the index of the corresponding basis state in some restriction of the context
 *)
 let basis_index_restriction (d : context) (fv : StringSet.t) (i : int) : int =
-  list_index
+  list_index (StringMap.equal ( = ))
     (all_context_basis_valuations (map_restriction d fv))
     (map_restriction (List.nth (all_context_basis_valuations d) i) fv)
 
@@ -107,7 +107,7 @@ let basis_index_extension (g : context) (sigma : valuation) (d : context)
     | NoneE err -> failwith err
     | SomeE gd -> gd
   in
-    list_index
+    list_index (StringMap.equal ( = ))
       (all_context_basis_valuations gd)
       (match
          map_merge false sigma (List.nth (all_context_basis_valuations d) i)
@@ -153,12 +153,12 @@ let rec pure_expr_semantics (g : context) (d : context) (e : expr)
         let fv1 = free_vars e1 in
         let d0 = map_restriction d fv0 in
         let d1 = map_restriction d fv1 in
+        let e0sem = pure_expr_semantics g d0 e0 sigma in
+        let e1sem = pure_expr_semantics g d1 e1 sigma in
           mat_from_basis_action ddim (fun i ->
               let i0 = basis_index_restriction d fv0 i in
               let i1 = basis_index_restriction d fv1 i in
-                mat_tensor
-                  (mat_column (pure_expr_semantics g d0 e0 sigma) i0)
-                  (mat_column (pure_expr_semantics g d1 e1 sigma) i1))
+                mat_tensor (mat_column e0sem i0) (mat_column e1sem i1))
       end
     | Ctrl (e', t0, l, _) -> begin
         let fve' = free_vars e' in
@@ -168,66 +168,70 @@ let rec pure_expr_semantics (g : context) (d : context) (e : expr)
           | NoneE err -> failwith err
           | SomeE g0d0 ->
               let super0 = mixed_expr_semantics g0d0 e' in
-                mat_from_basis_action ddim (fun i ->
-                    let i0 = basis_index_restriction d fve' i in
-                    let i0g0d0 = basis_index_extension g0 sigma d0 i0 in
-                      mat_sum tdim 1
-                        (List.map
-                           (fun v ->
-                             let prob =
-                               mat_to_scalar
-                                 (mat_adjoint v
-                                 *@ superop_apply super0
-                                      (mat_outer
-                                         (index_to_context_basis_state g0d0
-                                            i0g0d0))
-                                 *@ v)
-                             in
-                               mat_sum tdim 1
-                                 (List.map
-                                    (fun (ej, ej') ->
-                                      let gj =
-                                        match
-                                          context_check StringMap.empty t0 ej
-                                        with
-                                        | NoneE err -> failwith err
-                                        | SomeE gj -> gj
-                                      in
-                                      let ggj =
-                                        match map_merge false g gj with
-                                        | NoneE err -> failwith err
-                                        | SomeE ggj -> ggj
-                                      in
-                                        mat_sum tdim 1
-                                          (List.map
-                                             (fun sigmaj ->
-                                               let sigmaj' =
-                                                 match
-                                                   map_merge false sigma sigmaj
-                                                 with
-                                                 | NoneE err -> failwith err
-                                                 | SomeE sigmaj' -> sigmaj'
-                                               in
-                                               let proj =
-                                                 mat_to_scalar
-                                                   (mat_adjoint
-                                                      (valuation_to_basis_state
-                                                         sigmaj)
-                                                   *@ mat_adjoint
-                                                        (pure_expr_semantics
-                                                           StringMap.empty gj
-                                                           ej StringMap.empty)
-                                                   *@ v)
-                                               in
-                                                 mat_scalar_mul
-                                                   (Complex.mul prob proj)
-                                                   (pure_expr_semantics ggj d
-                                                      ej' sigmaj'
-                                                   *@ index_to_context_basis_state
-                                                        d i))
-                                             (all_context_basis_valuations gj)))
-                                    l))
-                           (all_basis_states t0)))
+                mat_sum tdim ddim
+                  (List.map
+                     (fun v ->
+                       mat_sum tdim ddim
+                         (List.map
+                            (fun (ej, ej') ->
+                              let gj =
+                                match context_check StringMap.empty t0 ej with
+                                | NoneE err -> failwith err
+                                | SomeE gj -> gj
+                              in
+                              let ggj =
+                                match map_merge false g gj with
+                                | NoneE err -> failwith err
+                                | SomeE ggj -> ggj
+                              in
+                                mat_sum tdim ddim
+                                  (List.map
+                                     (fun sigmaj ->
+                                       let sigmaj' =
+                                         match
+                                           map_merge false sigma sigmaj
+                                         with
+                                         | NoneE err -> failwith err
+                                         | SomeE sigmaj' -> sigmaj'
+                                       in
+                                       let proj =
+                                         mat_to_scalar
+                                           (mat_adjoint
+                                              (valuation_to_basis_state sigmaj)
+                                           *@ mat_adjoint
+                                                (pure_expr_semantics
+                                                   StringMap.empty gj ej
+                                                   StringMap.empty)
+                                           *@ v)
+                                       in
+                                       let ej'_sem =
+                                         pure_expr_semantics ggj d ej' sigmaj'
+                                       in
+                                         mat_from_basis_action ddim (fun i ->
+                                             let i0 =
+                                               basis_index_restriction d fve' i
+                                             in
+                                             let i0g0d0 =
+                                               basis_index_extension g0 sigma
+                                                 d0 i0
+                                             in
+                                             let prob =
+                                               mat_to_scalar
+                                                 (mat_adjoint v
+                                                 *@ superop_apply super0
+                                                      (mat_outer
+                                                         (index_to_context_basis_state
+                                                            g0d0 i0g0d0))
+                                                 *@ v)
+                                             in
+                                               mat_scalar_mul
+                                                 (Complex.mul prob proj)
+                                                 ej'_sem
+                                               *@ index_to_context_basis_state
+                                                    d i))
+                                     (all_context_basis_valuations gj)))
+                            l))
+                     (all_basis_states t0))
       end
     | Try _ -> failwith "Try is not a pure expression"
     | Apply (f, e') ->
@@ -257,44 +261,48 @@ and mixed_expr_semantics (d : context) (e : expr) : superoperator =
         let fv1 = free_vars e1 in
         let d0 = map_restriction d fv0 in
         let d1 = map_restriction d fv1 in
+        let e0sem = mixed_expr_semantics d0 e0 in
+        let e1sem = mixed_expr_semantics d1 e1 in
           superop_from_basis_action ddim (fun i j ->
               let i0 = basis_index_restriction d fv0 i in
               let i1 = basis_index_restriction d fv1 i in
               let j0 = basis_index_restriction d fv0 j in
               let j1 = basis_index_restriction d fv1 j in
                 mat_tensor
-                  (superop_on_basis (mixed_expr_semantics d0 e0) i0 j0)
-                  (superop_on_basis (mixed_expr_semantics d1 e1) i1 j1))
+                  (superop_on_basis e0sem i0 j0)
+                  (superop_on_basis e1sem i1 j1))
       end
     | Try (e0, e1), _ -> begin
         let fv0 = free_vars e0 in
         let fv1 = free_vars e1 in
         let d0 = map_restriction d fv0 in
         let d1 = map_restriction d fv1 in
+        let e0sem = mixed_expr_semantics d0 e0 in
+        let e1sem = mixed_expr_semantics d1 e1 in
           superop_from_basis_action ddim (fun i j ->
               let i0 = basis_index_restriction d fv0 i in
               let i1 = basis_index_restriction d fv1 i in
               let j0 = basis_index_restriction d fv0 j in
               let j1 = basis_index_restriction d fv1 j in
-              let mtry = superop_on_basis (mixed_expr_semantics d0 e0) i0 j0 in
-              let mcatch =
-                superop_on_basis (mixed_expr_semantics d1 e1) i1 j1
-              in
+              let mtry = superop_on_basis e0sem i0 j0 in
+              let mcatch = superop_on_basis e1sem i1 j1 in
                 mat_plus mtry
                   (mat_scalar_mul
                      (Complex.sub Complex.one (mat_trace mtry))
                      mcatch))
       end
     | Apply (f, e'), _ ->
-        superop_from_basis_action ddim (fun i j ->
-            superop_apply (mixed_prog_semantics f)
-              (superop_on_basis (mixed_expr_semantics d e') i j))
+        let fsem = mixed_prog_semantics f in
+        let esem = mixed_expr_semantics d e' in
+          superop_from_basis_action ddim (fun i j ->
+              superop_apply fsem (superop_on_basis esem i j))
     | _ -> failwith "Error in mixed expression semantics"
 
 and pure_prog_semantics (f : prog) : matrix =
-  match f, prog_type_check f with
+  match (f, prog_type_check f) with
   | _, NoneE err -> failwith err
-  | _, SomeE Channel _ -> failwith "Attempted pure semantics for mixed program"
+  | _, SomeE (Channel _) ->
+      failwith "Attempted pure semantics for mixed program"
   | U3 (theta, phi, lambda), _ ->
       mat_from_u3 (float_of_real theta) (float_of_real phi)
         (float_of_real lambda)
@@ -323,25 +331,25 @@ and mixed_prog_semantics (f : prog) : superoperator =
   match (f, prog_type_check f) with
   | _, NoneE err -> failwith err
   | _, SomeE (Coherent (t, _)) ->
-      superop_from_basis_action (type_dimension t) (fun i j ->
-          let pure_sem = pure_prog_semantics f in
-          let v = index_to_basis_state t i in
-          let v' = index_to_basis_state t j in
-            pure_sem *@ v *@ mat_adjoint v' *@ mat_adjoint pure_sem)
+      let pure_sem = pure_prog_semantics f in
+        superop_from_basis_action (type_dimension t) (fun i j ->
+            let v = index_to_basis_state t i in
+            let v' = index_to_basis_state t j in
+              pure_sem *@ v *@ mat_adjoint v' *@ mat_adjoint pure_sem)
   | Lambda (e, t, e'), SomeE (Channel _) -> begin
       match context_check StringMap.empty t e with
       | NoneE err -> failwith err
       | SomeE d ->
           let fve' = free_vars e' in
           let d' = map_restriction d fve' in
+          let e_pure_sem =
+            pure_expr_semantics StringMap.empty d e StringMap.empty
+          in
+          let e'_sem = mixed_expr_semantics d' e' in
             superop_from_basis_action (type_dimension t) (fun i j ->
                 let v = index_to_basis_state t i in
                 let v' = index_to_basis_state t j in
-                let e_pure_sem =
-                  pure_expr_semantics StringMap.empty d e StringMap.empty
-                in
-                  superop_apply
-                    (mixed_expr_semantics d' e')
+                  superop_apply e'_sem
                     (partial_trace d fve'
                        (mat_adjoint e_pure_sem *@ v *@ mat_adjoint v'
                       *@ e_pure_sem)))

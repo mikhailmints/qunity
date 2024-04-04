@@ -1,0 +1,46 @@
+def And :=
+    lambda x {Bit * Bit} ->
+    ctrl {Bit * Bit, (Bit * Bit) * Bit} x [
+        (Bit0, Bit0) -> (x, Bit0);
+        (Bit0, Bit1) -> (x, Bit0);
+        (Bit1, Bit0) -> (x, Bit0);
+        (Bit1, Bit1) -> (x, Bit1)
+    ] |> Snd <Bit * Bit, Bit>
+end
+
+def Couple <K> :=
+    lambda (x0, x1) {Bit * Bit} ->
+    ctrl {Bit, Bit * Bit} And of (x0, x1) [
+        Bit0 -> (x1, x0);
+        Bit1 -> (x1, x0) |> gphase {Bit * Bit, 2 * pi / (2 ^ K)}
+    ]
+end
+
+def Rotations <N> :=
+    if N = [0] then
+        Qid <qunit>
+    else
+        if N = [1] then
+            lambda (x, ()) {NTensorT <Bit, [1]>} -> (Had of x, ())
+        else
+            lambda (x0, x) {NTensorT <Bit, N>} ->
+            let (x0, (y0', y)) {NTensorT <Bit, N>} =
+            (x0, x |> Rotations <[N - 1]>) in
+            let ((y0, y1), y) {(Bit * Bit) * NTensorT <Bit, [N - 2]>} =
+            ((x0, y0') |> Couple <N>, y) in (y0, (y1, y))
+        endif
+    endif
+end
+
+def Qft <N> :=
+    if N = [0] then
+        Qid <qunit>
+    else
+        lambda x {NTensorT <Bit, N>} ->
+        let (x0, x') {NTensorT <Bit, N>} =
+        x |> Rotations <N> in
+        (x0, x' |> Qft <[N - 1]>)
+    endif
+end
+
+Qft <[4]> of (Bit0, (Bit1, (Bit0, (Bit1, ()))))

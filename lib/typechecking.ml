@@ -133,30 +133,25 @@ let rec missing_span (t : exprtype) (l : expr list) (fv : StringSet.t) :
           in
             match missing_span t0 (List.map fst l') next_fv with
             | None -> None
-            | Some l0 ->
+            | Some l0 -> begin
                 let l'' = List.map (fun e0 -> (e0, [])) l0 @ l' in
-                let result_with_opt =
-                  List.map
-                    (fun (e0, l1) ->
-                      match
-                        missing_span t1 l1 (StringSet.union fv (free_vars e0))
-                      with
-                      | Some l1' ->
-                          Some (List.map (fun e1 -> Qpair (e0, e1)) l1')
-                      | None -> None)
-                    l''
+                let result =
+                  all_or_nothing
+                    (List.map
+                       (fun (e0, l1) ->
+                         match
+                           missing_span t1 l1
+                             (StringSet.union fv (free_vars e0))
+                         with
+                         | Some l1' ->
+                             Some (List.map (fun e1 -> Qpair (e0, e1)) l1')
+                         | None -> None)
+                       l'')
                 in
-                  if List.for_all (fun l1 -> l1 <> None) result_with_opt then
-                    Some
-                      (List.flatten
-                         (List.map
-                            (fun l1 ->
-                              match l1 with
-                              | Some l1' -> l1'
-                              | None -> failwith "unreachable")
-                            result_with_opt))
-                  else
-                    None
+                  match result with
+                  | Some r -> Some (List.flatten r)
+                  | None -> None
+              end
         end
     end
   | _, _ -> None
@@ -216,7 +211,7 @@ and mixed_type_check (d : context) (e : expr) : exprtype optionE =
           (StringSet.union (free_vars e0) (free_vars e1))
         <> StringSet.empty
       then
-        NoneE "Irrelevant variables in quantum context"
+        NoneE "Irrelevant variables in quantum context in mixed Qpair"
       else
         match
           ( mixed_type_check (map_restriction d (free_vars e0)) e0,
@@ -225,17 +220,17 @@ and mixed_type_check (d : context) (e : expr) : exprtype optionE =
         | SomeE t0, SomeE t1 -> SomeE (ProdType (t0, t1))
         | NoneE err, _
         | _, NoneE err ->
-            NoneE err
+            NoneE (err ^ "\nin mixed Qpair")
     end
   (* T-TRY *)
   | Try (e0, e1) -> begin
       let d0, d1 = map_partition d (free_vars e0) in
         match (mixed_type_check d0 e0, mixed_type_check d1 e1) with
         | SomeE t0, SomeE t1 ->
-            if t0 = t1 then SomeE t0 else NoneE "Type mismatch in try block"
+            if t0 = t1 then SomeE t0 else NoneE "Type mismatch in Try"
         | NoneE err, _
         | _, NoneE err ->
-            NoneE err
+            NoneE (err ^ "\nin Try")
     end
   (* T-MIXEDAPP *)
   | Apply (f, e') -> begin
@@ -245,10 +240,10 @@ and mixed_type_check (d : context) (e : expr) : exprtype optionE =
           if t' = t0 then
             SomeE t1
           else
-            NoneE "Type mismatch in mixed application"
+            NoneE "Type mismatch in mixed Apply"
       | NoneE err, _
       | _, NoneE err ->
-          NoneE err
+          NoneE (err ^ "\nin mixed Apply")
     end
   | _ -> pure_type_check StringMap.empty d e
 
@@ -262,7 +257,7 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
   | Null -> begin
       match StringMap.bindings d with
       | [] -> SomeE Qunit
-      | _ -> NoneE "Irrelevant variables in quantum context"
+      | _ -> NoneE "Irrelevant variables in quantum context in Null"
     end
   | Var x -> begin
       match StringMap.bindings d with
@@ -270,18 +265,24 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
           (* T-CVAR *)
           match StringMap.find_opt x g with
           | Some t -> SomeE t
-          | None -> NoneE "Unbound variable"
+          | None -> NoneE (Printf.sprintf "Unbound variable %s in Var" x)
         end
       | [(x', t)] ->
           if x' <> x then
-            NoneE "Irrelevant variables in quantum context"
+            NoneE
+              (Printf.sprintf
+                 "Irrelevant variable %s in quantum context in Var" x')
           else begin (* T-QVAR *)
             match StringMap.find_opt x g with
             | Some _ ->
-                NoneE "Variable appears in both classical and quantum context"
+                NoneE
+                  (Printf.sprintf
+                     "Variable %s appears in both classical and quantum \
+                      context in Var"
+                     x)
             | None -> SomeE t
           end
-      | _ -> NoneE "Irrelevant variables in quantum context"
+      | _ -> NoneE "Irrelevant variables in quantum context in Var"
     end
   (* T-PUREPAIR *)
   | Qpair (e0, e1) -> begin
@@ -290,7 +291,7 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
           (StringSet.union (free_vars e0) (free_vars e1))
         <> StringSet.empty
       then
-        NoneE "Irrelevant variables in quantum context"
+        NoneE "Irrelevant variables in quantum context in Qpair"
       else
         match
           ( pure_type_check g (map_restriction d (free_vars e0)) e0,
@@ -299,7 +300,7 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
         | SomeE t0, SomeE t1 -> SomeE (ProdType (t0, t1))
         | NoneE err, _
         | _, NoneE err ->
-            NoneE err
+            NoneE (err ^ "\nin Qpair")
     end
   (* T-CTRL *)
   | Ctrl (e', t0, l, t1) -> begin
@@ -308,17 +309,17 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
       let d0 = map_restriction d fve' in
       let ej, ej' = List.split l in
         match map_merge false g0 d0 with
-        | NoneE err -> NoneE err
+        | NoneE err -> NoneE (err ^ "\nin Ctrl")
         | SomeE g0d0 ->
             if mixed_type_check g0d0 e' <> SomeE t0 then
-              NoneE "Type mismatch in control expression"
+              NoneE "Type mismatch in Ctrl"
             else if not (ortho_check t0 ej) then
-              NoneE "Ortho check failed"
+              NoneE "Ortho check failed in Ctrl"
             else if not (List.for_all (pattern_type_check g d t0 t1) l) then
-              NoneE "Type mismatch in control block"
+              NoneE "Type mismatch in Ctrl"
             else if not (StringMap.for_all (fun x _ -> erases_check x ej') d0)
             then
-              NoneE "Erasure check failed"
+              NoneE "Erasure check failed in Ctrl"
             else
               SomeE t1
     end
@@ -330,12 +331,12 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
           if t' = t0 then
             SomeE t1
           else
-            NoneE "Type mismatch in pure application"
+            NoneE "Type mismatch in Apply"
       | SomeE _, SomeE (Channel _) ->
           NoneE "Attempted pure application of mixed program"
       | NoneE err, _
       | _, NoneE err ->
-          NoneE err
+          NoneE (err ^ "\nin Apply")
     end
 
 (*
@@ -350,16 +351,16 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
       | SomeE d0, SomeE d1 -> map_merge true d0 d1
       | NoneE err, _
       | _, NoneE err ->
-          NoneE err
+          NoneE (err ^ "\nin mixed Qpair")
     end
-  | Qpair _, _ -> NoneE "Expected product type for mixed pair"
+  | Qpair _, _ -> NoneE "Expected product type in mixed Qpair"
   (* T-TRY *)
   | Try (e0, e1), _ -> begin
       match (mixed_context_check t e0, mixed_context_check t e1) with
       | SomeE d0, SomeE d1 -> map_merge false d0 d1
       | NoneE err, _
       | _, NoneE err ->
-          NoneE err
+          NoneE (err ^ "\nin Try")
     end
   (* T-MIXEDAPP *)
   | Apply (f, e'), _ -> begin
@@ -369,8 +370,8 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
           if t = t1 then
             mixed_context_check t0 e'
           else
-            NoneE "Type mismatch in mixed application"
-      | NoneE err -> NoneE err
+            NoneE "Type mismatch in mixed Apply"
+      | NoneE err -> NoneE (err ^ "\nin mixed Apply")
     end
   | _, _ -> context_check StringMap.empty t e
 
@@ -389,7 +390,7 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
           if t = t' then
             SomeE StringMap.empty
           else
-            NoneE "Type mismatch in classical context"
+            NoneE "Type mismatch in classical context in Var"
       (* T-QVAR *)
       | None -> SomeE (StringMap.singleton x t)
     end
@@ -399,36 +400,36 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
       | SomeE d0, SomeE d1 -> map_merge true d0 d1
       | NoneE err, _
       | _, NoneE err ->
-          NoneE err
+          NoneE (err ^ "\nin Qpair")
     end
   (* T-CTRL *)
   | Ctrl (e', t0, l, t1), _ -> begin
       match (mixed_context_check t0 e', l) with
-      | NoneE err, _ -> NoneE err
+      | NoneE err, _ -> NoneE (err ^ "\nin Ctrl")
       | _, [] -> NoneE "Control block cannot be empty"
       | SomeE d, (e0, e0') :: _ -> begin
           match first_pattern_context_check g t0 t1 e0 e0' with
-          | NoneE err -> NoneE err
+          | NoneE err -> NoneE (err ^ "\nin Ctrl")
           | SomeE d0 -> begin
               (* d is Gamma, Delta
                  g is Gamma, Gamma'
                  d0 is Delta, Delta' *)
               match map_merge false g d0 with
-              | NoneE err -> NoneE err
+              | NoneE err -> NoneE (err ^ "\nin Ctrl")
               | SomeE gd0 ->
                   let ej, ej' = List.split l in
                     if not (map_inclusion d gd0) then
-                      NoneE "Context inclusion failed"
+                      NoneE "Context inclusion failed in Ctrl"
                     else if not (ortho_check t0 ej) then
-                      NoneE "Ortho check failed"
+                      NoneE "Ortho check failed in Ctrl"
                     else if
                       not (List.for_all (pattern_type_check g d0 t0 t1) l)
                     then
-                      NoneE "Type mismatch in control block"
+                      NoneE "Type mismatch in Ctrl"
                     else if
                       not (StringMap.for_all (fun x _ -> erases_check x ej') d)
                     then
-                      NoneE "Erasure check failed"
+                      NoneE "Erasure check failed in Ctrl"
                     else
                       SomeE d0
             end
@@ -442,10 +443,10 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
           if t = t1 then
             context_check g t0 e'
           else
-            NoneE "Type mismatch in pure application"
+            NoneE "Type mismatch in pure Apply"
       | SomeE (Channel _) ->
           NoneE "Attempted pure application of mixed program"
-      | NoneE err -> NoneE err
+      | NoneE err -> NoneE (err ^ "\nin Apply")
     end
   | _, _ -> NoneE "Type mismatch"
 
@@ -459,16 +460,18 @@ and prog_type_check (f : prog) : progtype optionE =
   | Right (t0, t1) -> SomeE (Coherent (t1, SumType (t0, t1)))
   | Lambda (e, t, e') -> begin
       match context_check StringMap.empty t e with
-      | NoneE err -> NoneE err
-      | SomeE d -> (
+      | NoneE err -> NoneE (err ^ "\nin Lambda")
+      | SomeE d -> begin
           match pure_type_check StringMap.empty d e' with
           (* T-PUREABS *)
           | SomeE t' -> SomeE (Coherent (t, t'))
-          | NoneE _ -> (
+          | NoneE _ -> begin
               match mixed_type_check (map_restriction d (free_vars e')) e' with
-              | NoneE err -> NoneE err
+              | NoneE err -> NoneE (err ^ "\nin Lambda")
               (* T-MIXEDABS *)
-              | SomeE t' -> SomeE (Channel (t, t'))))
+              | SomeE t' -> SomeE (Channel (t, t'))
+            end
+        end
     end
   (* T-GPHASE *)
   | Gphase (t, _) -> SomeE (Coherent (t, t))

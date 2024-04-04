@@ -5,8 +5,11 @@ open Parser
 let white = [' ' '\t' '\n']+
 let digit = ['0'-'9']
 let int = '-'? digit+
-let letter = ['a'-'z' 'A'-'Z' '_']
-let var = letter (letter | digit)*
+let lower = ['a'-'z']
+let upper = ['A'-'Z']
+let letter = (lower | upper)
+let var = lower (lower | digit | '_' | ''')*
+let xvar = upper (letter | digit)*
 
 rule read =
     parse
@@ -19,15 +22,18 @@ rule read =
     | "[" {LBRACKET}
     | "]" {RBRACKET}
     | "," {COMMA}
+    | ";" {SEMICOLON}
     | "ctrl" {CTRL}
     | "try" {TRY}
     | "catch" {CATCH}
     | "lambda" {LAMBDA}
     | "let" {LET}
     | "in" {IN}
-    | "=" {EQUAL}
     | "|>" {PIPE}
     | "->" {ARROW}
+    | "<" {LANGLE}
+    | ">" {RANGLE}
+    | "of" {OF}
     | "void" {VOID}
     | "qunit" {QUNIT}
     | "u3" {U3}
@@ -41,6 +47,7 @@ rule read =
     | "-" {MINUS}
     | "*" {TIMES}
     | "/" {DIV}
+    | "^" {POW}
     | "sin" {SIN}
     | "cos" {COS}
     | "tan" {TAN}
@@ -50,5 +57,14 @@ rule read =
     | "exp" {EXP}
     | "ln" {LN}
     | "sqrt" {SQRT}
+    | "def" {DEF}
+    | ":=" {DEFSTART}
+    | "=" {EQUAL}
+    | "end" {END}
+    | "if" {IF}
+    | "then" {THEN}
+    | "else" {ELSE}
+    | "endif" {ENDIF}
     | var { VAR (Lexing.lexeme lexbuf) }
+    | xvar { XVAR (Lexing.lexeme lexbuf) }
     | eof {EOF}

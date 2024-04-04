@@ -1,4 +1,10 @@
 (executable
  (name main)
  (public_name main)
- (libraries qunity_prototypes))
+ (libraries qunity_prototypes re))
+
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A -g))))

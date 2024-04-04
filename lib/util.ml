@@ -8,6 +8,18 @@ let option_of_optionE (optE : 'a optionE) : 'a option =
   | NoneE _ -> None
   | SomeE x -> Some x
 
+let all_or_nothing (l : 'a option list) : 'a list option =
+  if List.for_all (fun a -> a <> None) l then
+    Some
+      (List.map
+         (fun a ->
+           match a with
+           | Some a' -> a'
+           | None -> failwith "unreachable")
+         l)
+  else
+    None
+
 let fresh_string (s : StringSet.t) : string =
   let rec fresh_string_helper (i : int) =
     let candidate = "$" ^ string_of_int i in
@@ -67,16 +79,18 @@ let map_partition (d : 'a StringMap.t) (s : StringSet.t) :
     'a StringMap.t * 'a StringMap.t =
   (map_restriction d s, StringMap.filter (fun x _ -> not (StringSet.mem x s)) d)
 
-let list_index (l : 'a list) (x : 'a) : int =
+let list_index (cmp : 'a -> 'a -> bool) (l : 'a list) (x : 'a) : int =
   let rec iter (l : 'a list) (i : int) : int =
     match l with
     | [] -> failwith "Not found"
-    | x' :: l' -> if x' = x then i else iter l' (i + 1)
+    | x' :: l' -> if cmp x' x then i else iter l' (i + 1)
   in
     iter l 0
 
 let range (i : int) : int list =
-  let rec iter i =
-    if i <= 0 then [] else (i - 1) :: iter (i - 1)
-  in
+  let rec iter i = if i <= 0 then [] else (i - 1) :: iter (i - 1) in
     List.rev (iter i)
+
+let float_approx_equal (a : float) (b : float) : bool =
+  let eps = 1e-15 in
+    Float.abs (a -. b) <= eps
