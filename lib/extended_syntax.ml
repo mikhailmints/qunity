@@ -33,7 +33,8 @@ and definition = string list * xexpr
 and defmap = definition StringMap.t
 and xvaluation = xresult StringMap.t
 
-type qunityfile = defmap * xexpr
+type qunityfile = { dm : defmap; main : xexpr }
+type qunityinteract = { dm : defmap; main : xexpr option }
 
 let rec realexpr_eval (r : realexpr) (xv : xvaluation) : real =
   match r with
@@ -47,7 +48,7 @@ let rec realexpr_eval (r : realexpr) (xv : xvaluation) : real =
           | RReal r -> r
           | _ -> failwith "Expected real"
         end
-      | _ -> failwith "Value not found"
+      | _ -> failwith (Printf.sprintf "Value %s not found" x)
     end
   | Negate r1 -> Negate (realexpr_eval r1 xv)
   | Plus (r1, r2) -> Plus (realexpr_eval r1 xv, realexpr_eval r2 xv)
@@ -74,7 +75,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
       | RNone err, _
       | _, RNone err ->
           RNone (err ^ "\nin Qpair")
-      | _, _ -> RNone "Expected expr"
+      | _, _ -> RNone "Expected expression"
     end
   | Ctrl (xe0, xt0, xl, xt1) -> begin
       match
@@ -98,7 +99,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
       | RNone err, _
       | _, RNone err ->
           RNone (err ^ "\nin Try")
-      | _, _ -> RNone "Expected expr in Try"
+      | _, _ -> RNone "Expected expression in Try"
     end
   | Apply (xf, xe') -> begin
       match (xexpr_eval xf dm xv, xexpr_eval xe' dm xv) with
@@ -106,7 +107,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
       | RNone err, _
       | _, RNone err ->
           RNone (err ^ "\nin Apply")
-      | _ -> RNone "Expected expr in Apply"
+      | _ -> RNone "Expected expression in Apply"
     end
   | Void -> RType Void
   | Qunit -> RType Qunit
@@ -126,19 +127,23 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
           RNone (err ^ "\nin ProdType")
       | _ -> RNone "Expected type in ProdType"
     end
-  | U3 (theta, phi, lambda) ->
-      RProg
-        (U3
-           ( realexpr_eval theta xv,
-             realexpr_eval phi xv,
-             realexpr_eval lambda xv ))
+  | U3 (theta, phi, lambda) -> begin
+      try
+        RProg
+          (U3
+             ( realexpr_eval theta xv,
+               realexpr_eval phi xv,
+               realexpr_eval lambda xv ))
+      with
+      | Failure err -> RNone err
+    end
   | Left (xt0, xt1) -> begin
       match (xexpr_eval xt0 dm xv, xexpr_eval xt1 dm xv) with
       | RType t0, RType t1 -> RProg (Left (t0, t1))
       | RNone err, _
       | _, RNone err ->
           RNone (err ^ "\nin Left")
-      | _ -> RNone "Expected prog in Left"
+      | _ -> RNone "Expected program in Left"
     end
   | Right (xt0, xt1) -> begin
       match (xexpr_eval xt0 dm xv, xexpr_eval xt1 dm xv) with
@@ -146,7 +151,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
       | RNone err, _
       | _, RNone err ->
           RNone (err ^ "\nin Right")
-      | _ -> RNone "Expected prog in Right"
+      | _ -> RNone "Expected program in Right"
     end
   | Lambda (xe, xt, xe') -> begin
       match
@@ -157,15 +162,21 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
       | _, RNone err, _
       | _, _, RNone err ->
           RNone (err ^ "\nin Lambda")
-      | _ -> RNone "Expected prog in Lambda"
+      | _ -> RNone "Expected program in Lambda"
     end
   | Gphase (xt, r) -> begin
       match xexpr_eval xt dm xv with
-      | RType t -> RProg (Gphase (t, realexpr_eval r xv))
+      | RType t -> begin
+          try RProg (Gphase (t, realexpr_eval r xv)) with
+          | Failure err -> RNone err
+        end
       | RNone err -> RNone (err ^ "\nin Gphase")
-      | _ -> RNone "Expected prog in Gphase"
+      | _ -> RNone "Expected program in Gphase"
     end
-  | XReal r -> RReal (realexpr_eval r xv)
+  | XReal r -> begin
+      try RReal (realexpr_eval r xv) with
+      | Failure err -> RNone err
+    end
   | Invoke (s, l) -> begin
       match StringMap.find_opt s xv with
       | Some res ->
@@ -210,15 +221,25 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
         | NoneE err -> RNone err
     end
 
-let add_def (name : string) (d : definition) ((dm, main) : qunityfile) :
-    qunityfile =
-  if StringMap.find_opt name dm <> None then
-    (dm, main)
-  else
-    (StringMap.add name d dm, main)
+let add_defmap (dm : defmap) (dm_new : defmap) : defmap =
+  StringMap.union (fun _ _ x -> Some x) dm dm_new
 
-let preprocess ((dm, main) : qunityfile) : expr optionE =
+let add_def (name : string) (d : definition) (qf : qunityfile) : qunityfile =
+  if StringMap.find_opt name qf.dm <> None then
+    (* When a program is parsed, definitions are added in reverse order *)
+    qf
+  else
+    { dm = StringMap.add name d qf.dm; main = qf.main }
+
+let add_def_interact (name : string) (d : definition) (qi : qunityinteract) :
+    qunityinteract =
+  if StringMap.find_opt name qi.dm <> None then
+    qi
+  else
+    { dm = StringMap.add name d qi.dm; main = qi.main }
+
+let preprocess ({ dm; main } : qunityfile) : expr optionE =
   match xexpr_eval main dm StringMap.empty with
   | RExpr e -> SomeE e
   | RNone err -> NoneE err
-  | _ -> NoneE "Expected expr in main"
+  | _ -> NoneE "Expected expression"

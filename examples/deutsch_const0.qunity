@@ -7,8 +7,4 @@ def Deutsch <F> :=
     ) |> Had
 end
 
-def Const0 <T> :=
-    lambda x {T} -> Bit0
-end
-
 Deutsch <Const0 <Bit>>

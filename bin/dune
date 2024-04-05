@@ -1,10 +1,10 @@
-(executable
- (name main)
- (public_name main)
- (libraries qunity_prototypes re))
-
+(executables
+ (names qunity_simulate qunity_interact)
+ (public_names qunity_simulate qunity_interact)
+ (modules qunity_simulate qunity_interact simulate_util)
+ (libraries qunity_prototypes))
 
 (env
  (dev
   (flags
-   (:standard -warn-error -A -g))))
+   (:standard -warn-error -A))))

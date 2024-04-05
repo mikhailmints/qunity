@@ -4,10 +4,22 @@ def Bit0 := left {qunit, qunit} of () end
 
 def Bit1 := right {qunit, qunit} of () end
 
+def BitPlus := Had of Bit0 end
+
+def BitMinus := Had of Bit1 end
+
 def Had := u3 {pi/2, 0, pi} end
 
 def Qid <T> :=
     lambda x {T} -> x
+end
+
+def Const0 <T> :=
+    lambda x {T} -> Bit0
+end
+
+def Const1 <T> :=
+    lambda x {T} -> Bit1
 end
 
 def Fst <T0, T1> :=
@@ -23,5 +35,13 @@ def NTensorT <T, N> :=
         qunit
     else
         T * NTensorT <T, [N - 1]>
+    endif
+end
+
+def NTensorE <E, N> :=
+    if N = [0] then
+        ()
+    else
+        (E, NTensorE <E, [N - 1]>)
     endif
 end

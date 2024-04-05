@@ -363,3 +363,24 @@ let top_mixed_expr_semantics (e : expr) : matrix =
   superop_apply
     (mixed_expr_semantics StringMap.empty e)
     (expr_to_basis_state Null)
+
+let measurement_outcomes (e : expr) : (expr * float) list =
+  let t =
+    match mixed_type_check StringMap.empty e with
+    | NoneE err -> failwith err
+    | SomeE t -> t
+  in
+  let sem = top_mixed_expr_semantics e in
+  let basis = all_basis_exprs t in
+  let probs =
+    List.map
+      (fun e' ->
+        let v = expr_to_basis_state e' in
+          Complex.norm (mat_to_scalar (mat_adjoint v *@ sem *@ v)))
+      basis
+  in
+    List.sort
+      (fun (_, p0) (_, p1) ->
+        if float_approx_equal p0 p1 then 0 else Stdlib.compare p1 p0)
+      ((List.filter (fun (_, p) -> not (float_approx_equal p 0.)))
+         (List.combine basis probs))

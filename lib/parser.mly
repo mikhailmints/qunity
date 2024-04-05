@@ -82,15 +82,26 @@ open Extended_syntax
 %nonassoc SQRT
 
 %start <qunityfile> qunityfile
+%start <qunityinteract> qunityinteract
 
 %%
 
 qunityfile:
-    | e = xexpr; EOF {(StringMap.empty, e)}
+    | e = xexpr; EOF {{dm = StringMap.empty; main = e}}
     | DEF; name = XVAR; LANGLE; l = argnames; DEFSTART; body = xexpr; END;
         qf = qunityfile {add_def name (l, body) qf}
     | DEF; name = XVAR; DEFSTART; body = xexpr; END;
         qf = qunityfile {add_def name ([], body) qf}
+    ;
+
+qunityinteract:
+    | SEMICOLON; SEMICOLON; EOF {{dm = StringMap.empty; main = None}}
+    | e = xexpr; SEMICOLON; SEMICOLON; EOF
+        {{dm = StringMap.empty; main = Some e}}
+    | DEF; name = XVAR; LANGLE; l = argnames; DEFSTART; body = xexpr; END;
+        qi = qunityinteract {add_def_interact name (l, body) qi}
+    | DEF; name = XVAR; DEFSTART; body = xexpr; END;
+        qi = qunityinteract {add_def_interact name ([], body) qi}
     ;
 
 xexpr:

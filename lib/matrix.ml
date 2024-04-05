@@ -149,12 +149,12 @@ let mat_from_list (l : Complex.t list list) : matrix =
     { r; c; f = (fun i j -> List.nth (List.nth l i) j) }
 
 let string_of_complex (z : Complex.t) =
-  Printf.sprintf "%.2f%s%.2fi" z.re (if z.im >= 0. then "+" else "") z.im
+  Printf.sprintf "%.3f%s%.3fi" z.re (if z.im >= 0. then "+" else "") z.im
 
 let print_mat (m : matrix) =
   for i = 0 to m.r - 1 do
     for j = 0 to m.c - 1 do
-      Printf.printf "%-10s " (string_of_complex (m.f i j))
+      Printf.printf "%13s " (string_of_complex (m.f i j))
     done;
     Printf.printf "\n"
   done
