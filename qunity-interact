@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Include the following in your ~/.inputrc:
+#   set enable-bracketed-paste off
+# and also optionally:
+#   set blink-matching-paren off
+
+dune build
+rlwrap -ppurple ./_build/default/bin/qunity_interact.exe

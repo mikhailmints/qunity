@@ -29,7 +29,12 @@ let mat_plus (m1 : matrix) (m2 : matrix) : matrix =
          "Inconsistent matrix dimensions in matrix addition: %dx%d and %dx%d"
          m1.r m1.c m2.r m2.c)
   else
-    { r = m1.r; c = m1.c; f = (fun i j -> Complex.add (m1.f i j) (m2.f i j)) }
+    mat_optimize
+      {
+        r = m1.r;
+        c = m1.c;
+        f = (fun i j -> Complex.add (m1.f i j) (m2.f i j));
+      }
 
 let mat_transpose (m : matrix) : matrix =
   { r = m.c; c = m.r; f = (fun i j -> m.f j i) }
@@ -61,15 +66,16 @@ let ( *@ ) = mat_mul
 let mat_outer (m : matrix) = m *@ mat_adjoint m
 
 let mat_tensor (m1 : matrix) (m2 : matrix) : matrix =
-  {
-    r = m1.r * m2.r;
-    c = m1.c * m2.c;
-    f =
-      (fun i j ->
-        Complex.mul
-          (m1.f (i / m2.r) (j / m2.c))
-          (m2.f (i mod m2.r) (j mod m2.c)));
-  }
+  mat_optimize
+    {
+      r = m1.r * m2.r;
+      c = m1.c * m2.c;
+      f =
+        (fun i j ->
+          Complex.mul
+            (m1.f (i / m2.r) (j / m2.c))
+            (m2.f (i mod m2.r) (j mod m2.c)));
+    }
 
 let vec_dirsum (m1 : matrix) (m2 : matrix) : matrix =
   if m1.c <> 1 || m2.c <> 1 then
@@ -146,7 +152,7 @@ let mat_sum r c : matrix list -> matrix =
 let mat_from_list (l : Complex.t list list) : matrix =
   let r = List.length l in
   let c = List.length (List.hd l) in
-    { r; c; f = (fun i j -> List.nth (List.nth l i) j) }
+    mat_optimize { r; c; f = (fun i j -> List.nth (List.nth l i) j) }
 
 let string_of_complex (z : Complex.t) =
   Printf.sprintf "%.3f%s%.3fi" z.re (if z.im >= 0. then "+" else "") z.im
@@ -203,25 +209,6 @@ let superop_optimize (super : superoperator) : superoperator =
       f = (fun i j k l -> arr.(i).(j).(k).(l));
     }
 
-let superop_plus (super1 : superoperator) (super2 : superoperator) :
-    superoperator =
-  if super1.dim_from <> super2.dim_from || super1.dim_to <> super2.dim_to then
-    failwith "Inconsistent dimensions in superoperator addition"
-  else
-    {
-      dim_from = super1.dim_from;
-      dim_to = super1.dim_to;
-      f = (fun i j k l -> Complex.add (super1.f i j k l) (super2.f i j k l));
-    }
-
-let superop_scalar_mul (z : Complex.t) (super : superoperator) : superoperator
-    =
-  {
-    dim_from = super.dim_from;
-    dim_to = super.dim_to;
-    f = (fun i j k l -> Complex.mul z (super.f i j k l));
-  }
-
 let superop_apply (super : superoperator) (m : matrix) : matrix =
   if m.r <> super.dim_from || m.c <> super.dim_from then
     failwith "Inconsistent dimensions in superoperator application"
@@ -255,3 +242,18 @@ let superop_from_basis_action (dim_from : int) (bfun : int -> int -> matrix) :
 
 let superop_on_basis (super : superoperator) (k : int) (l : int) : matrix =
   { r = super.dim_to; c = super.dim_to; f = (fun i j -> super.f i j k l) }
+
+let print_superop (super : superoperator) =
+  for k = 0 to super.dim_from - 1 do
+    for i = 0 to super.dim_to - 1 do
+      for l = 0 to super.dim_from - 1 do
+        for j = 0 to super.dim_to - 1 do
+          Printf.printf "%13s " (string_of_complex (super.f i j k l))
+        done;
+        Printf.printf "    "
+      done;
+      Printf.printf "\n"
+    done;
+    if k <> super.dim_from - 1 then
+      Printf.printf "\n"
+  done

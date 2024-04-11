@@ -1,0 +1,35 @@
+def GroverIter <N, F> :=
+    lambda x {NTensorT <N, Bit>} ->
+    ctrl {Bit, NTensorT <N, Bit>} (F of x) [
+        Bit0 -> x;
+        Bit1 -> x |> gphase {NTensorT <N, Bit>, pi}
+    ] |>
+    NTensorF <N, Had, Bit> |>
+    lambda x {NTensorT <N, Bit>} ->
+    ctrl {NTensorT <N, Bit>, NTensorT <N, Bit>} x [
+        NTensorE <N, Bit0> -> x;
+        else -> x |> gphase {NTensorT <N, Bit>, pi}
+    ] |>
+    NTensorF <N, Had, Bit>
+end
+
+def Grover <N, F, Niter> :=
+    if Niter = [0] then
+        NTensorE <N, BitPlus>
+    else
+        Grover <N, F, [Niter - 1]> |> GroverIter <N, F>
+    endif
+end
+
+def N := [3] end
+def Answer := (Bit0, (Bit1, (Bit0, ()))) end
+
+def F :=
+    lambda x {NTensorT <N, Bit>} ->
+    ctrl {NTensorT <N, Bit>, NTensorT <N, Bit> * Bit} x [
+        Answer -> (x, Bit1);
+        else -> (x, Bit0)
+    ] |> Snd <NTensorT <N, Bit>, Bit>
+end
+
+Grover <N, F, [2]>

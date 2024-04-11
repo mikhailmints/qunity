@@ -9,7 +9,7 @@ let lower = ['a'-'z']
 let upper = ['A'-'Z']
 let letter = (lower | upper)
 let var = lower (lower | digit | '_' | ''')*
-let xvar = upper (letter | digit)*
+let xvar = upper (letter | digit | '_' | ''')*
 
 rule read =
     parse

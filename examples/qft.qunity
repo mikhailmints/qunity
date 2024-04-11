@@ -21,12 +21,12 @@ def Rotations <N> :=
         Qid <qunit>
     else
         if N = [1] then
-            lambda (x, ()) {NTensorT <Bit, [1]>} -> (Had of x, ())
+            lambda (x, ()) {NTensorT <[1], Bit>} -> (Had of x, ())
         else
-            lambda (x0, x) {NTensorT <Bit, N>} ->
-            let (x0, (y0', y)) {NTensorT <Bit, N>} =
+            lambda (x0, x) {NTensorT <N, Bit>} ->
+            let (x0, (y0', y)) {NTensorT <N, Bit>} =
             (x0, x |> Rotations <[N - 1]>) in
-            let ((y0, y1), y) {(Bit * Bit) * NTensorT <Bit, [N - 2]>} =
+            let ((y0, y1), y) {(Bit * Bit) * NTensorT <[N - 2], Bit>} =
             ((x0, y0') |> Couple <N>, y) in (y0, (y1, y))
         endif
     endif
@@ -36,8 +36,8 @@ def Qft <N> :=
     if N = [0] then
         Qid <qunit>
     else
-        lambda x {NTensorT <Bit, N>} ->
-        let (x0, x') {NTensorT <Bit, N>} =
+        lambda x {NTensorT <N, Bit>} ->
+        let (x0, x') {NTensorT <N, Bit>} =
         x |> Rotations <N> in
         (x0, x' |> Qft <[N - 1]>)
     endif

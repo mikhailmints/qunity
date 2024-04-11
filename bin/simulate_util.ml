@@ -30,5 +30,10 @@ let execute_expr (e : expr) : unit =
             Printf.printf "Probability %f: %s\n" p (string_of_expr e'))
           meas_outcomes
       in
+      let error_prob =
+        1. -. List.fold_left ( +. ) 0. (List.map snd meas_outcomes)
+      in
+        if not (float_approx_equal error_prob 0.) then
+          Printf.printf "Probability %f: Error\n" error_prob;
         Printf.printf "\n"
     end

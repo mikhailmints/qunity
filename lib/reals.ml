@@ -18,24 +18,24 @@ type real =
   | Sqrt of real
 
 type realexpr =
-  | Pi
-  | Euler
-  | Const of int
-  | Var of string
-  | Negate of realexpr
-  | Plus of (realexpr * realexpr)
-  | Times of (realexpr * realexpr)
-  | Div of (realexpr * realexpr)
-  | Pow of (realexpr * realexpr)
-  | Sin of realexpr
-  | Cos of realexpr
-  | Tan of realexpr
-  | Arcsin of realexpr
-  | Arccos of realexpr
-  | Arctan of realexpr
-  | Exp of realexpr
-  | Ln of realexpr
-  | Sqrt of realexpr
+  | XPi
+  | XEuler
+  | XConst of int
+  | XVar of string
+  | XNegate of realexpr
+  | XPlus of (realexpr * realexpr)
+  | XTimes of (realexpr * realexpr)
+  | XDiv of (realexpr * realexpr)
+  | XPow of (realexpr * realexpr)
+  | XSin of realexpr
+  | XCos of realexpr
+  | XTan of realexpr
+  | XArcsin of realexpr
+  | XArccos of realexpr
+  | XArctan of realexpr
+  | XExp of realexpr
+  | XLn of realexpr
+  | XSqrt of realexpr
 
 let rec string_of_real (r : real) : string =
   match r with

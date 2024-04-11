@@ -109,7 +109,7 @@ xexpr:
     | x = VAR {Var x}
     | LPAREN; e0 = xexpr; COMMA; e1 = xexpr; RPAREN {Qpair (e0, e1)}
     | CTRL; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE; e = xexpr; LBRACKET;
-        l = exprpairlist {Ctrl (e, t0, l, t1)}
+        l = ctrlblock {Ctrl (e, t0, fst l, t1, snd l)}
     | TRY; e0 = xexpr; CATCH e1 = xexpr {Try (e0, e1)}
     | f = xexpr; OF; e = xexpr  {Apply (f, e)}
     | e = xexpr; PIPE; f = xexpr {Apply (f, e)}
@@ -135,31 +135,34 @@ xexpr:
     ;
 
 real:
-    | PI {Pi}
-    | EULER {Euler}
-    | x = CONST {Const x}
-    | x = XVAR; {Var x}
-    | MINUS; LPAREN; r = real; RPAREN {Negate r}
-    | r0 = real; PLUS; r1 = real {Plus (r0, r1)}
-    | r0 = real; TIMES; r1 = real {Times (r0, r1)}
-    | r0 = real; MINUS; r1 = real {Plus (r0, Negate r1)}
-    | r0 = real; DIV; r1 = real {Div (r0, r1)}
-    | r0 = real; POW; r1 = real {Pow (r0, r1)}
-    | SIN; r = real {Sin r}
-    | COS; r = real {Cos r}
-    | TAN; r = real {Tan r}
-    | ARCSIN; r = real {Arcsin r}
-    | ARCCOS; r = real {Arccos r}
-    | ARCTAN; r = real {Arctan r}
-    | EXP; r = real {Exp r}
-    | LN; r = real {Ln r}
-    | SQRT; r = real {Sqrt r}
+    | PI {XPi}
+    | EULER {XEuler}
+    | x = CONST {XConst x}
+    | x = XVAR; {XVar x}
+    | MINUS; LPAREN; r = real; RPAREN {XNegate r}
+    | r0 = real; PLUS; r1 = real {XPlus (r0, r1)}
+    | r0 = real; TIMES; r1 = real {XTimes (r0, r1)}
+    | r0 = real; MINUS; r1 = real {XPlus (r0, XNegate r1)}
+    | r0 = real; DIV; r1 = real {XDiv (r0, r1)}
+    | r0 = real; POW; r1 = real {XPow (r0, r1)}
+    | SIN; r = real {XSin r}
+    | COS; r = real {XCos r}
+    | TAN; r = real {XTan r}
+    | ARCSIN; r = real {XArcsin r}
+    | ARCCOS; r = real {XArccos r}
+    | ARCTAN; r = real {XArctan r}
+    | EXP; r = real {XExp r}
+    | LN; r = real {XLn r}
+    | SQRT; r = real {XSqrt r}
     | LPAREN; r = real; RPAREN {r}
     ;
 
-exprpairlist:
-    | e0 = xexpr; ARROW; e1 = xexpr; SEMICOLON; l = exprpairlist {(e0, e1) :: l}
-    | e0 = xexpr; ARROW; e1 = xexpr; RBRACKET {[(e0, e1)]}
+ctrlblock:
+    | e0 = xexpr; ARROW; e1 = xexpr; SEMICOLON; l = ctrlblock
+        {((e0, e1) :: fst l, snd l)}
+    | e0 = xexpr; ARROW; e1 = xexpr; RBRACKET {([(e0, e1)], None)}
+    | e0 = xexpr; ARROW; e1 = xexpr; SEMICOLON; ELSE; ARROW; e2 = xexpr RBRACKET
+        {([(e0, e1)], Some e2)}
     ;
 
 argnames:

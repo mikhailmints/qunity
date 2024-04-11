@@ -1,12 +1,13 @@
 open Util
 open Reals
 open Syntax
+open Typechecking
 
 type xexpr =
   | Null
   | Var of string
   | Qpair of (xexpr * xexpr)
-  | Ctrl of (xexpr * xexpr * (xexpr * xexpr) list * xexpr)
+  | Ctrl of (xexpr * xexpr * (xexpr * xexpr) list * xexpr * xexpr option)
   | Try of (xexpr * xexpr)
   | Apply of (xexpr * xexpr)
   | Void
@@ -38,10 +39,10 @@ type qunityinteract = { dm : defmap; main : xexpr option }
 
 let rec realexpr_eval (r : realexpr) (xv : xvaluation) : real =
   match r with
-  | Pi -> Pi
-  | Euler -> Euler
-  | Const x -> Const x
-  | Var x -> begin
+  | XPi -> Pi
+  | XEuler -> Euler
+  | XConst x -> Const x
+  | XVar x -> begin
       match StringMap.find_opt x xv with
       | Some value -> begin
           match value with
@@ -50,20 +51,20 @@ let rec realexpr_eval (r : realexpr) (xv : xvaluation) : real =
         end
       | _ -> failwith (Printf.sprintf "Value %s not found" x)
     end
-  | Negate r1 -> Negate (realexpr_eval r1 xv)
-  | Plus (r1, r2) -> Plus (realexpr_eval r1 xv, realexpr_eval r2 xv)
-  | Times (r1, r2) -> Times (realexpr_eval r1 xv, realexpr_eval r2 xv)
-  | Div (r1, r2) -> Div (realexpr_eval r1 xv, realexpr_eval r2 xv)
-  | Pow (r1, r2) -> Pow (realexpr_eval r1 xv, realexpr_eval r2 xv)
-  | Sin r1 -> Sin (realexpr_eval r1 xv)
-  | Cos r1 -> Cos (realexpr_eval r1 xv)
-  | Tan r1 -> Tan (realexpr_eval r1 xv)
-  | Arcsin r1 -> Arcsin (realexpr_eval r1 xv)
-  | Arccos r1 -> Arccos (realexpr_eval r1 xv)
-  | Arctan r1 -> Arctan (realexpr_eval r1 xv)
-  | Exp r1 -> Exp (realexpr_eval r1 xv)
-  | Ln r1 -> Ln (realexpr_eval r1 xv)
-  | Sqrt r1 -> Sqrt (realexpr_eval r1 xv)
+  | XNegate r1 -> Negate (realexpr_eval r1 xv)
+  | XPlus (r1, r2) -> Plus (realexpr_eval r1 xv, realexpr_eval r2 xv)
+  | XTimes (r1, r2) -> Times (realexpr_eval r1 xv, realexpr_eval r2 xv)
+  | XDiv (r1, r2) -> Div (realexpr_eval r1 xv, realexpr_eval r2 xv)
+  | XPow (r1, r2) -> Pow (realexpr_eval r1 xv, realexpr_eval r2 xv)
+  | XSin r1 -> Sin (realexpr_eval r1 xv)
+  | XCos r1 -> Cos (realexpr_eval r1 xv)
+  | XTan r1 -> Tan (realexpr_eval r1 xv)
+  | XArcsin r1 -> Arcsin (realexpr_eval r1 xv)
+  | XArccos r1 -> Arccos (realexpr_eval r1 xv)
+  | XArctan r1 -> Arctan (realexpr_eval r1 xv)
+  | XExp r1 -> Exp (realexpr_eval r1 xv)
+  | XLn r1 -> Ln (realexpr_eval r1 xv)
+  | XSqrt r1 -> Sqrt (realexpr_eval r1 xv)
 
 and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
   match v with
@@ -77,7 +78,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
           RNone (err ^ "\nin Qpair")
       | _, _ -> RNone "Expected expression"
     end
-  | Ctrl (xe0, xt0, xl, xt1) -> begin
+  | Ctrl (xe0, xt0, xl, xt1, xelseopt) -> begin
       match
         ( xexpr_eval xe0 dm xv,
           xexpr_eval xt0 dm xv,
@@ -90,7 +91,23 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
                xl),
           xexpr_eval xt1 dm xv )
       with
-      | RExpr e0, RType t0, Some l, RType t1 -> RExpr (Ctrl (e0, t0, l, t1))
+      | RExpr e0, RType t0, Some l, RType t1 -> begin
+          match xelseopt with
+          | None -> RExpr (Ctrl (e0, t0, l, t1))
+          | Some xelse -> begin
+              match missing_span t0 (List.map fst l) with
+              | None ->
+                  RNone "Ortho check failed when preprocessing else expression"
+              | Some mspan -> begin
+                  match xexpr_eval xelse dm xv with
+                  | RNone err -> RNone (err ^ "\nin Ctrl")
+                  | RExpr eelse ->
+                      let l' = l @ List.map (fun e -> (e, eelse)) mspan in
+                        RExpr (Ctrl (e0, t0, l', t1))
+                  | _ -> RNone "Expected expression"
+                end
+            end
+        end
       | _ -> RNone "Preprocessing error in Ctrl"
     end
   | Try (xe0, xe1) -> begin

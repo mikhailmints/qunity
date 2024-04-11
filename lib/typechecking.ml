@@ -103,65 +103,70 @@ let rec spread_qpair_list (l : expr list) : (expr * expr list) list option =
     end
   | _ -> None
 
-let rec missing_span (t : exprtype) (l : expr list) (fv : StringSet.t) :
-    expr list option =
-  match (t, l) with
-  | Qunit, [] -> Some [Null]
-  | Qunit, [Null] -> Some []
-  | _, [] -> Some [Var (fresh_string fv)]
-  | _, [Var x] -> if StringSet.mem x fv then None else Some []
-  | SumType (t0, t1), _ -> begin
-      match split_sum_list t0 t1 l with
-      | None -> None
-      | Some (l0, l1) -> begin
-          match (missing_span t0 l0 fv, missing_span t1 l1 fv) with
-          | Some l0', Some l1' ->
-              Some
-                (List.map (fun x -> Apply (Left (t0, t1), x)) l0'
-                @ List.map (fun x -> Apply (Right (t0, t1), x)) l1')
-          | _, _ -> None
-        end
-    end
-  | ProdType (t0, t1), _ -> begin
-      match spread_qpair_list l with
-      | None -> None
-      | Some l' -> begin
-          let next_fv =
-            List.fold_right StringSet.union
-              (List.map free_vars (List.flatten (List.map snd l')))
-              fv
-          in
-            match missing_span t0 (List.map fst l') next_fv with
-            | None -> None
-            | Some l0 -> begin
-                let l'' = List.map (fun e0 -> (e0, [])) l0 @ l' in
-                let result =
-                  all_or_nothing
-                    (List.map
-                       (fun (e0, l1) ->
-                         match
-                           missing_span t1 l1
-                             (StringSet.union fv (free_vars e0))
-                         with
-                         | Some l1' ->
-                             Some (List.map (fun e1 -> Qpair (e0, e1)) l1')
-                         | None -> None)
-                       l'')
-                in
-                  match result with
-                  | Some r -> Some (List.flatten r)
-                  | None -> None
-              end
-        end
-    end
-  | _, _ -> None
+let missing_span (t : exprtype) (l : expr list) : expr list option =
+  let rec missing_span_helper (t : exprtype) (l : expr list) (fv : StringSet.t)
+      : expr list option =
+    match (t, l) with
+    | Qunit, [] -> Some [Null]
+    | Qunit, [Null] -> Some []
+    | _, [] -> Some [Var (fresh_string fv)]
+    | _, [Var x] -> if StringSet.mem x fv then None else Some []
+    | SumType (t0, t1), _ -> begin
+        match split_sum_list t0 t1 l with
+        | None -> None
+        | Some (l0, l1) -> begin
+            match
+              (missing_span_helper t0 l0 fv, missing_span_helper t1 l1 fv)
+            with
+            | Some l0', Some l1' ->
+                Some
+                  (List.map (fun x -> Apply (Left (t0, t1), x)) l0'
+                  @ List.map (fun x -> Apply (Right (t0, t1), x)) l1')
+            | _, _ -> None
+          end
+      end
+    | ProdType (t0, t1), _ -> begin
+        match spread_qpair_list l with
+        | None -> None
+        | Some l' -> begin
+            let next_fv =
+              List.fold_right StringSet.union
+                (List.map free_vars (List.flatten (List.map snd l')))
+                fv
+            in
+              match missing_span_helper t0 (List.map fst l') next_fv with
+              | None -> None
+              | Some l0 -> begin
+                  let l'' = List.map (fun e0 -> (e0, [])) l0 @ l' in
+                  let result =
+                    all_or_nothing
+                      (List.map
+                         (fun (e0, l1) ->
+                           match
+                             missing_span_helper t1 l1
+                               (StringSet.union fv (free_vars e0))
+                           with
+                           | Some l1' ->
+                               Some (List.map (fun e1 -> Qpair (e0, e1)) l1')
+                           | None -> None)
+                         l'')
+                  in
+                    match result with
+                    | Some r -> Some (List.flatten r)
+                    | None -> None
+                end
+          end
+      end
+    | _, _ -> None
+  in
+    missing_span_helper t l StringSet.empty
 
 (*
 Given an expression type t and list l of expressions, expected to be of
 type t, extends the list to one "spanning" t.
 *)
 let span_list (t : exprtype) (l : expr list) : expr list option =
-  match missing_span t l StringSet.empty with
+  match missing_span t l with
   | None -> None
   | Some l' -> Some (l @ l')
 

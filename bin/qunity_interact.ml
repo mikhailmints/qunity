@@ -2,9 +2,11 @@ open Simulate_util
 open Qunity_prototypes
 open Util
 open Reals
+open Matrix
 open Syntax
 open Extended_syntax
 open Typechecking
+open Semantics
 
 let parse (s : string) : qunityinteract =
   let lexbuf = Lexing.from_string s in
@@ -45,7 +47,17 @@ let () =
                     match prog_type_check f with
                     | SomeE ft ->
                         Printf.printf "Program type: %s\n\n"
-                          (string_of_progtype ft)
+                          (string_of_progtype ft);
+                        Printf.printf "Pure semantics:\n%!";
+                        begin
+                          try print_mat (pure_prog_semantics f) with
+                          | Failure _
+                          | Invalid_argument _ ->
+                              Printf.printf "None\n"
+                        end;
+                        Printf.printf "\nMixed semantics:\n%!";
+                        print_superop (mixed_prog_semantics f);
+                        Printf.printf "\n";
                     | NoneE err ->
                         Printf.printf "Typechecking error: %s\n\n" err
                   end
