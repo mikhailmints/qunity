@@ -51,6 +51,8 @@ open Extended_syntax
 %token EXP
 %token LN
 %token SQRT
+%token ROUND
+%token MOD
 
 %token DEF
 %token DEFSTART
@@ -70,16 +72,9 @@ open Extended_syntax
 %left MINUS
 %left TIMES
 %left DIV
+%left MOD
 %right POW
-%nonassoc SIN
-%nonassoc COS
-%nonassoc TAN
-%nonassoc ARCSIN
-%nonassoc ARCCOS
-%nonassoc ARCTAN
-%nonassoc EXP
-%nonassoc LN
-%nonassoc SQRT
+
 
 %start <qunityfile> qunityfile
 %start <qunityinteract> qunityinteract
@@ -145,15 +140,17 @@ real:
     | r0 = real; MINUS; r1 = real {XPlus (r0, XNegate r1)}
     | r0 = real; DIV; r1 = real {XDiv (r0, r1)}
     | r0 = real; POW; r1 = real {XPow (r0, r1)}
-    | SIN; r = real {XSin r}
-    | COS; r = real {XCos r}
-    | TAN; r = real {XTan r}
-    | ARCSIN; r = real {XArcsin r}
-    | ARCCOS; r = real {XArccos r}
-    | ARCTAN; r = real {XArctan r}
-    | EXP; r = real {XExp r}
-    | LN; r = real {XLn r}
-    | SQRT; r = real {XSqrt r}
+    | r0 = real; MOD; r1 = real {XMod (r0, r1)}
+    | SIN; LPAREN; r = real; RPAREN {XSin r}
+    | COS; LPAREN; r = real; RPAREN {XCos r}
+    | TAN; LPAREN; r = real; RPAREN {XTan r}
+    | ARCSIN; LPAREN; r = real; RPAREN {XArcsin r}
+    | ARCCOS; LPAREN; r = real; RPAREN {XArccos r}
+    | ARCTAN; LPAREN; r = real; RPAREN {XArctan r}
+    | EXP; LPAREN; r = real; RPAREN {XExp r}
+    | LN; LPAREN; r = real; RPAREN {XLn r}
+    | SQRT; LPAREN; r = real; RPAREN {XSqrt r}
+    | ROUND; LPAREN; r = real; RPAREN {XRound r}
     | LPAREN; r = real; RPAREN {r}
     ;
 

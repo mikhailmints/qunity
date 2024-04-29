@@ -320,11 +320,11 @@ and pure_type_check (g : context) (d : context) (e : expr) : exprtype optionE =
               NoneE "Type mismatch in Ctrl"
             else if not (ortho_check t0 ej) then
               NoneE "Ortho check failed in Ctrl"
-            else if not (List.for_all (pattern_type_check g d t0 t1) l) then
-              NoneE "Type mismatch in Ctrl"
             else if not (StringMap.for_all (fun x _ -> erases_check x ej') d0)
             then
               NoneE "Erasure check failed in Ctrl"
+            else if not (List.for_all (pattern_type_check g d t0 t1) l) then
+              NoneE "Type mismatch in Ctrl"
             else
               SomeE t1
     end

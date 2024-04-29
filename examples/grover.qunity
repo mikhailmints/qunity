@@ -1,9 +1,11 @@
 def GroverIter <N, F> :=
     lambda x {NTensorT <N, Bit>} ->
+    // Apply F as a phase oracle
     ctrl {Bit, NTensorT <N, Bit>} (F of x) [
         Bit0 -> x;
         Bit1 -> x |> gphase {NTensorT <N, Bit>, pi}
     ] |>
+    // Grover diffusion operator
     NTensorF <N, Had, Bit> |>
     lambda x {NTensorT <N, Bit>} ->
     ctrl {NTensorT <N, Bit>, NTensorT <N, Bit>} x [

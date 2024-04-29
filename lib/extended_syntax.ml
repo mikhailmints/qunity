@@ -56,6 +56,7 @@ let rec realexpr_eval (r : realexpr) (xv : xvaluation) : real =
   | XTimes (r1, r2) -> Times (realexpr_eval r1 xv, realexpr_eval r2 xv)
   | XDiv (r1, r2) -> Div (realexpr_eval r1 xv, realexpr_eval r2 xv)
   | XPow (r1, r2) -> Pow (realexpr_eval r1 xv, realexpr_eval r2 xv)
+  | XMod (r1, r2) -> Mod (realexpr_eval r1 xv, realexpr_eval r2 xv)
   | XSin r1 -> Sin (realexpr_eval r1 xv)
   | XCos r1 -> Cos (realexpr_eval r1 xv)
   | XTan r1 -> Tan (realexpr_eval r1 xv)
@@ -65,6 +66,7 @@ let rec realexpr_eval (r : realexpr) (xv : xvaluation) : real =
   | XExp r1 -> Exp (realexpr_eval r1 xv)
   | XLn r1 -> Ln (realexpr_eval r1 xv)
   | XSqrt r1 -> Sqrt (realexpr_eval r1 xv)
+  | XRound r1 -> Round (realexpr_eval r1 xv)
 
 and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
   match v with

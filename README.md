@@ -25,6 +25,6 @@ To avoid some input/prompt issues, it is recommended to add the following to you
 $include /etc/inputrc
 # To prevent prompt from disappearing:
 set enable-bracketed-paste off
-# Optional: to prevent parentheses blinking
+# Optional - to prevent parentheses blinking:
 set blink-matching-paren off
 ```

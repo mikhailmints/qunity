@@ -1,3 +1,3 @@
-#!/bin/bash
+#!/usr/bin/env bash
 dune build
 ./_build/default/bin/qunity_simulate.exe $1

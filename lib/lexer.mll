@@ -2,6 +2,9 @@
 open Parser
 }
 
+
+let linecomment = "//"[^ '\n']+
+let multilinecomment = "/*"_*?"*/"
 let white = [' ' '\t' '\n']+
 let digit = ['0'-'9']
 let int = '-'? digit+
@@ -11,8 +14,13 @@ let letter = (lower | upper)
 let var = lower (lower | digit | '_' | ''')*
 let xvar = upper (letter | digit | '_' | ''')*
 
-rule read =
-    parse
+rule comment = parse
+    | "*/" {read lexbuf}
+    | _ {comment lexbuf}
+
+and read = parse
+    | "/*" {comment lexbuf}
+    | linecomment
     | white {read lexbuf}
     | "()" {NULL}
     | "(" {LPAREN}
@@ -57,6 +65,8 @@ rule read =
     | "exp" {EXP}
     | "ln" {LN}
     | "sqrt" {SQRT}
+    | "round" {ROUND}
+    | "%" {MOD}
     | "def" {DEF}
     | ":=" {DEFSTART}
     | "=" {EQUAL}

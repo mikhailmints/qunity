@@ -1,3 +1,7 @@
+/*
+Qunity standard library definitions, added to the start of every file
+*/
+
 def Bit := qunit + qunit end
 
 def Bit0 := left {qunit, qunit} of () end
@@ -36,6 +40,9 @@ def Snd <T0, T1> :=
     lambda (x0, x1) {T0 * T1} -> x1
 end
 
+/*
+Tensor product of type T, N times
+*/
 def NTensorT <N, T> :=
     if N = [0] then
         qunit
@@ -44,6 +51,9 @@ def NTensorT <N, T> :=
     endif
 end
 
+/*
+Tensor product of expression E, N times
+*/
 def NTensorE <N, E> :=
     if N = [0] then
         ()
@@ -52,6 +62,9 @@ def NTensorE <N, E> :=
     endif
 end
 
+/*
+Tensor product of program F, acting on type T, N times
+*/
 def NTensorF <N, F, T> :=
     if N = [0] then
         Qid <qunit>
@@ -63,4 +76,46 @@ end
 
 def Equals <T, E> :=
     lambda x {T} -> try x |> lambda E {T} -> Bit1 catch Bit0
+end
+
+/*
+This doesn't work as expected due to control semantics
+*/
+def Reflect <T, E> :=
+    lambda x {T} -> ctrl {Bit, T} (Equals <T, E> of x) [
+        Bit1 -> x;
+        Bit0 -> x |> gphase {T, pi}
+    ]
+end
+
+/*
+Direct sum of programs F0 : T0 -> T0' and F1 : T1 -> T1', producing
+F0 + F1 : T0 + T1 -> T0' + T1'
+*/
+def OpDirSum <F0, F1, T0, T1, T0', T1'> :=
+    lambda x {T0 + T1} -> ctrl {T0 + T1, (T0 + T1) * (T0' + T1')} x [
+        left {T0, T1} of x0 -> (x, left {T0', T1'} of (F0 of x0));
+        right {T0, T1} of x1 -> (x, right {T0', T1'} of (F1 of x1))
+    ] |>
+    lambda (
+        ctrl {T0' + T1, (T0 + T1) * (T0' + T1')} x' [
+            left {T0', T1'} of x0' -> (left {T0, T1} of (Adjoint <F0, T0'> of x0'), x');
+            right {T0', T1'} of x1' -> (right {T0, T1} of (Adjoint <F1, T1'> of x1'), x')
+        ]
+    ) {(T0 + T1) * (T0' + T1')} -> x'
+end
+
+/*
+Little-endian encoding of number N as a quantum state
+*/
+def NumToState <N> :=
+    if N = [0] then
+        ()
+    else
+        if [N % 2] = [0] then
+            (Bit0, NumToState <[N / 2]>)
+        else
+            (Bit1, NumToState <[(N - 1) / 2]>)
+        endif
+    endif
 end

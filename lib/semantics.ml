@@ -238,12 +238,11 @@ let rec pure_expr_semantics (g : context) (d : context) (e : expr)
         pure_prog_semantics f *@ pure_expr_semantics g d e' sigma
 
 and mixed_expr_semantics (d : context) (e : expr) : superoperator =
-  let t =
+  let _ =
     match mixed_type_check d e with
-    | SomeE t -> t
+    | SomeE _ -> ()
     | NoneE err -> failwith err
   in
-  let tdim = type_dimension t in
   let ddim = context_dimension d in
     match (e, pure_type_check StringMap.empty d e) with
     | _, SomeE _ ->
@@ -251,11 +250,9 @@ and mixed_expr_semantics (d : context) (e : expr) : superoperator =
           pure_expr_semantics StringMap.empty d e StringMap.empty
         in
           superop_from_basis_action ddim (fun i j ->
-              if i = j then
-                let tau = index_to_context_basis_state d i in
-                  pure_sem *@ tau *@ mat_adjoint tau *@ mat_adjoint pure_sem
-              else
-                mat_zero tdim tdim)
+              let tau = index_to_context_basis_state d i in
+              let tau' = index_to_context_basis_state d j in
+                pure_sem *@ tau *@ mat_adjoint tau' *@ mat_adjoint pure_sem)
     | Qpair (e0, e1), _ -> begin
         let fv0 = free_vars e0 in
         let fv1 = free_vars e1 in
@@ -288,7 +285,9 @@ and mixed_expr_semantics (d : context) (e : expr) : superoperator =
               let mcatch = superop_on_basis e1sem i1 j1 in
                 mat_plus mtry
                   (mat_scalar_mul
-                     (Complex.sub Complex.one (mat_trace mtry))
+                     (Complex.sub
+                        (if i0 = j0 then Complex.one else Complex.zero)
+                        (mat_trace mtry))
                      mcatch))
       end
     | Apply (f, e'), _ ->

@@ -7,6 +7,7 @@ type real =
   | Times of (real * real)
   | Div of (real * real)
   | Pow of (real * real)
+  | Mod of (real * real)
   | Sin of real
   | Cos of real
   | Tan of real
@@ -16,6 +17,7 @@ type real =
   | Exp of real
   | Ln of real
   | Sqrt of real
+  | Round of real
 
 type realexpr =
   | XPi
@@ -27,6 +29,7 @@ type realexpr =
   | XTimes of (realexpr * realexpr)
   | XDiv of (realexpr * realexpr)
   | XPow of (realexpr * realexpr)
+  | XMod of (realexpr * realexpr)
   | XSin of realexpr
   | XCos of realexpr
   | XTan of realexpr
@@ -36,6 +39,7 @@ type realexpr =
   | XExp of realexpr
   | XLn of realexpr
   | XSqrt of realexpr
+  | XRound of realexpr
 
 let rec string_of_real (r : real) : string =
   match r with
@@ -51,6 +55,8 @@ let rec string_of_real (r : real) : string =
       Printf.sprintf "(%s) / (%s)" (string_of_real r1) (string_of_real r2)
   | Pow (r1, r2) ->
       Printf.sprintf "(%s) ^ (%s)" (string_of_real r1) (string_of_real r2)
+  | Mod (r1, r2) ->
+      Printf.sprintf "(%s) %% (%s)" (string_of_real r1) (string_of_real r2)
   | Sin r1 -> Printf.sprintf "sin(%s)" (string_of_real r1)
   | Cos r1 -> Printf.sprintf "cos(%s)" (string_of_real r1)
   | Tan r1 -> Printf.sprintf "tan(%s)" (string_of_real r1)
@@ -60,6 +66,7 @@ let rec string_of_real (r : real) : string =
   | Exp r1 -> Printf.sprintf "exp(%s)" (string_of_real r1)
   | Ln r1 -> Printf.sprintf "ln(%s)" (string_of_real r1)
   | Sqrt r1 -> Printf.sprintf "sqrt(%s)" (string_of_real r1)
+  | Round r1 -> Printf.sprintf "round(%s)" (string_of_real r1)
 
 let rec float_of_real (r : real) : float =
   match r with
@@ -71,6 +78,7 @@ let rec float_of_real (r : real) : float =
   | Times (r1, r2) -> float_of_real r1 *. float_of_real r2
   | Div (r1, r2) -> float_of_real r1 /. float_of_real r2
   | Pow (r1, r2) -> Float.pow (float_of_real r1) (float_of_real r2)
+  | Mod (r1, r2) -> mod_float (float_of_real r1) (float_of_real r2)
   | Sin r1 -> Float.sin (float_of_real r1)
   | Cos r1 -> Float.cos (float_of_real r1)
   | Tan r1 -> Float.tan (float_of_real r1)
@@ -80,3 +88,4 @@ let rec float_of_real (r : real) : float =
   | Exp r1 -> Float.exp (float_of_real r1)
   | Ln r1 -> Float.log (float_of_real r1)
   | Sqrt r1 -> Float.sqrt (float_of_real r1)
+  | Round r1 -> Float.round (float_of_real r1)
