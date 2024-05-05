@@ -480,3 +480,13 @@ and prog_type_check (f : prog) : progtype optionE =
     end
   (* T-GPHASE *)
   | Gphase (t, _) -> SomeE (Coherent (t, t))
+
+let expr_typecheck_noopt (e : expr) =
+  match mixed_type_check StringMap.empty e with
+  | SomeE t -> t
+  | NoneE err -> failwith err
+
+let prog_typecheck_noopt (f : prog) =
+  match prog_type_check f with
+  | SomeE ft -> ft
+  | NoneE err -> failwith err

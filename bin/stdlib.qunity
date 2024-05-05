@@ -93,12 +93,13 @@ Direct sum of programs F0 : T0 -> T0' and F1 : T1 -> T1', producing
 F0 + F1 : T0 + T1 -> T0' + T1'
 */
 def OpDirSum <F0, F1, T0, T1, T0', T1'> :=
-    lambda x {T0 + T1} -> ctrl {T0 + T1, (T0 + T1) * (T0' + T1')} x [
+    lambda x {T0 + T1} ->
+    ctrl {T0 + T1, (T0 + T1) * (T0' + T1')} x [
         left {T0, T1} of x0 -> (x, left {T0', T1'} of (F0 of x0));
         right {T0, T1} of x1 -> (x, right {T0', T1'} of (F1 of x1))
-    ] |>
-    lambda (
-        ctrl {T0' + T1, (T0 + T1) * (T0' + T1')} x' [
+    ]
+    |> lambda (
+        ctrl {T0' + T1', (T0 + T1) * (T0' + T1')} x' [
             left {T0', T1'} of x0' -> (left {T0, T1} of (Adjoint <F0, T0'> of x0'), x');
             right {T0', T1'} of x1' -> (right {T0, T1} of (Adjoint <F1, T1'> of x1'), x')
         ]
@@ -117,5 +118,16 @@ def NumToState <N> :=
         else
             (Bit1, NumToState <[(N - 1) / 2]>)
         endif
+    endif
+end
+
+/*
+Retries an evaluation of E N times, amplifying the probability of success
+*/
+def Retry <N, E> :=
+    if N = [0] then
+        E
+    else
+        try E catch Retry <[N - 1], E>
     endif
 end

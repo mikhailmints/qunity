@@ -2,6 +2,8 @@ type 'a optionE = SomeE of 'a | NoneE of string
 
 module StringSet = Set.Make (String)
 module StringMap = Map.Make (String)
+module IntSet = Set.Make (Int)
+module IntMap = Map.Make (Int)
 
 let option_of_optionE (optE : 'a optionE) : 'a option =
   match optE with
@@ -29,6 +31,18 @@ let fresh_string (s : StringSet.t) : string =
         candidate
   in
     fresh_string_helper 0
+
+let fresh_int_list (s : IntSet.t) (n : int) : int list * IntSet.t =
+  let rec fresh_int_list_helper (i : int) (curlist : int list)
+      (curset : IntSet.t) (n : int) =
+    if n <= 0 then
+      (curlist, curset)
+    else if IntSet.mem i curset then
+      fresh_int_list_helper (i + 1) curlist curset n
+    else
+      fresh_int_list_helper (i + 1) (i :: curlist) (IntSet.add i curset) (n - 1)
+  in
+    fresh_int_list_helper 0 [] s n
 
 (*
 Combine two maps into one. If allow_dup is false: fails if
@@ -79,6 +93,17 @@ let map_partition (d : 'a StringMap.t) (s : StringSet.t) :
     'a StringMap.t * 'a StringMap.t =
   (map_restriction d s, StringMap.filter (fun x _ -> not (StringSet.mem x s)) d)
 
+let int_map_find_or_keep (i : int) (m : int IntMap.t) : int =
+  match IntMap.find_opt i m with
+  | Some j -> j
+  | None -> i
+
+let int_list_union (l1 : int list) (l2 : int list) : int list =
+  IntSet.elements (IntSet.union (IntSet.of_list l1) (IntSet.of_list l2))
+
+let int_list_intersection (l1 : int list) (l2 : int list) : int list =
+  IntSet.elements (IntSet.inter (IntSet.of_list l1) (IntSet.of_list l2))
+
 let list_index (cmp : 'a -> 'a -> bool) (l : 'a list) (x : 'a) : int =
   let rec iter (l : 'a list) (i : int) : int =
     match l with
@@ -86,6 +111,22 @@ let list_index (cmp : 'a -> 'a -> bool) (l : 'a list) (x : 'a) : int =
     | x' :: l' -> if cmp x' x then i else iter l' (i + 1)
   in
     iter l 0
+
+let rec list_constant (x : 'a) (n : int) : 'a list =
+  if n <= 0 then
+    []
+  else
+    x :: list_constant x (n - 1)
+
+let list_split_at_i (l : 'a list) (i : int) : 'a list * 'a list =
+  let rec iter (cur : 'a list) (rest : 'a list) (i : int) =
+    if i <= 0 then
+      (cur, rest)
+    else
+      iter (List.hd rest :: cur) (List.tl rest) (i - 1)
+  in
+  let l0, l1 = iter [] l i in
+    (List.rev l0, l1)
 
 let range (i : int) : int list =
   let rec iter i = if i <= 0 then [] else (i - 1) :: iter (i - 1) in
