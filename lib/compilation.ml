@@ -35,7 +35,7 @@ let rec unitary_adjoint (u : unitary) : unitary =
   | Identity -> Identity
   | PauliX i -> PauliX i
   | Had i -> Had i
-  | U3Gate (i, theta, phi, lambda) -> U3Gate (i, -.theta, -.phi, -.lambda)
+  | U3Gate (i, theta, phi, lambda) -> U3Gate (i, -.theta, -.lambda, -.phi)
   | Controlled (l, bl, u0) -> Controlled (l, bl, unitary_adjoint u0)
   | Sequence (u0, u1) -> Sequence (unitary_adjoint u1, unitary_adjoint u0)
 
@@ -95,6 +95,10 @@ let rec type_size (t : exprtype) =
       0
   | SumType (t0, t1) -> 1 + max (type_size t0) (type_size t1)
   | ProdType (t0, t1) -> type_size t0 + type_size t1
+
+let context_size (d : context) =
+  List.fold_left ( + ) 0
+    (List.map (fun (_, t) -> type_size t) (StringMap.bindings d))
 
 let circuit_left (t0 : exprtype) (t1 : exprtype) : circuit_spec =
   let in_size = type_size t0 in

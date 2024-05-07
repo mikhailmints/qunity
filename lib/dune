@@ -8,7 +8,7 @@
   matrix
   semantics
   extended_syntax
-  circuit
+  compilation
   parser
   lexer))
 
