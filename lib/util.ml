@@ -44,6 +44,10 @@ let fresh_int_list (s : IntSet.t) (n : int) : int list * IntSet.t =
   in
     fresh_int_list_helper 0 [] s n
 
+let fresh_int (s : IntSet.t) : int * IntSet.t =
+  let i, res = fresh_int_list s 1 in
+    (List.hd i, res)
+
 (*
 Combine two maps into one. If allow_dup is false: fails if
 the maps share any bindings. If allow_dup is false: fails only if
@@ -103,6 +107,9 @@ let int_list_union (l1 : int list) (l2 : int list) : int list =
 
 let int_list_intersection (l1 : int list) (l2 : int list) : int list =
   IntSet.elements (IntSet.inter (IntSet.of_list l1) (IntSet.of_list l2))
+
+let int_list_diff (l1 : int list) (l2 : int list) : int list =
+  IntSet.elements (IntSet.diff (IntSet.of_list l1) (IntSet.of_list l2))
 
 let list_index (cmp : 'a -> 'a -> bool) (l : 'a list) (x : 'a) : int =
   let rec iter (l : 'a list) (i : int) : int =
