@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+for filename in examples/*.qunity; do
+    echo ====================
+    echo $filename
+    echo
+    ./qunity-compile $filename "qiskit_out/$(basename $filename ".qunity").py"
+done

@@ -68,6 +68,38 @@ let rec string_of_real (r : real) : string =
   | Sqrt r1 -> Printf.sprintf "sqrt(%s)" (string_of_real r1)
   | Round r1 -> Printf.sprintf "round(%s)" (string_of_real r1)
 
+let rec python_string_of_real (r : real) : string =
+  match r with
+  | Pi -> "np.pi"
+  | Euler -> "np.e"
+  | Const x -> string_of_int x
+  | Negate r1 -> Printf.sprintf "-(%s)" (python_string_of_real r1)
+  | Plus (r1, r2) ->
+      Printf.sprintf "(%s) + (%s)" (python_string_of_real r1)
+        (python_string_of_real r2)
+  | Times (r1, r2) ->
+      Printf.sprintf "(%s) * (%s)" (python_string_of_real r1)
+        (python_string_of_real r2)
+  | Div (r1, r2) ->
+      Printf.sprintf "(%s) / (%s)" (python_string_of_real r1)
+        (python_string_of_real r2)
+  | Pow (r1, r2) ->
+      Printf.sprintf "(%s) ** (%s)" (python_string_of_real r1)
+        (python_string_of_real r2)
+  | Mod (r1, r2) ->
+      Printf.sprintf "(%s) %% (%s)" (python_string_of_real r1)
+        (python_string_of_real r2)
+  | Sin r1 -> Printf.sprintf "np.sin(%s)" (python_string_of_real r1)
+  | Cos r1 -> Printf.sprintf "np.cos(%s)" (python_string_of_real r1)
+  | Tan r1 -> Printf.sprintf "np.tan(%s)" (python_string_of_real r1)
+  | Arcsin r1 -> Printf.sprintf "np.arcsin(%s)" (python_string_of_real r1)
+  | Arccos r1 -> Printf.sprintf "np.arccos(%s)" (python_string_of_real r1)
+  | Arctan r1 -> Printf.sprintf "np.arctan(%s)" (python_string_of_real r1)
+  | Exp r1 -> Printf.sprintf "np.exp(%s)" (python_string_of_real r1)
+  | Ln r1 -> Printf.sprintf "np.log(%s)" (python_string_of_real r1)
+  | Sqrt r1 -> Printf.sprintf "np.sqrt(%s)" (python_string_of_real r1)
+  | Round r1 -> Printf.sprintf "np.round(%s)" (string_of_real r1)
+
 let rec float_of_real (r : real) : float =
   match r with
   | Pi -> Float.pi

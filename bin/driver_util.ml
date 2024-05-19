@@ -2,11 +2,20 @@ open Qunity_prototypes
 open Util
 open Matrix
 open Syntax
+open Extended_syntax
 open Typechecking
 open Semantics
 
 let read_file (filename : string) : string =
   In_channel.with_open_bin filename In_channel.input_all
+
+let parse_file (s : string) : qunityfile =
+  let lexbuf = Lexing.from_string s in
+    Parser.qunityfile Lexer.read lexbuf
+
+let parse_interact (s : string) : qunityinteract =
+  let lexbuf = Lexing.from_string s in
+    Parser.qunityinteract Lexer.read lexbuf
 
 let execute_expr (e : expr) : unit =
   match mixed_type_check StringMap.empty e with

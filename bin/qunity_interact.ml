@@ -1,4 +1,4 @@
-open Simulate_util
+open Driver_util
 open Qunity_prototypes
 open Util
 open Reals
@@ -8,12 +8,8 @@ open Extended_syntax
 open Typechecking
 open Semantics
 
-let parse (s : string) : qunityinteract =
-  let lexbuf = Lexing.from_string s in
-    Parser.qunityinteract Lexer.read lexbuf
-
 let qunity_stdlib = read_file "bin/stdlib.qunity"
-let qi = parse (qunity_stdlib ^ "\n;;")
+let qi = parse_interact (qunity_stdlib ^ "\n;;")
 let dm : defmap ref = ref qi.dm
 let curinput = ref ""
 
@@ -26,7 +22,7 @@ let () =
         curinput := !curinput ^ line ^ "\n";
       if String.ends_with ~suffix:";;" line then begin
         match
-          try Some (parse !curinput) with
+          try Some (parse_interact !curinput) with
           | _ -> None
         with
         | None -> begin

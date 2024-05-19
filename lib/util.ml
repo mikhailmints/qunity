@@ -111,6 +111,15 @@ let int_list_intersection (l1 : int list) (l2 : int list) : int list =
 let int_list_diff (l1 : int list) (l2 : int list) : int list =
   IntSet.elements (IntSet.diff (IntSet.of_list l1) (IntSet.of_list l2))
 
+let string_of_list (f : 'a -> string) (l : 'a list) =
+  let rec string_of_int_list_helper l =
+    match l with
+    | [] -> ""
+    | [h] -> f h
+    | h :: t -> f h ^ ", " ^ string_of_int_list_helper t
+  in
+    "[" ^ string_of_int_list_helper l ^ "]"
+
 let list_index (cmp : 'a -> 'a -> bool) (l : 'a list) (x : 'a) : int =
   let rec iter (l : 'a list) (i : int) : int =
     match l with
@@ -129,6 +138,8 @@ let list_split_at_i (l : 'a list) (i : int) : 'a list * 'a list =
   let rec iter (cur : 'a list) (rest : 'a list) (i : int) =
     if i <= 0 then
       (cur, rest)
+    else if rest = [] then
+      failwith "list_split_at_i: index out of range"
     else
       iter (List.hd rest :: cur) (List.tl rest) (i - 1)
   in
