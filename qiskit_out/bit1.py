@@ -1,5 +1,5 @@
 import numpy as np
-from qiskit import QuantumRegister, QuantumCircuit, qasm3
+from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit, qasm3
 from qiskit.circuit.library import XGate, HGate, U3Gate
 
 def gate_sequence(gate0, l0, gate1, l1, label, nqubits):
@@ -9,11 +9,14 @@ def gate_sequence(gate0, l0, gate1, l1, label, nqubits):
     return circ.to_gate(label=label)
 
 
-circuit = QuantumCircuit(1)
+cr = ClassicalRegister(1)
+circuit = QuantumCircuit(QuantumRegister(1), cr)
 
 circuit.append(XGate(), [0])
 
 circuit = circuit.decompose(reps=0, gates_to_decompose=[])
+
+circuit.measure([0], cr)
 
 circuit.draw("mpl", filename=__file__.replace(".py", ".png"))
 

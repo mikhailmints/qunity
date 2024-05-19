@@ -22,10 +22,11 @@ let rec unitary_to_qiskit_gate (u : unitary) (nqubits : int)
   | GphaseGate (l, theta) ->
       let s =
         Printf.sprintf
-          "QuantumCircuit(%d, global_phase=%s, name=\"gphase(%s)\").to_gate()"
+          "QuantumCircuit(%d, global_phase=%s, \
+           name=\"gphase(%.2f)\").to_gate()"
           (List.length l)
           (python_string_of_real theta)
-          (string_of_real theta)
+          (float_of_real theta)
       in
         (s, l, gatenames)
   | Controlled (l, bl, u0) -> begin
@@ -57,27 +58,34 @@ let rec unitary_to_qiskit_gate (u : unitary) (nqubits : int)
         (s, range nqubits, StringSet.add label gatenames)
     end
 
-let unitary_to_qiskit_file (gate : unitary) (nqubits : int) =
+let unitary_to_qiskit_file (gate : unitary) (nqubits : int)
+    (out_reg : int list) =
   let header = read_file "bin/qiskit_header.py" in
+  let circ_decl =
+    Printf.sprintf
+      "\n\n\
+       cr = ClassicalRegister(%d)\n\
+       circuit = QuantumCircuit(QuantumRegister(%d), cr)\n\n"
+      (List.length out_reg) nqubits
+  in
   let footer =
-    "circuit.draw(\"mpl\", filename=__file__.replace(\".py\", \".png\"))\n\n\
-     qasm3.dump(circuit, open(__file__.replace(\".py\", \".qasm\"), \"w\"))\n"
+    Printf.sprintf
+      "circuit.measure(%s, cr)\n\n\
+       circuit.draw(\"mpl\", filename=__file__.replace(\".py\", \".png\"))\n\n\
+       qasm3.dump(circuit, open(__file__.replace(\".py\", \".qasm\"), \"w\"))\n"
+      (string_of_list string_of_int out_reg)
   in
     if gate = Identity then
-      header
-      ^ Printf.sprintf "\n\ncircuit = QuantumCircuit(%d)\n\n" nqubits
-      ^ footer
+      header ^ circ_decl ^ footer
     else
       let gate_str, gate_l, gatenames =
         unitary_to_qiskit_gate gate nqubits StringSet.empty
       in
-        header
+        header ^ circ_decl
         ^ Printf.sprintf
-            "\n\n\
-             circuit = QuantumCircuit(%d)\n\n\
-             circuit.append(%s, %s)\n\n\
+            "circuit.append(%s, %s)\n\n\
              circuit = circuit.decompose(reps=%d, gates_to_decompose=%s)\n\n"
-            nqubits gate_str
+            gate_str
             (string_of_list string_of_int gate_l)
             (StringSet.cardinal gatenames)
             (string_of_list
@@ -100,8 +108,8 @@ let () =
         match preprocess qf with
         | NoneE err -> Printf.printf "Preprocessing error: %s\n\n" err
         | SomeE e -> begin
-            let gate, nqubits = expr_compile e in
-            let qiskit_str = unitary_to_qiskit_file gate nqubits in
+            let gate, nqubits, out_reg = expr_compile e in
+            let qiskit_str = unitary_to_qiskit_file gate nqubits out_reg in
             let out_file = open_out out_filename in
               Printf.fprintf out_file "%s" qiskit_str
           end
