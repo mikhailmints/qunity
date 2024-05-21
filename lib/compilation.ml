@@ -5,14 +5,15 @@ open Typechecking
 
 let debug_mode = false
 
-type unitary =
+type gate =
   | Identity
   | PauliX of int
   | Had of int
   | U3Gate of (int * real * real * real)
   | GphaseGate of int list * real
-  | Controlled of (int list * bool list * unitary)
-  | Sequence of (unitary * unitary)
+  | Reset of int
+  | Controlled of (int list * bool list * gate)
+  | Sequence of (gate * gate)
 
 let ( @& ) a b = Sequence (a, b)
 
@@ -22,13 +23,14 @@ type circuit = {
   flag_reg : int list;
   garb_reg : int list;
   used_wires : IntSet.t;
-  gate : unitary;
+  gate : gate;
 }
 
 type circuit_spec = {
   in_sizes : int list;
   out_sizes : int list;
-  circ_fun : int list list -> IntSet.t -> circuit;
+  (* in_regs, used_wires, reset_garb *)
+  circ_fun : int list list -> IntSet.t -> bool -> circuit;
 }
 
 type inter_valuation = int list StringMap.t
@@ -44,31 +46,31 @@ type inter_op =
   | IShare of exprtype (* a {T} -> [a; a] *)
   | IContextShare of context
   | IAdjoint of inter_op
-  (* | ISequence of inter_op * inter_op
-     | ITensor of inter_op * inter_op
-     | IDirsum of inter_op * inter_op
-     | IDistr of
-         exprtype * exprtype * exprtype (* T * (T0 + T1) -> T * T0 + T * T1 *)
-     | IMixedErr of inter_op
-     | IPureErr of inter_op
-     | IPurify of inter_op *)
+  | IDirsum of inter_op * inter_op
+  | IDistr of
+      exprtype * exprtype * exprtype (* T * (T0 + T1) -> T * T0 + T * T1 *)
+  | IMixedErr of inter_op
+  | IPureErr of inter_op
+  | IDiscard of exprtype
+  | IContextDiscard of context
+  | IPurify of inter_op
   | IContextPartition of
       context * StringSet.t (* context -> [things in set; things not in set] *)
   | IContextMerge of (context * context)
     (* merge contexts assumed to be disjoint *)
-  | ILambda of (int list * (string * int) list * inter_expr list * string list)
+  | ILambda of ((string * int) list * inter_com list * (string * int) list)
 (* Output sizes, arg names with sizes, body, return vars. *)
 
-and inter_expr = string list * inter_op * string list
+and inter_com = string list * inter_op * string list
 
-let inter_lambda (outsizes : int list) (arglist : (string * int) list)
-    (body : inter_expr list) (ret : string list) : inter_op =
-  ILambda (outsizes, arglist, body, ret)
+let inter_lambda (arglist : (string * int) list) (body : inter_com list)
+    (ret : (string * int) list) : inter_op =
+  ILambda (arglist, body, ret)
 
 let inter_letapp (target : string list) (op : inter_op) (args : string list) =
   (target, op, args)
 
-let rec unitary_adjoint (u : unitary) : unitary =
+let rec gate_adjoint (u : gate) : gate =
   match u with
   | Identity -> Identity
   | PauliX i -> PauliX i
@@ -76,14 +78,15 @@ let rec unitary_adjoint (u : unitary) : unitary =
   | U3Gate (i, theta, phi, lambda) ->
       U3Gate (i, Negate theta, Negate lambda, Negate phi)
   | GphaseGate (l, theta) -> GphaseGate (l, Negate theta)
-  | Controlled (l, bl, u0) -> Controlled (l, bl, unitary_adjoint u0)
-  | Sequence (u0, u1) -> Sequence (unitary_adjoint u1, unitary_adjoint u0)
+  | Reset _ -> Identity
+  | Controlled (l, bl, u0) -> Controlled (l, bl, gate_adjoint u0)
+  | Sequence (u0, u1) -> Sequence (gate_adjoint u1, gate_adjoint u0)
 
 (*
-Rewire a unitary by replacing all references to certain qubits with
+Rewire a gate by replacing all references to certain qubits with
 other qubits.
 *)
-let rec unitary_rewire (u : unitary) (rewiring : int IntMap.t) : unitary =
+let rec gate_rewire (u : gate) (rewiring : int IntMap.t) : gate =
   match u with
   | Identity -> Identity
   | PauliX i -> PauliX (int_map_find_or_keep i rewiring)
@@ -92,29 +95,30 @@ let rec unitary_rewire (u : unitary) (rewiring : int IntMap.t) : unitary =
       U3Gate (int_map_find_or_keep i rewiring, theta, phi, lambda)
   | GphaseGate (l, theta) ->
       GphaseGate (List.map (fun i -> int_map_find_or_keep i rewiring) l, theta)
+  | Reset i -> Reset (int_map_find_or_keep i rewiring)
   | Controlled (l, bl, u0) ->
       Controlled
         ( List.map (fun i -> int_map_find_or_keep i rewiring) l,
           bl,
-          unitary_rewire u0 rewiring )
+          gate_rewire u0 rewiring )
   | Sequence (u0, u1) ->
-      Sequence (unitary_rewire u0 rewiring, unitary_rewire u1 rewiring)
+      Sequence (gate_rewire u0 rewiring, gate_rewire u1 rewiring)
 
-let unitary_cnot (b0 : int) (b1 : int) : unitary =
+let gate_cnot (b0 : int) (b1 : int) : gate =
   Controlled ([b0], [true], PauliX b1)
 
-let rec unitary_remove_identities (u : unitary) : unitary =
+let rec gate_remove_identities (u : gate) : gate =
   match u with
   | Controlled (l, bl, u0) -> begin
-      let u0' = unitary_remove_identities u0 in
+      let u0' = gate_remove_identities u0 in
         if u0' = Identity then Identity else Controlled (l, bl, u0')
     end
   | Sequence (Identity, Identity) -> Identity
-  | Sequence (Identity, u0) -> unitary_remove_identities u0
-  | Sequence (u0, Identity) -> unitary_remove_identities u0
+  | Sequence (Identity, u0) -> gate_remove_identities u0
+  | Sequence (u0, Identity) -> gate_remove_identities u0
   | Sequence (u0, u1) -> begin
-      let u0' = unitary_remove_identities u0 in
-      let u1' = unitary_remove_identities u1 in
+      let u0' = gate_remove_identities u0 in
+      let u1' = gate_remove_identities u1 in
         match (u0', u1') with
         | Identity, _ -> u1'
         | _, Identity -> u0'
@@ -125,26 +129,31 @@ let rec unitary_remove_identities (u : unitary) : unitary =
 (*
 Share a register to another one by applying CNOT gates for each qubit.
 *)
-let rec unitary_share (reg0 : int list) (reg1 : int list) : unitary =
+let rec gate_share (reg0 : int list) (reg1 : int list) : gate =
   match (reg0, reg1) with
   | [], [] -> Identity
-  | h1 :: t1, h2 :: t2 -> unitary_cnot h1 h2 @& unitary_share t1 t2
+  | h1 :: t1, h2 :: t2 -> gate_cnot h1 h2 @& gate_share t1 t2
   | _ -> invalid_arg "Registers must be of the same size."
 
 (*
 SWAP gate as 3 CNOTs
 *)
-let unitary_swap (b0 : int) (b1 : int) : unitary =
-  unitary_cnot b0 b1 @& unitary_cnot b1 b0 @& unitary_cnot b0 b1
+let gate_swap (b0 : int) (b1 : int) : gate =
+  gate_cnot b0 b1 @& gate_cnot b1 b0 @& gate_cnot b0 b1
 
 (*
 Swap two registers of equal size
 *)
-let rec unitary_swap_regs (reg0 : int list) (reg1 : int list) : unitary =
+let rec gate_swap_regs (reg0 : int list) (reg1 : int list) : gate =
   match (reg0, reg1) with
   | [], [] -> Identity
-  | h1 :: t1, h2 :: t2 -> unitary_swap h1 h2 @& unitary_swap_regs t1 t2
+  | h1 :: t1, h2 :: t2 -> gate_swap h1 h2 @& gate_swap_regs t1 t2
   | _ -> invalid_arg "Registers must be of the same size."
+
+let rec gate_reset_reg (reg : int list) : gate =
+  match reg with
+  | [] -> Identity
+  | h :: t -> Sequence (Reset h, gate_reset_reg t)
 
 (*
 Number of qubits needed to represent a value of a given size
@@ -170,13 +179,17 @@ let expect_single_in_reg (name : string) (in_regs : int list list) (size : int)
         (Printf.sprintf "%s: expected input lengths [%d], got %s" name size
            (string_of_list string_of_int (List.map List.length in_regs)))
 
+let build_circuit (cs : circuit_spec) (in_regs : int list list)
+    (used_wires : IntSet.t) : circuit =
+  cs.circ_fun in_regs used_wires true
+
 let circuit_empty =
   {
     in_sizes = [];
     out_sizes = [0];
     circ_fun =
       begin
-        fun in_regs used_wires ->
+        fun in_regs used_wires _ ->
           assert (in_regs = []);
           {
             prep_reg = [];
@@ -195,7 +208,7 @@ let circuit_identity (t : exprtype) : circuit_spec =
     out_sizes = [type_size t];
     circ_fun =
       begin
-        fun in_regs used_wires ->
+        fun in_regs used_wires _ ->
           {
             prep_reg = [];
             out_regs = in_regs;
@@ -213,7 +226,7 @@ let circuit_u3 (theta : real) (phi : real) (lambda : real) : circuit_spec =
     out_sizes = [1];
     circ_fun =
       begin
-        fun in_regs used_wires ->
+        fun in_regs used_wires _ ->
           assert (List.map List.length in_regs = [1]);
           let bit = List.hd (List.hd in_regs) in
             {
@@ -243,7 +256,7 @@ let circuit_gphase (t : exprtype) (theta : real) : circuit_spec =
       out_sizes = [size];
       circ_fun =
         begin
-          fun in_regs used_wires ->
+          fun in_regs used_wires _ ->
             assert (List.map List.length in_regs = [size]);
             {
               prep_reg = [];
@@ -265,7 +278,7 @@ let circuit_left (t0 : exprtype) (t1 : exprtype) : circuit_spec =
       out_sizes = [out_size];
       circ_fun =
         begin
-          fun in_regs used_wires ->
+          fun in_regs used_wires _ ->
             let in_reg = expect_single_in_reg "circuit_left" in_regs in_size in
             let prep, used_wires = fresh_int_list used_wires prep_size in
               {
@@ -288,7 +301,7 @@ let circuit_right (t0 : exprtype) (t1 : exprtype) : circuit_spec =
       out_sizes = [out_size];
       circ_fun =
         begin
-          fun in_regs used_wires ->
+          fun in_regs used_wires _ ->
             let in_reg =
               expect_single_in_reg "circuit_right" in_regs in_size
             in
@@ -310,7 +323,7 @@ let circuit_share (size : int) : circuit_spec =
     out_sizes = [size; size];
     circ_fun =
       begin
-        fun in_regs used_wires ->
+        fun in_regs used_wires _ ->
           let in_reg = expect_single_in_reg "circuit_share" in_regs size in
           let prep, used_wires = fresh_int_list used_wires size in
             {
@@ -319,7 +332,7 @@ let circuit_share (size : int) : circuit_spec =
               flag_reg = [];
               garb_reg = [];
               used_wires;
-              gate = unitary_share in_reg prep;
+              gate = gate_share in_reg prep;
             }
       end;
   }
@@ -330,7 +343,7 @@ let circuit_pair (t0 : exprtype) (t1 : exprtype) : circuit_spec =
     out_sizes = [type_size t0 + type_size t1];
     circ_fun =
       begin
-        fun in_regs used_wires ->
+        fun in_regs used_wires _ ->
           let in_reg0, in_reg1 =
             match in_regs with
             | [in_reg0; in_reg1]
@@ -350,64 +363,13 @@ let circuit_pair (t0 : exprtype) (t1 : exprtype) : circuit_spec =
       end;
   }
 
-let circuit_product (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
-  {
-    in_sizes = cs0.in_sizes @ cs1.in_sizes;
-    out_sizes = cs0.out_sizes @ cs1.out_sizes;
-    circ_fun =
-      begin
-        fun in_regs used_wires ->
-          assert (List.map List.length in_regs = cs0.in_sizes @ cs1.in_sizes);
-          let in_regs0, in_regs1 =
-            list_split_at_i in_regs (List.length cs0.in_sizes)
-          in
-          let circ0 = cs0.circ_fun in_regs0 used_wires in
-          let circ1 = cs1.circ_fun in_regs1 circ0.used_wires in
-          let used_wires = circ1.used_wires in
-            {
-              prep_reg = circ0.prep_reg @ circ1.prep_reg;
-              out_regs = circ0.out_regs @ circ1.out_regs;
-              flag_reg = circ0.flag_reg @ circ1.flag_reg;
-              garb_reg = circ0.garb_reg @ circ1.garb_reg;
-              used_wires;
-              gate = circ0.gate @& circ1.gate;
-            }
-      end;
-  }
-
-let ( *& ) = circuit_product
-
-let circuit_sequence (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
-  {
-    in_sizes = cs0.in_sizes;
-    out_sizes = cs0.out_sizes;
-    circ_fun =
-      begin
-        fun in_regs used_wires ->
-          assert (List.map List.length in_regs = cs0.in_sizes);
-          let circ0 = cs0.circ_fun in_regs used_wires in
-          let circ1 = cs1.circ_fun circ0.out_regs circ0.used_wires in
-          let used_wires = circ1.used_wires in
-            {
-              prep_reg = circ0.prep_reg @ circ1.prep_reg;
-              out_regs = circ1.out_regs;
-              flag_reg = circ0.flag_reg @ circ1.flag_reg;
-              garb_reg = circ0.garb_reg @ circ1.garb_reg;
-              used_wires;
-              gate = circ0.gate @& circ1.gate;
-            }
-      end;
-  }
-
-let ( +& ) = circuit_sequence
-
 let circuit_adjoint (cs : circuit_spec) : circuit_spec =
   {
     in_sizes = cs.out_sizes;
     out_sizes = cs.in_sizes;
     circ_fun =
       begin
-        fun in_regs used_wires ->
+        fun in_regs used_wires reset_garb ->
           assert (List.map List.length in_regs = cs.out_sizes);
           let temp_regs, temp_used_wires =
             List.split (List.map (fresh_int_list used_wires) cs.in_sizes)
@@ -415,8 +377,10 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
           let temp_used_wires =
             List.fold_left IntSet.union IntSet.empty temp_used_wires
           in
-          let circ = cs.circ_fun temp_regs temp_used_wires in
-            assert (circ.garb_reg = []);
+          let circ = cs.circ_fun temp_regs temp_used_wires reset_garb in
+            if circ.garb_reg <> [] then
+              failwith
+                "Expected garbage register to be empty when taking adjoint";
             let rewiring =
               IntMap.of_seq
                 (List.to_seq
@@ -437,7 +401,7 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
                 flag_reg = rewire_list circ.prep_reg;
                 garb_reg = [];
                 used_wires;
-                gate = unitary_adjoint (unitary_rewire circ.gate rewiring);
+                gate = gate_adjoint (gate_rewire circ.gate rewiring);
               }
       end;
   }
@@ -456,7 +420,7 @@ let circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
       out_sizes = [out_size];
       circ_fun =
         begin
-          fun in_regs used_wires ->
+          fun in_regs used_wires reset_garb ->
             let in_reg =
               expect_single_in_reg "circuit_dirsum" in_regs in_size
             in
@@ -474,21 +438,28 @@ let circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
               in
               let circ0, circ1 =
                 if in_size0 <= in_size1 then
-                  let circ0 = cs0.circ_fun [in_reg_min] used_wires in
+                  let circ0 =
+                    cs0.circ_fun [in_reg_min] used_wires reset_garb
+                  in
                   let circ1 =
-                    cs1.circ_fun [prep_min @ in_reg_diff] circ0.used_wires
+                    cs1.circ_fun
+                      [prep_min @ in_reg_diff]
+                      circ0.used_wires reset_garb
                   in
                     (circ0, circ1)
                 else
                   let circ0 =
-                    cs0.circ_fun [prep_min @ in_reg_diff] used_wires
+                    cs0.circ_fun [prep_min @ in_reg_diff] used_wires reset_garb
                   in
-                  let circ1 = cs1.circ_fun [in_reg_min] circ0.used_wires in
+                  let circ1 =
+                    cs1.circ_fun [in_reg_min] circ0.used_wires reset_garb
+                  in
                     (circ0, circ1)
               in
-                assert (
-                  List.length circ0.garb_reg = 0
-                  && List.length circ1.garb_reg = 0);
+                if circ0.garb_reg <> [] || circ1.garb_reg <> [] then
+                  failwith
+                    "Expected garbage registers to be empty when taking \
+                     direct sum";
                 let out_reg0, out_reg1 =
                   match (circ0.out_regs, circ1.out_regs) with
                   | [out_reg0], [out_reg1] -> (out_reg0, out_reg1)
@@ -521,17 +492,17 @@ let circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
                       Controlled
                         ( [ctrlbit],
                           [not (in_size0 <= in_size1)],
-                          unitary_swap_regs in_reg_diff prep_diff )
+                          gate_swap_regs in_reg_diff prep_diff )
                       @& Controlled
                            ( [ctrlbit],
                              [in_size0 <= in_size1],
-                             unitary_swap_regs in_reg_min prep_min )
+                             gate_swap_regs in_reg_min prep_min )
                       @& Controlled ([ctrlbit], [false], circ0.gate)
                       @& Controlled ([ctrlbit], [true], circ1.gate)
                       @& Controlled
                            ( [ctrlbit],
                              [not (out_size0 <= out_size1)],
-                             unitary_swap_regs out_reg_min_in_min
+                             gate_swap_regs out_reg_min_in_min
                                out_reg_min_in_max );
                   }
         end;
@@ -546,7 +517,7 @@ let circuit_distributivity (t : exprtype) (t0 : exprtype) (t1 : exprtype) :
       out_sizes = [out_size];
       circ_fun =
         begin
-          fun in_regs used_wires ->
+          fun in_regs used_wires _ ->
             assert (List.map List.length in_regs = in_sizes);
             let t_reg, rest_reg =
               match in_regs with
@@ -572,28 +543,38 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
       out_sizes = [out_size];
       circ_fun =
         begin
-          fun in_reg used_wires ->
-            assert (List.map List.length in_reg = in_sizes);
-            let circ = cs.circ_fun in_reg used_wires in
+          fun in_regs used_wires reset_garb ->
+            assert (List.map List.length in_regs = in_sizes);
+            let circ = cs.circ_fun in_regs used_wires reset_garb in
             let used_wires = circ.used_wires in
             let new_prep, used_wires = fresh_int_list used_wires out_size in
             let signal_bit = List.hd new_prep in
             let fresh_prep = List.tl new_prep in
+            let garb_reg = circ.flag_reg @ circ.garb_reg @ fresh_prep in
               {
                 prep_reg = (signal_bit :: circ.prep_reg) @ fresh_prep;
                 out_regs = [signal_bit :: List.concat circ.out_regs];
                 flag_reg = [];
-                garb_reg = circ.flag_reg @ circ.garb_reg @ fresh_prep;
-                used_wires;
+                garb_reg;
+                used_wires =
+                  begin
+                    if reset_garb then
+                      IntSet.diff used_wires (IntSet.of_list garb_reg)
+                    else
+                      used_wires
+                  end;
                 gate =
                   circ.gate @& PauliX signal_bit
                   @& Controlled
                        ( circ.flag_reg,
                          list_constant false (List.length circ.flag_reg),
                          PauliX signal_bit
-                         @& unitary_swap_regs
+                         @& gate_swap_regs
                               (List.concat circ.out_regs)
-                              fresh_prep );
+                              fresh_prep )
+                  @& begin
+                       if reset_garb then gate_reset_reg garb_reg else Identity
+                     end;
               }
         end;
     }
@@ -606,10 +587,12 @@ let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
       out_sizes = [out_size];
       circ_fun =
         begin
-          fun in_reg used_wires ->
-            assert (List.map List.length in_reg = in_sizes);
-            let circ = cs.circ_fun in_reg used_wires in
-              assert (circ.garb_reg = []);
+          fun in_regs used_wires reset_garb ->
+            assert (List.map List.length in_regs = in_sizes);
+            let circ = cs.circ_fun in_regs used_wires reset_garb in
+              if circ.garb_reg <> [] then
+                failwith
+                  "Expected empty garbage register for pure error handling";
               let used_wires = circ.used_wires in
               let signal_bit, used_wires = fresh_int_list used_wires 1 in
               let signal_bit = List.hd signal_bit in
@@ -630,14 +613,51 @@ let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
         end;
     }
 
-let context_index (d : context) (x : string) : int =
-  list_index ( = ) (List.map fst (StringMap.bindings d)) x
+let circuit_discard (size : int) =
+  {
+    in_sizes = [size];
+    out_sizes = [];
+    circ_fun =
+      begin
+        fun in_regs used_wires reset_garb ->
+          let garb_reg = List.concat in_regs in
+            {
+              prep_reg = [];
+              out_regs = [];
+              flag_reg = [];
+              garb_reg;
+              used_wires =
+                begin
+                  if reset_garb then
+                    IntSet.diff used_wires (IntSet.of_list garb_reg)
+                  else
+                    used_wires
+                end;
+              gate =
+                begin
+                  if reset_garb then gate_reset_reg garb_reg else Identity
+                end;
+            }
+      end;
+  }
 
-let context_index_restriction (d : context) (fv : StringSet.t) : int list =
-  List.map (context_index d)
-    (List.filter
-       (fun x -> StringSet.mem x fv)
-       (List.map fst (StringMap.bindings d)))
+let circuit_purify (cs : circuit_spec) : circuit_spec =
+  {
+    in_sizes = cs.in_sizes;
+    out_sizes =
+      begin
+        let temp_circ =
+          cs.circ_fun
+            (List.map (list_constant (-1)) cs.in_sizes)
+            IntSet.empty true
+        in
+          List.map List.length temp_circ.out_regs
+      end;
+    circ_fun =
+      begin
+        fun in_regs used_wires _ -> cs.circ_fun in_regs used_wires false
+      end;
+  }
 
 let context_reg_split (d : context) (reg : int list) : int list StringMap.t =
   let rec iter (cur : int list StringMap.t) (reg_rest : int list)
@@ -673,7 +693,7 @@ let circuit_context_partition (d : context) (fv : StringSet.t) : circuit_spec =
       out_sizes = [StringMap.cardinal d0; StringMap.cardinal d1];
       circ_fun =
         begin
-          fun in_regs used_wires ->
+          fun in_regs used_wires _ ->
             let in_reg =
               expect_single_in_reg "circuit_context_partition" in_regs in_size
             in
@@ -698,9 +718,9 @@ let circuit_context_merge (d0 : context) (d1 : context) : circuit_spec =
   let fv0 = map_dom d0 in
     circuit_adjoint (circuit_context_partition d fv0)
 
-let rec compile_inter_expr_to_circuit (circ : circuit) (iv : inter_valuation)
-    (used_wires : IntSet.t) (ie : inter_expr) :
-    circuit * inter_valuation * IntSet.t =
+let rec compile_inter_com_to_circuit (circ : circuit) (iv : inter_valuation)
+    (ie : inter_com) : circuit * inter_valuation =
+  let used_wires = circ.used_wires in
   let target, op, args = ie in
   let argset = StringSet.of_list args in
     if
@@ -719,7 +739,7 @@ let rec compile_inter_expr_to_circuit (circ : circuit) (iv : inter_valuation)
           args
       in
       let op_cs = compile_inter_op_to_circuit op in
-      let op_circ = op_cs.circ_fun ev_regs used_wires in
+      let op_circ = build_circuit op_cs ev_regs used_wires in
       let used_wires = op_circ.used_wires in
       let res_circ =
         {
@@ -749,17 +769,15 @@ let rec compile_inter_expr_to_circuit (circ : circuit) (iv : inter_valuation)
           | SomeE iv'' -> iv''
           | NoneE err -> failwith err
         in
-          (res_circ, iv'', used_wires)
+          (res_circ, iv'')
 
-and compile_inter_expr_list_to_circuit (circ : circuit) (iv : inter_valuation)
-    (used_wires : IntSet.t) (iel : inter_expr list) =
+and compile_inter_com_list_to_circuit (circ : circuit) (iv : inter_valuation)
+    (iel : inter_com list) : circuit * inter_valuation =
   match iel with
-  | [] -> (circ, iv, used_wires)
+  | [] -> (circ, iv)
   | ielh :: ielt -> begin
-      let circ', iv', used_wires' =
-        compile_inter_expr_to_circuit circ iv used_wires ielh
-      in
-        compile_inter_expr_list_to_circuit circ' iv' used_wires' ielt
+      let circ', iv' = compile_inter_com_to_circuit circ iv ielh in
+        compile_inter_com_list_to_circuit circ' iv' ielt
     end
 
 and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
@@ -774,28 +792,41 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | IShare t -> circuit_share (type_size t)
   | IContextShare d -> circuit_share (context_size d)
   | IAdjoint op' -> circuit_adjoint (compile_inter_op_to_circuit op')
+  | IDirsum (op0, op1) ->
+      circuit_dirsum
+        (compile_inter_op_to_circuit op0)
+        (compile_inter_op_to_circuit op1)
+  | IDistr (t, t0, t1) -> circuit_distributivity t t0 t1
+  | IMixedErr op ->
+      circuit_mixed_error_handling (compile_inter_op_to_circuit op)
+  | IPureErr op -> circuit_pure_error_handling (compile_inter_op_to_circuit op)
+  | IDiscard t -> circuit_discard (type_size t)
+  | IContextDiscard d -> circuit_discard (context_size d)
+  | IPurify op' -> circuit_purify (compile_inter_op_to_circuit op')
   | IContextPartition (d, fv) -> circuit_context_partition d fv
   | IContextMerge (d0, d1) -> circuit_context_merge d0 d1
-  | ILambda (out_sizes, args, iel, ret) -> begin
-      let argnames = List.map fst args in
-      let argsizes = List.map snd args in
+  | ILambda (args, iel, ret) -> begin
+      let arg_names = List.map fst args in
+      let arg_sizes = List.map snd args in
+      let ret_names = List.map fst ret in
+      let ret_sizes = List.map snd ret in
         {
-          in_sizes = argsizes;
-          out_sizes;
+          in_sizes = arg_sizes;
+          out_sizes = ret_sizes;
           circ_fun =
             begin
-              fun in_regs used_wires ->
+              fun in_regs used_wires _ ->
                 if debug_mode then
                   Printf.printf
-                    "ILambda: argnames = %s, in_regs = %s, in_sizes = %s, \
-                     out_sizes = %s\n"
-                    (string_of_list (fun s -> s) argnames)
+                    "ILambda: arg_names = %s, in_regs = %s, arg_sizes = %s, \
+                     ret_sizes = %s\n"
+                    (string_of_list (fun s -> s) arg_names)
                     (string_of_list (string_of_list string_of_int) in_regs)
-                    (string_of_list string_of_int argsizes)
-                    (string_of_list string_of_int out_sizes);
+                    (string_of_list string_of_int arg_sizes)
+                    (string_of_list string_of_int ret_sizes);
                 let iv =
                   StringMap.of_seq
-                    (List.to_seq (List.combine argnames in_regs))
+                    (List.to_seq (List.combine arg_names in_regs))
                 in
                 let init_circ =
                   {
@@ -807,11 +838,12 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
                     gate = Identity;
                   }
                 in
-                let circ, iv, _ =
-                  compile_inter_expr_list_to_circuit init_circ iv used_wires
-                    iel
+                let circ, iv =
+                  compile_inter_com_list_to_circuit init_circ iv iel
                 in
-                let ret_regs = List.map (fun x -> StringMap.find x iv) ret in
+                let ret_regs =
+                  List.map (fun x -> StringMap.find x iv) ret_names
+                in
                   {
                     prep_reg = circ.prep_reg;
                     out_regs = ret_regs;
@@ -836,13 +868,16 @@ let rec compile_pure_expr_to_inter_op (g : context) (d : context) (e : expr) :
   let tsize = type_size t in
     match e with
     | Null -> begin
-        inter_lambda [gsize; tsize] [("g", gsize); ("d", dsize)] [] ["g"; "d"]
+        inter_lambda
+          [("g", gsize); ("d", dsize)]
+          []
+          [("g", gsize); ("d", tsize)]
       end
     | Var x -> begin
         match StringMap.bindings d with
         | [] -> begin
             let xreg, grest = map_partition g (StringSet.singleton x) in
-              inter_lambda [gsize; tsize]
+              inter_lambda
                 [("g", gsize); ("d", dsize)]
                 [
                   inter_letapp ["x"; "rest"]
@@ -853,12 +888,13 @@ let rec compile_pure_expr_to_inter_op (g : context) (d : context) (e : expr) :
                     (IContextMerge (xreg, grest))
                     ["x"; "rest"];
                 ]
-                ["g"; "res"]
+                [("g", gsize); ("res", tsize)]
           end
         | [(x', _)] when x' = x -> begin
-            inter_lambda [gsize; tsize]
+            inter_lambda
               [("g", gsize); ("d", dsize)]
-              [] ["g"; "d"]
+              []
+              [("g", gsize); ("d", tsize)]
           end
         | _ ->
             failwith
@@ -880,7 +916,7 @@ let rec compile_pure_expr_to_inter_op (g : context) (d : context) (e : expr) :
         let d1' = map_restriction d_xor fv1 in
         let op0 = compile_pure_expr_to_inter_op g d0 e0 in
         let op1 = compile_pure_expr_to_inter_op g d1 e1 in
-          inter_lambda [gsize; tsize]
+          inter_lambda
             [("g", gsize); ("d", dsize)]
             [
               inter_letapp ["d01"; "d_xor"] (IContextPartition (d, fv01)) ["d"];
@@ -896,20 +932,20 @@ let rec compile_pure_expr_to_inter_op (g : context) (d : context) (e : expr) :
               inter_letapp ["g"; "t1"] op1 ["g"; "d01*_1"];
               inter_letapp ["res"] (IPair (t0, t1)) ["t0"; "t1"];
             ]
-            ["g"; "res"]
+            [("g", gsize); ("res", tsize)]
       end
     | Ctrl _ -> failwith "TODO"
     | Try _ -> failwith "Try is not a pure expression"
     | Apply (f, e') -> begin
         let e'_op = compile_pure_expr_to_inter_op g d e' in
         let f_op = compile_pure_prog_to_inter_op f in
-          inter_lambda [gsize; tsize]
+          inter_lambda
             [("g", gsize); ("d", dsize)]
             [
               inter_letapp ["g"; "t*"] e'_op ["g"; "d"];
               inter_letapp ["res"] f_op ["t*"];
             ]
-            ["g"; "res"]
+            [("g", gsize); ("res", tsize)]
       end
 
 and compile_pure_prog_to_inter_op (f : prog) : inter_op =
@@ -931,24 +967,23 @@ and compile_pure_prog_to_inter_op (f : prog) : inter_op =
             let e_op = compile_pure_expr_to_inter_op StringMap.empty d e in
             let e'_op = compile_pure_expr_to_inter_op StringMap.empty d e' in
               inter_lambda
-                [type_size out_t]
                 [("t", type_size t)]
                 [
                   inter_letapp ["g"] IEmpty [];
                   inter_letapp ["g"; "d"] (IAdjoint e_op) ["g"; "t"];
                   inter_letapp ["g"; "res"] e'_op ["g"; "d"];
                 ]
-                ["res"]
+                [("res", type_size out_t)]
           end
     end
   | Gphase (t, theta) -> IGphase (t, theta)
 
-let expr_compile (e : expr) : unitary * int * int list =
+let expr_compile (e : expr) : gate * int * int list =
   let op = compile_pure_expr_to_inter_op StringMap.empty StringMap.empty e in
   let cs = compile_inter_op_to_circuit op in
-  let circ = cs.circ_fun [[]; []] IntSet.empty in
+  let circ = build_circuit cs [[]; []] IntSet.empty in
   let nqubits = IntSet.cardinal circ.used_wires in
-  let gate = unitary_remove_identities circ.gate in
+  let gate = gate_remove_identities circ.gate in
   let out_reg =
     match circ.out_regs with
     | [out_reg] -> out_reg

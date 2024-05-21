@@ -1,1 +1,1 @@
-let x {Bit} = BitPlus in (x, ((x |> gphase {Bit, pi/2}, x |> Had), (x |> Qnot, x)))
+let x {Bit} = BitPlus in (x, ((x |> gphase {Bit, pi/2}, x |> Had), (x |> Qnot, x |> gphase {Bit, pi/4})))

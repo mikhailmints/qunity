@@ -5,7 +5,7 @@ open Reals
 open Extended_syntax
 open Compilation
 
-let rec unitary_to_qiskit_gate (u : unitary) (nqubits : int)
+let rec gate_to_qiskit_gate (u : gate) (nqubits : int)
     (gatenames : StringSet.t) : string * int list * StringSet.t =
   match u with
   | Identity -> failwith "Identities should be removed"
@@ -20,18 +20,19 @@ let rec unitary_to_qiskit_gate (u : unitary) (nqubits : int)
       in
         (s, [i], gatenames)
   | GphaseGate (l, theta) ->
+      let label = "gphase" ^ fresh_string gatenames in
       let s =
         Printf.sprintf
-          "QuantumCircuit(%d, global_phase=%s, \
-           name=\"gphase(%.2f)\").to_gate()"
+          "QuantumCircuit(%d, global_phase=%s, name=\"%s\").to_gate()"
           (List.length l)
           (python_string_of_real theta)
-          (float_of_real theta)
+          label
       in
-        (s, l, gatenames)
+        (s, l, StringSet.add label gatenames)
+  | Reset i -> ("Reset()", [i], gatenames)
   | Controlled (l, bl, u0) -> begin
       let u0_gate, u0_l, gatenames =
-        unitary_to_qiskit_gate u0 nqubits gatenames
+        gate_to_qiskit_gate u0 nqubits gatenames
       in
       let s =
         Printf.sprintf "%s.control(num_ctrl_qubits=%d, ctrl_state=\"%s\")"
@@ -42,10 +43,10 @@ let rec unitary_to_qiskit_gate (u : unitary) (nqubits : int)
     end
   | Sequence (u0, u1) -> begin
       let u0_gate, u0_l, gatenames =
-        unitary_to_qiskit_gate u0 nqubits gatenames
+        gate_to_qiskit_gate u0 nqubits gatenames
       in
       let u1_gate, u1_l, gatenames =
-        unitary_to_qiskit_gate u1 nqubits gatenames
+        gate_to_qiskit_gate u1 nqubits gatenames
       in
       let label = fresh_string gatenames in
       let s =
@@ -58,8 +59,7 @@ let rec unitary_to_qiskit_gate (u : unitary) (nqubits : int)
         (s, range nqubits, StringSet.add label gatenames)
     end
 
-let unitary_to_qiskit_file (gate : unitary) (nqubits : int)
-    (out_reg : int list) =
+let gate_to_qiskit_file (gate : gate) (nqubits : int) (out_reg : int list) =
   let header = read_file "bin/qiskit_header.py" in
   let circ_decl =
     Printf.sprintf
@@ -79,7 +79,7 @@ let unitary_to_qiskit_file (gate : unitary) (nqubits : int)
       header ^ circ_decl ^ footer
     else
       let gate_str, gate_l, gatenames =
-        unitary_to_qiskit_gate gate nqubits StringSet.empty
+        gate_to_qiskit_gate gate nqubits StringSet.empty
       in
         header ^ circ_decl
         ^ Printf.sprintf
@@ -109,7 +109,7 @@ let () =
         | NoneE err -> Printf.printf "Preprocessing error: %s\n\n" err
         | SomeE e -> begin
             let gate, nqubits, out_reg = expr_compile e in
-            let qiskit_str = unitary_to_qiskit_file gate nqubits out_reg in
+            let qiskit_str = gate_to_qiskit_file gate nqubits out_reg in
             let out_file = open_out out_filename in
               Printf.fprintf out_file "%s" qiskit_str
           end

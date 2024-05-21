@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
+
+dune build
 for filename in examples/*.qunity; do
     echo ====================
     echo $filename
     echo
-    ./qunity-compile $filename "qiskit_out/$(basename $filename ".qunity").py"
+    out_filename="qiskit_out/$(basename $filename ".qunity").py"
+    ./_build/default/bin/qunity_compile.exe $filename $out_filename &&
+    python3 $out_filename
 done

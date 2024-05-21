@@ -1,14 +1,11 @@
 OPENQASM 3.0;
 include "stdgates.inc";
-gate gphase(1.57) _gate_q_0 {
-}
 bit[5] c0;
 qubit[5] q0;
 h q0[0];
 cx q0[0], q0[1];
 cx q0[1], q0[2];
 cx q0[1], q0[3];
-gphase(1.57) q0[1];
 h q0[3];
 cx q0[2], q0[4];
 x q0[2];

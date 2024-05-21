@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 dune build
 ./_build/default/bin/qunity_compile.exe $1 $2 &&
 python3 $2

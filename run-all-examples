@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
+
+dune build
 for filename in examples/*.qunity; do
     echo ====================
     echo $filename
     echo
-    ./qunity-run $filename
+    ./_build/default/bin/qunity_simulate.exe $filename
 done
