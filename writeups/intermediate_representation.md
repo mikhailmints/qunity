@@ -12,16 +12,18 @@ An user-defined operator is what will be output when converting any Qunity expre
 
 ## Semantics
 
-We can define a function $\mathcal{S}$ that takes in an intemediate representation operator and ouptuts a circuit specification, which is a function taking in a list of registers and a set of used wires and outputting a circuit. For primitive operators in $\mathcal{O}$, we can assume a low-level implementation of the circuit specification exists. Now, for the user-defined operators, we have that if $x_1, \dots, x_l$ are distinct and $y_1, \dots, y_l$ are distinct,
+We can define a function $\mathcal{S}$ that takes in an intemediate representation operator and ouptuts a circuit specification, which is a function taking in a list of registers and a set of used wires and outputting a circuit. For primitive operators in $\mathcal{O}$, we can assume a low-level implementation of the circuit specification exists. Now, for the user-defined operators, we have that,
 
 $$
-S(\lambda \[(x_1, s_1), \dots, (x_l, s_l)\] \[c_1, \dots, c_m\] \[(y_1, s'_1), \dots, (y_n, s'_n)\]) = (\[r_1 : s_1, \dots, r_l : s_l\]) \mapsto \mathcal{L}(I(r_1, \dots, r_l), \\{x_1 \mapsto r_1, \dots, x_l \mapsto r_l\\}, \[c_1, \dots, c_m\])
+\frac{\huge {x_1, \dots, x_l \text{ are distinct} \quad y_1, \dots, y_l \text{ are distinct} \quad \mathrm{regsize}(r_i) = s_i \\; \forall i \in \[l\] \quad \mathcal{L}\Big(I(\[r_1, \dots, r_l\], W), \\{x_1 \mapsto r_1, \dots, x_l \mapsto r_l\\}, \[c_1, \dots, c_m\]\Big) = (C, V)} \atop \huge {\mathrm{dom}(V) = \\{y_1, \dots, y_n\\} \quad \mathrm{outregs}(C) = \[r'_1, \dots, r'_n\]} \quad V(y_i) = r'\_{\pi(i)} \\; \forall i \in \[n\] \quad \mathrm{regsize}(r'\_{\pi(i)}) = s'_i \\; \forall i \in \[n\]}
+{S\Big(\lambda \[(x_1, s_1), \dots, (x_l, s_l)\] \[c_1, \dots, c_m\] \[(y_1, s'_1), \dots, (y_n, s'_n)\]\Big)(\[r_1, \dots, r_l\], W) = \mathrm{permuteoutregs}(C, \pi)}
 $$
 
-where $I$ is the identity circuit acting on the registers $r_1, \dots, r_l$ and outputting the same registers, and $W$ is a set of used wires. We define $\mathcal{L}$ as acting on a current circuit and a valuation mapping strings to registers, and a list of commands and outputting a circuit, and an updated valuation.
+where $I$ is the identity circuit acting on the registers $r_1, \dots, r_l$ and outputting the same registers, and $W$ is a set of used wires that is passed into the constructed circuit specification and given to the initial identity circuit (the lower-level operations will then update it accordingly when adding more parts to this circuit). Here, $\pi$ is a permutation that is used because the order of the returned variable names may not be the same as the order of the circuit's output registers. We define $\mathcal{L}$ as acting on a current circuit $C$, a valuation $V$ mapping strings to registers, and a list of commands $\[c_1, \dots, c_m\]$, and outputting a circuit and an updated valuation.
 
 $$
-\mathcal{L}(C, V, \emptyset) = (C, V)
+\frac{}
+{\mathcal{L}(C, V, \emptyset) = (C, V)}
 $$
 
 $$
@@ -32,8 +34,8 @@ $$
 where we define $\mathcal{A}$ as
 
 $$
-\frac{X \subseteq \mathrm{dom}(V) \quad Y \cap (\mathrm{dom}(V) \setminus X) = \emptyset \quad \mathcal{S}(o)(V(X)) = (C', \\{z_1 \mapsto r_1, \dots, z_n \mapsto r_n\\}) \quad \mathrm{outregs}(C') = \[z_1, \dots, z_n\]}
-{\mathcal{A}(C, V, \[y_1, \dots, y_n\] \leftarrow o X) = (C'C, (V \setminus V|_{X}) \cup \{y_1 \mapsto r_1, \dots, y_n \mapsto r_n\})}
+\frac{X \subseteq \mathrm{dom}(V) \quad Y \cap (\mathrm{dom}(V) \setminus X) = \emptyset \quad \mathcal{S}(o)(V(X)) = C' \quad \mathrm{outregs}(C') = \[r_1, \dots, r_n\]}
+{\mathcal{A}(C, V, \[y_1, \dots, y_n\] \leftarrow o X) = (C'C, (V \setminus V|_{X}) \cup \\{y_1 \mapsto r_1, \dots, y_n \mapsto r_n\\})}
 $$
 
 ## Example
