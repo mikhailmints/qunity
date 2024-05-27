@@ -3,6 +3,7 @@ open Qunity_prototypes
 open Util
 open Reals
 open Extended_syntax
+open Typechecking
 open Compilation
 
 let rec gate_to_qiskit_gate (u : gate) (nqubits : int)
@@ -30,6 +31,7 @@ let rec gate_to_qiskit_gate (u : gate) (nqubits : int)
       in
         (s, l, StringSet.add label gatenames)
   | Reset i -> ("Reset()", [i], gatenames)
+  | Swap (i, j) -> ("SwapGate()", [i; j], gatenames)
   | Controlled (l, bl, u0) -> begin
       let u0_gate, u0_l, gatenames =
         gate_to_qiskit_gate u0 nqubits gatenames
@@ -59,39 +61,24 @@ let rec gate_to_qiskit_gate (u : gate) (nqubits : int)
         (s, range nqubits, StringSet.add label gatenames)
     end
 
-let gate_to_qiskit_file (gate : gate) (nqubits : int) (out_reg : int list) =
+let gate_to_qiskit_file (gate : gate) (nqubits : int) (out_reg : int list)
+    (flag_reg : int list) =
   let header = read_file "bin/qiskit_header.py" in
-  let circ_decl =
-    Printf.sprintf
-      "\n\n\
-       cr = ClassicalRegister(%d)\n\
-       circuit = QuantumCircuit(QuantumRegister(%d), cr)\n\n"
-      (List.length out_reg) nqubits
-  in
-  let footer =
-    Printf.sprintf
-      "circuit.measure(%s, cr)\n\n\
-       circuit.draw(\"mpl\", filename=__file__.replace(\".py\", \".png\"))\n\n\
-       qasm3.dump(circuit, open(__file__.replace(\".py\", \".qasm\"), \"w\"))\n"
-      (string_of_list string_of_int out_reg)
-  in
+  let gate_str, gate_indices, gatenames =
     if gate = Identity then
-      header ^ circ_decl ^ footer
+      ("None", [], StringSet.empty)
     else
-      let gate_str, gate_l, gatenames =
-        gate_to_qiskit_gate gate nqubits StringSet.empty
-      in
-        header ^ circ_decl
-        ^ Printf.sprintf
-            "circuit.append(%s, %s)\n\n\
-             circuit = circuit.decompose(reps=%d, gates_to_decompose=%s)\n\n"
-            gate_str
-            (string_of_list string_of_int gate_l)
-            (StringSet.cardinal gatenames)
-            (string_of_list
-               (fun x -> "\"" ^ x ^ "\"")
-               (List.of_seq (StringSet.to_seq gatenames)))
-        ^ footer
+      gate_to_qiskit_gate gate nqubits StringSet.empty
+  in
+    header
+    ^ Printf.sprintf "build_circuit(%d, %s, %s, %s, %s, %s)\n" nqubits
+        (string_of_list string_of_int out_reg)
+        (string_of_list string_of_int flag_reg)
+        gate_str
+        (string_of_list string_of_int gate_indices)
+        (string_of_list
+           (fun x -> "\"" ^ x ^ "\"")
+           (List.of_seq (StringSet.to_seq gatenames)))
 
 let () =
   let prog_filename = Sys.argv.(1) in
@@ -108,9 +95,15 @@ let () =
         match preprocess qf with
         | NoneE err -> Printf.printf "Preprocessing error: %s\n\n" err
         | SomeE e -> begin
-            let gate, nqubits, out_reg = expr_compile e in
-            let qiskit_str = gate_to_qiskit_file gate nqubits out_reg in
-            let out_file = open_out out_filename in
-              Printf.fprintf out_file "%s" qiskit_str
+            match mixed_type_check StringMap.empty e with
+            | NoneE err -> Printf.printf "Typechecking error: %s\n\n" err
+            | SomeE _ -> begin
+                let gate, nqubits, out_reg, flag_reg = expr_compile e in
+                let qiskit_str =
+                  gate_to_qiskit_file gate nqubits out_reg flag_reg
+                in
+                let out_file = open_out out_filename in
+                  Printf.fprintf out_file "%s" qiskit_str
+              end
           end
       end

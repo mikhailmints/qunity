@@ -33,3 +33,4 @@ def build_circuit(n_qubits, out_reg, flag_reg, gate, gate_indices, decompose_nam
 
 
 # Auto-generated code goes here:
+build_circuit(2, [0], [], gate_sequence(XGate().control(num_ctrl_qubits=1, ctrl_state="1"), [0, 1], Reset(), [1], "_0", 2), [0, 1], ["_0"])

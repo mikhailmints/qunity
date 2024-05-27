@@ -1,0 +1,5 @@
+def F := lambda x {Bit} -> (x, x) end
+
+def F' := Adjoint <F, Bit * Bit> end
+
+Bit1 |> F |> F' |> F |> F' |> F |> F' |> F

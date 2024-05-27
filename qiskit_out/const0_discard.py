@@ -33,3 +33,4 @@ def build_circuit(n_qubits, out_reg, flag_reg, gate, gate_indices, decompose_nam
 
 
 # Auto-generated code goes here:
+build_circuit(2, [1], [], Reset(), [0], [])

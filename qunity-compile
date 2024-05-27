@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
 dune build
-./_build/default/bin/qunity_compile.exe $1 $2 &&
-python3 $2
+out_filename=${2-"qiskit_out/$(basename $1 ".qunity").py"}
+./_build/default/bin/qunity_compile.exe $1 $out_filename &&
+python3 $out_filename

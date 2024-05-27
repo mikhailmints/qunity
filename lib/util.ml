@@ -42,7 +42,17 @@ let fresh_int_list (s : IntSet.t) (n : int) : int list * IntSet.t =
     else
       fresh_int_list_helper (i + 1) (i :: curlist) (IntSet.add i curset) (n - 1)
   in
-    fresh_int_list_helper 0 [] s n
+  let res, s' = fresh_int_list_helper 0 [] s n in
+    (List.rev res, s')
+
+let rec fresh_int_lists (s : IntSet.t) (l : int list) :
+    int list list * IntSet.t =
+  match l with
+  | [] -> ([], s)
+  | n :: t ->
+      let cur, s' = fresh_int_list s n in
+      let rest, s'' = fresh_int_lists s' t in
+        (cur :: rest, s'')
 
 let fresh_int (s : IntSet.t) : int * IntSet.t =
   let i, res = fresh_int_list s 1 in
@@ -110,6 +120,11 @@ let int_list_intersection (l1 : int list) (l2 : int list) : int list =
 
 let int_list_diff (l1 : int list) (l2 : int list) : int list =
   IntSet.elements (IntSet.diff (IntSet.of_list l1) (IntSet.of_list l2))
+
+let rec int_list_max (l : int list) : int =
+  match l with
+  | [] -> Int.min_int
+  | h :: t -> max h (int_list_max t)
 
 let string_of_list (f : 'a -> string) (l : 'a list) =
   let rec string_of_int_list_helper l =
