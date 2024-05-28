@@ -139,6 +139,18 @@ let rec gate_remove_identities (u : gate) : gate =
     end
   | _ -> u
 
+let rec gate_distribute_controls (u : gate) : gate =
+  match u with
+  | Controlled (l, bl, Sequence (u0, u1)) ->
+      gate_distribute_controls (Sequence
+        ( Controlled (l, bl, gate_distribute_controls u0),
+          Controlled (l, bl, gate_distribute_controls u1) ))
+  | Controlled (l, bl, Controlled (l', bl', u0)) ->
+      Controlled (l @ l', bl @ bl', gate_distribute_controls u0)
+  | Sequence (u0, u1) ->
+      Sequence (gate_distribute_controls u0, gate_distribute_controls u1)
+  | _ -> u
+
 let rec gate_get_max_qubit_index (u : gate) : int =
   match u with
   | Identity -> -1
@@ -577,8 +589,9 @@ let circuit_assoc (t0 : exprtype) (t1 : exprtype) (t2 : exprtype) :
   let in_size = type_size (SumType (SumType (t0, t1), t2)) in
   (* 1 + max(s0, 1 + max(s1, s2)) *)
   let out_size = type_size (SumType (t0, SumType (t1, t2))) in
-  (* max(in_size, out_size) = 1 + 1 + max(s0, s1, s2) *)
-  let max_size = max in_size out_size in
+  let total_size =
+    3 + max (type_size t0) (max (type_size t1) (type_size t2))
+  in
     {
       in_sizes = [in_size];
       out_sizes = [out_size];
@@ -588,13 +601,33 @@ let circuit_assoc (t0 : exprtype) (t1 : exprtype) (t2 : exprtype) :
             let in_reg =
               expect_single_in_reg "circuit_assoc" in_regs in_size
             in
-            let signal_01 = List.hd in_reg in
-            let signal_2 = List.hd (List.tl in_reg) in
-            let rest = List.tl (List.tl in_reg) in
+            let signal_01v2 = List.hd in_reg in
+            let signal_0v1 = List.hd (List.tl in_reg) in
             let prep_reg, used_wires =
-              fresh_int_list used_wires (2 + max_size - in_size)
+              fresh_int_list used_wires (total_size - in_size)
             in
-              failwith "TODO"
+            let out_reg, flag_reg =
+              list_split_at_i (in_reg @ prep_reg) out_size
+            in
+              {
+                in_regs;
+                prep_reg;
+                out_regs = [out_reg];
+                flag_reg;
+                garb_reg = [];
+                used_wires;
+                gate =
+                  Controlled
+                    ( [signal_01v2],
+                      [true],
+                      gate_rshift (List.tl in_reg @ prep_reg) )
+                  @& gate_cnot signal_01v2 signal_0v1
+                  @& Swap (signal_01v2, signal_0v1)
+                  @& Controlled
+                       ( [signal_01v2],
+                         [false],
+                         gate_lshift (List.tl in_reg @ prep_reg) );
+              }
         end;
     }
 
@@ -688,15 +721,23 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
                   end;
                 gate =
                   circ.gate @& PauliX signal_bit
-                  @& Controlled
-                       ( circ.flag_reg,
-                         list_constant false (List.length circ.flag_reg),
-                         PauliX signal_bit
-                         @& gate_swap_regs
-                              (List.concat circ.out_regs)
-                              fresh_prep )
                   @& begin
-                       if reset_garb then gate_reset_reg garb_reg else Identity
+                       if circ.flag_reg = [] then
+                         Identity
+                       else
+                         Controlled
+                           ( circ.flag_reg,
+                             list_constant false (List.length circ.flag_reg),
+                             PauliX signal_bit
+                             @& gate_swap_regs
+                                  (List.concat circ.out_regs)
+                                  fresh_prep )
+                     end
+                  @& begin
+                       if reset_garb then
+                         gate_reset_reg garb_reg
+                       else
+                         Identity
                      end;
               }
         end;
@@ -729,10 +770,15 @@ let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
                   used_wires;
                   gate =
                     circ.gate @& PauliX signal_bit
-                    @& Controlled
-                         ( circ.flag_reg,
-                           list_constant false (List.length circ.flag_reg),
-                           PauliX signal_bit );
+                    @& begin
+                         if circ.flag_reg = [] then
+                           Identity
+                         else
+                           Controlled
+                             ( circ.flag_reg,
+                               list_constant false (List.length circ.flag_reg),
+                               PauliX signal_bit )
+                       end;
                 }
         end;
     }
@@ -1247,7 +1293,7 @@ let expr_compile (e : expr) : gate * int * int list * int list =
   let cs = compile_inter_op_to_circuit op in
   let circ = build_circuit cs [[]] IntSet.empty in
   let nqubits = circ_get_total_num_qubits circ in
-  let gate = gate_remove_identities circ.gate in
+  let gate = gate_distribute_controls (gate_remove_identities circ.gate) in
   let out_reg =
     match circ.out_regs with
     | [out_reg] -> out_reg

@@ -1,0 +1,5 @@
+let x {Bit} = BitPlus in
+try
+    x |> lambda Bit0 {Bit} -> Bit1
+catch
+    BitMinus

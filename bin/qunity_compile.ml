@@ -52,13 +52,13 @@ let rec gate_to_qiskit_gate (u : gate) (nqubits : int)
       in
       let label = fresh_string gatenames in
       let s =
-        Printf.sprintf "gate_sequence(%s, %s, %s, %s, \"%s\", %d)" u0_gate
+        Printf.sprintf "gate_sequence(%s, %s, %s, %s, \"%s\")" u0_gate
           (string_of_list string_of_int u0_l)
           u1_gate
           (string_of_list string_of_int u1_l)
-          label nqubits
+          label
       in
-        (s, range nqubits, StringSet.add label gatenames)
+        (s, int_list_union u0_l u1_l, StringSet.add label gatenames)
     end
 
 let gate_to_qiskit_file (gate : gate) (nqubits : int) (out_reg : int list)

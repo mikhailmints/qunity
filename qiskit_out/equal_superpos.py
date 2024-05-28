@@ -1,17 +1,27 @@
 import numpy as np
 import os
-from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit, qasm3
+from qiskit import QuantumRegister, ClassicalRegister, QuantumCircuit, qasm3, transpile
 from qiskit.circuit.library import XGate, HGate, U3Gate, Reset, SwapGate
+from qiskit_aer import Aer
+from qiskit.visualization import plot_histogram
 
 
-def gate_sequence(gate0, l0, gate1, l1, label, nqubits):
+def gate_sequence(gate0, l0, gate1, l1, label):
+    l = sorted(list(set(l0 + l1)))
+    nqubits = len(l)
+    rewiring = {i: j for i, j in zip(l, range(nqubits))}
     circ = QuantumCircuit(nqubits)
-    circ.append(gate0, l0)
-    circ.append(gate1, l1)
-    return circ.to_instruction(label=label)
+    circ.append(gate0, [rewiring[i] for i in l0])
+    circ.append(gate1, [rewiring[i] for i in l1])
+    circ.name = label
+    try:
+        return circ.to_gate()
+    except:
+        return circ.to_instruction()
 
 
 def build_circuit(n_qubits, out_reg, flag_reg, gate, gate_indices, decompose_names):
+    print("Building circuit")
     qr = QuantumRegister(n_qubits, "q")
     cr_out = ClassicalRegister(len(out_reg), "out")
     cr_error = ClassicalRegister(len(flag_reg), "err")
@@ -28,9 +38,18 @@ def build_circuit(n_qubits, out_reg, flag_reg, gate, gate_indices, decompose_nam
 
     base_filename = os.path.splitext(__file__)[0]
 
+    print("Drawing circuit")
     circuit.draw("mpl", filename=(base_filename + ".png"), cregbundle=False)
+
+    print("Outputting QASM")
     qasm3.dump(circuit, open(base_filename + ".qasm", "w"))
+
+    print("Simulating circuit")
+    simulator = Aer.get_backend("qasm_simulator")
+    counts = simulator.run(transpile(circuit, simulator)).result().get_counts()
+    counts = {x[::-1]: y for x, y in counts.items()}
+    plot_histogram(counts, filename=(base_filename + "_sim_results.png"))
 
 
 # Auto-generated code goes here:
-build_circuit(6, [0, 1, 2, 3, 4, 5], [], gate_sequence(HGate(), [0], gate_sequence(HGate(), [1], gate_sequence(HGate(), [2], gate_sequence(HGate(), [3], gate_sequence(HGate(), [4], HGate(), [5], "_0", 6), [0, 1, 2, 3, 4, 5], "_1", 6), [0, 1, 2, 3, 4, 5], "_2", 6), [0, 1, 2, 3, 4, 5], "_3", 6), [0, 1, 2, 3, 4, 5], "_4", 6), [0, 1, 2, 3, 4, 5], ["_0", "_1", "_2", "_3", "_4"])
+build_circuit(6, [0, 1, 2, 3, 4, 5], [], gate_sequence(HGate(), [0], gate_sequence(HGate(), [1], gate_sequence(HGate(), [2], gate_sequence(HGate(), [3], gate_sequence(HGate(), [4], HGate(), [5], "_0"), [4, 5], "_1"), [3, 4, 5], "_2"), [2, 3, 4, 5], "_3"), [1, 2, 3, 4, 5], "_4"), [0, 1, 2, 3, 4, 5], ["_0", "_1", "_2", "_3", "_4"])
