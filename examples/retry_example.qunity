@@ -1,0 +1,5 @@
+def E :=
+    BitPlus |> lambda Bit0 {Bit} -> Bit0
+end
+
+Retry <[3], E>

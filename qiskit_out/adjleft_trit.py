@@ -39,17 +39,19 @@ def build_circuit(n_qubits, out_reg, flag_reg, gate, gate_indices, decompose_nam
     base_filename = os.path.splitext(__file__)[0]
 
     print("Drawing circuit")
-    circuit.draw("mpl", filename=(base_filename + ".png"), cregbundle=False)
+    circuit.draw("mpl", filename=(base_filename + ".png"), cregbundle=False, fold=-1)
 
     print("Outputting QASM")
     qasm3.dump(circuit, open(base_filename + ".qasm", "w"))
 
     print("Simulating circuit")
     simulator = Aer.get_backend("qasm_simulator")
-    counts = simulator.run(transpile(circuit, simulator)).result().get_counts()
+    counts = (
+        simulator.run(transpile(circuit, simulator), shots=10000).result().get_counts()
+    )
     counts = {x[::-1]: y for x, y in counts.items()}
     plot_histogram(counts, filename=(base_filename + "_sim_results.png"))
 
 
 # Auto-generated code goes here:
-build_circuit(2, [], [1, 0], gate_sequence(XGate(), [0], XGate(), [1], "_0"), [0, 1], ["_0"])
+build_circuit(2, [], [0, 1], gate_sequence(XGate(), [0], XGate(), [1], "_0"), [0, 1], ["_0"])

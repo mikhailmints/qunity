@@ -32,6 +32,13 @@ let rec gate_to_qiskit_gate (u : gate) (nqubits : int)
         (s, l, StringSet.add label gatenames)
   | Reset i -> ("Reset()", [i], gatenames)
   | Swap (i, j) -> ("SwapGate()", [i; j], gatenames)
+  | Annotation (l, name) -> begin
+      let s =
+        Printf.sprintf "QuantumCircuit(%d, name=\"%s\").to_gate()"
+          (List.length l) name
+      in
+        (s, l, gatenames)
+    end
   | Controlled (l, bl, u0) -> begin
       let u0_gate, u0_l, gatenames =
         gate_to_qiskit_gate u0 nqubits gatenames
