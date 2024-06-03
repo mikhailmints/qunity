@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 
 dune build
+rm -f qasm_out/*
+rm -f diagrams/circuits/*
+rm -f diagrams/sim_results/*
+
 for filename in examples/*.qunity; do
     echo ====================
     echo $filename
+    ./qunity-compile $filename --nobuild "$@"
     echo
-    out_filename="qiskit_out/$(basename $filename ".qunity").py"
-    ./_build/default/bin/qunity_compile.exe $filename $out_filename &&
-    python3 $out_filename
 done

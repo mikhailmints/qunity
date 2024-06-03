@@ -5,6 +5,7 @@ open Syntax
 open Extended_syntax
 open Typechecking
 open Semantics
+open Compilation
 
 let read_file (filename : string) : string =
   In_channel.with_open_bin filename In_channel.input_all
@@ -46,3 +47,31 @@ let execute_expr (e : expr) : unit =
           Printf.printf "Probability %f: Error\n" error_prob;
         Printf.printf "\n"
     end
+
+let compile_file (prog_filename : string) (out_filename : string)
+    (gate_compiler : gate -> int -> int list -> int list -> string)
+    (annotate : bool) : unit =
+  let prog_string = read_file prog_filename in
+  let qunity_stdlib = read_file "bin/stdlib.qunity" in
+  let s = qunity_stdlib ^ "\n" ^ prog_string in
+    match
+      try Some (parse_file s) with
+      | _ -> None
+    with
+    | None -> Printf.printf "Parse error\n\n"
+    | Some qf -> begin
+        match preprocess qf with
+        | NoneE err -> Printf.printf "Preprocessing error: %s\n\n" err
+        | SomeE e -> begin
+            match mixed_type_check StringMap.empty e with
+            | NoneE err -> Printf.printf "Typechecking error: %s\n\n" err
+            | SomeE _ -> begin
+                let gate, nqubits, out_reg, flag_reg =
+                  expr_compile annotate e
+                in
+                let qasm_str = gate_compiler gate nqubits out_reg flag_reg in
+                let out_file = open_out out_filename in
+                  Printf.fprintf out_file "%s" qasm_str
+              end
+          end
+      end

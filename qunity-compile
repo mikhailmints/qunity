@@ -1,6 +1,48 @@
 #!/usr/bin/env bash
 
-dune build
-out_filename=${2-"qiskit_out/$(basename $1 ".qunity").py"}
-./_build/default/bin/qunity_compile.exe $1 $out_filename &&
-python3 $out_filename
+dobuild=true
+analyze=false
+annotate=false
+in_filename=$1
+out_filename="qasm_out/$(basename $in_filename ".qunity").qasm"
+shift
+
+while :; do
+    case $1 in
+        --nobuild)
+            dobuild=false
+            ;;
+        --analyze)
+            analyze=true
+            ;;
+        --annotate)
+            annotate=true
+            ;;
+        -o)
+            out_filename=$2
+            shift
+            ;;
+        -?*)
+            printf "Unknown option: %s\n" "$1" >&2
+            exit
+            ;;
+        *) break
+    esac
+    shift
+done
+
+if $dobuild; then
+    dune build
+fi
+
+echo "Compiling to QASM"
+./_build/default/bin/qunity_compile_qasm.exe $in_filename $out_filename $annotate
+if [ $? -ne 0 ]; then
+    echo "Compiler error"
+    exit
+fi
+echo "Compilation done"
+
+if $analyze; then
+    python3 qasm_analyze.py $out_filename
+fi

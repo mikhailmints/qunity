@@ -158,13 +158,13 @@ let () =
 
     test_equality "span_list_qunit1" (span_list Qunit [Null]) (Some [Null]);
     test_equality "span_list_qunit2" (span_list Qunit []) (Some [Null]);
-    test_equality "span_list_bit1" (span_list bit []) (Some [Var "$0"]);
+    test_equality "span_list_bit1" (span_list bit []) (Some [Var "_0"]);
     test_equality "span_list_bit2" (span_list bit [bit0]) (Some [bit0; bit1]);
     test_equality "span_list_bit3" (span_list bit [bit1]) (Some [bit1; bit0]);
 
     test_equality "span_list_2bit"
       (span_list (ProdType (bit, bit)) [Qpair (bit0, bit0)])
-      (Some [Qpair (bit0, bit0); Qpair (bit1, Var "$0"); Qpair (bit0, bit1)]);
+      (Some [Qpair (bit0, bit0); Qpair (bit1, Var "_0"); Qpair (bit0, bit1)]);
 
     expect_expr_puretype "deutsch_type" (deutsch (qid bit)) bit;
 

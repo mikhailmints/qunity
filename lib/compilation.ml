@@ -4,7 +4,7 @@ open Syntax
 open Typechecking
 
 let debug_mode = false
-let annotation_mode = false
+let annotation_mode = ref true
 
 type gate =
   | Identity
@@ -80,22 +80,25 @@ let inter_letapp (target : string list) (op : inter_op) (args : string list) =
   (target, op, args)
 
 let annotate_circuit (circ : circuit) : circuit =
-  {
-    circ with
-    gate =
-      Annotation (List.concat circ.in_regs, Printf.sprintf "%s in" circ.name)
-      @& Annotation (circ.prep_reg, Printf.sprintf "%s prep" circ.name)
-      @& circ.gate
-      @& Annotation
-           (List.concat circ.out_regs, Printf.sprintf "%s out" circ.name)
-      @& Annotation (circ.flag_reg, Printf.sprintf "%s flag" circ.name)
-      @& Annotation (circ.garb_reg, Printf.sprintf "%s garb" circ.name);
-  }
+  if circ.name = "init" then
+    circ
+  else
+    {
+      circ with
+      gate =
+        Annotation (List.concat circ.in_regs, Printf.sprintf "%s in" circ.name)
+        @& Annotation (circ.prep_reg, Printf.sprintf "%s prep" circ.name)
+        @& circ.gate
+        @& Annotation
+             (List.concat circ.out_regs, Printf.sprintf "%s out" circ.name)
+        @& Annotation (circ.flag_reg, Printf.sprintf "%s flag" circ.name)
+        @& Annotation (circ.garb_reg, Printf.sprintf "%s garb" circ.name);
+    }
 
 let build_circuit (cs : circuit_spec) (in_regs : int list list)
     (used_wires : IntSet.t) (reset_garb : bool) : circuit =
   let circ = cs.circ_fun in_regs used_wires reset_garb in
-    if annotation_mode then annotate_circuit circ else circ
+    if !annotation_mode then annotate_circuit circ else circ
 
 let rec gate_adjoint (u : gate) : gate =
   match u with
@@ -166,10 +169,19 @@ let rec gate_distribute_controls (u : gate) : gate =
         (Sequence
            ( Controlled (l, bl, gate_distribute_controls u0),
              Controlled (l, bl, gate_distribute_controls u1) ))
-  | Controlled (l, bl, Controlled (l', bl', u0)) ->
-      Controlled (l @ l', bl @ bl', gate_distribute_controls u0)
   | Sequence (u0, u1) ->
       Sequence (gate_distribute_controls u0, gate_distribute_controls u1)
+  | _ -> u
+
+let rec gate_combine_controls (u : gate) : gate =
+  match u with
+  | Controlled (l, bl, u0) -> begin
+      match gate_combine_controls u0 with
+      | Controlled (l', bl', u0') -> Controlled (l @ l', bl @ bl', u0')
+      | _ -> u
+    end
+  | Sequence (u0, u1) ->
+      Sequence (gate_combine_controls u0, gate_combine_controls u1)
   | _ -> u
 
 (*
@@ -1341,7 +1353,9 @@ and compile_mixed_prog_to_inter_op (f : prog) : inter_op =
     end
   | _ -> failwith "Error in mixed program compilation"
 
-let expr_compile (e : expr) : gate * int * int list * int list =
+let expr_compile (annotate : bool) (e : expr) :
+    gate * int * int list * int list =
+  annotation_mode := annotate;
   let op = compile_mixed_expr_to_inter_op StringMap.empty e in
   let cs = compile_inter_op_to_circuit op in
   let circ = build_circuit cs [[]] IntSet.empty true in
@@ -1352,8 +1366,9 @@ let expr_compile (e : expr) : gate * int * int list * int list =
          (List.combine circ.prep_reg (range (List.length circ.prep_reg))))
   in
   let gate =
-    gate_distribute_controls
-      (gate_remove_identities (gate_rewire circ.gate rewiring))
+    gate_combine_controls
+      (gate_distribute_controls
+         (gate_remove_identities (gate_rewire circ.gate rewiring)))
   in
   let out_reg =
     match circ.out_regs with

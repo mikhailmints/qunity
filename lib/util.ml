@@ -22,9 +22,9 @@ let all_or_nothing (l : 'a option list) : 'a list option =
   else
     None
 
-let fresh_string (s : StringSet.t) : string =
+let fresh_string (prefix : string) (s : StringSet.t) : string =
   let rec fresh_string_helper (i : int) =
-    let candidate = "_" ^ string_of_int i in
+    let candidate = prefix ^ string_of_int i in
       if StringSet.mem candidate s then
         fresh_string_helper (i + 1)
       else
