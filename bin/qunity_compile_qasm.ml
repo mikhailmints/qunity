@@ -2,19 +2,21 @@ open Driver_util
 open Qunity_prototypes
 open Util
 open Reals
-open Compilation
+open Gate
 
 let simple_gate_to_qasm_str (u : gate) : string * int list =
   match u with
   | Identity -> failwith "Identities should be removed"
-  | PauliX i -> ("x", [i])
-  | Had i -> ("h", [i])
   | U3Gate (i, theta, phi, lambda) ->
-      ( Printf.sprintf "U(%f, %f, %f)" (float_of_real theta)
-          (float_of_real phi) (float_of_real lambda),
-        [i] )
-  | GphaseGate (_, theta) ->
-      (Printf.sprintf "gphase(%f)" (float_of_real theta), [])
+      if u = gate_paulix i then
+        ("x", [i])
+      else if u = gate_had i then
+        ("h", [i])
+      else
+        ( Printf.sprintf "U(%f, %f, %f)" (float_of_real theta)
+            (float_of_real phi) (float_of_real lambda),
+          [i] )
+  | GphaseGate theta -> (Printf.sprintf "gphase(%f)" (float_of_real theta), [])
   | Reset i -> ("reset", [i])
   | Swap (i, j) -> ("swap", [i; j])
   | _ -> failwith "Expected simple gate"

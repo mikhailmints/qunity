@@ -1,20 +1,7 @@
 (executables
- (names
-  qunity_simulate
-  qunity_interact
-  qunity_compile_qasm
-  qunity_compile_qiskit)
- (public_names
-  qunity_simulate
-  qunity_interact
-  qunity_compile_qasm
-  qunity_compile_qiskit)
- (modules
-  qunity_simulate
-  qunity_interact
-  qunity_compile_qasm
-  qunity_compile_qiskit
-  driver_util)
+ (names qunity_simulate qunity_interact qunity_compile_qasm)
+ (public_names qunity_simulate qunity_interact qunity_compile_qasm)
+ (modules qunity_simulate qunity_interact qunity_compile_qasm driver_util)
  (libraries qunity_prototypes))
 
 (env

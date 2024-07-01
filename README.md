@@ -7,7 +7,7 @@ dune test
 
 To run a single program using the simulator, for example:
 ```bash
-./qunity-run examples/qft.qunity
+./qunity-run <filename>
 ```
 
 To run all the example Qunity programs located in the examples folder:
@@ -31,11 +31,11 @@ set blink-matching-paren off
 
 To compile a single Qunity file into Qiskit and OpenQASM 3, for example:
 ```bash
-./qunity-compile examples/qft.qunity qiskit_out/qft.py
+./qunity-compile <in_filename> [-o <out_filename>] [--nobuild] [--annotate] [--analyze]
 ```
-will create the files qiskit_out/qft.py, qiskit_out/qft.qasm, and a circuit diagram qiskit_out/qft.png
+If no output filename is specified, by default it goes in the `qasm_out` directory. If `--nobuild` is used, `dune build` is not run before compiling. If `--annotate` is used, the output file will have comments that indicate the roles of the qubits in each of the gates in the low-level circuit. If `--analyze` is used, a circuit diagram will be generated, and the circuit will be simulated using Qiskit.
 
 To compile all the example Qunity programs:
 ```bash
-./compile-all-examples
+./compile-all-examples [--annotate] [--analyze]
 ```

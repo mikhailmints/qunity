@@ -117,7 +117,7 @@ let mat_from_basis_action (c : int) (bfun : int -> matrix) =
                 bvec.f i 0);
       }
 
-let mat_id (n : int) =
+let mat_identity (n : int) =
   if n <= 0 then
     invalid_arg "Matrix size must positive"
   else
@@ -145,6 +145,26 @@ let mat_from_u3 (theta : float) (phi : float) (lambda : float) : matrix =
 
 let mat_zero (r : int) (c : int) = { r; c; f = (fun _ _ -> Complex.zero) }
 let vec_zero (dim : int) = mat_zero dim 1
+
+let basis_column_vec (dim : int) (k : int) =
+  if k < 0 || k >= dim then
+    invalid_arg "Invalid basis vector"
+  else
+    {
+      r = dim;
+      c = 1;
+      f = (fun i _ -> if i = k then Complex.one else Complex.zero);
+    }
+
+let basis_row_vec (dim : int) (k : int) =
+  if k < 0 || k >= dim then
+    invalid_arg "Invalid basis vector"
+  else
+    {
+      r = 1;
+      c = dim;
+      f = (fun _ j -> if j = k then Complex.one else Complex.zero);
+    }
 
 let mat_sum r c : matrix list -> matrix =
   List.fold_left mat_plus (mat_zero r c)
@@ -208,6 +228,13 @@ let superop_optimize (super : superoperator) : superoperator =
       dim_to = super.dim_to;
       f = (fun i j k l -> arr.(i).(j).(k).(l));
     }
+
+let superop_identity (n : int) =
+  {
+    dim_from = n;
+    dim_to = n;
+    f = (fun i j k l -> if i = k && j = l then Complex.one else Complex.zero);
+  }
 
 let superop_apply (super : superoperator) (m : matrix) : matrix =
   if m.r <> super.dim_from || m.c <> super.dim_from then

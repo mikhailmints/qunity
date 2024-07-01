@@ -2,8 +2,11 @@
 
 dune build
 rm -f qasm_out/*
-rm -f diagrams/circuits/*
-rm -f diagrams/sim_results/*
+
+if echo $* | grep -e "--analyze" -q; then
+    rm -f diagrams/circuits/*
+    rm -f diagrams/sim_results/*
+fi
 
 for filename in examples/*.qunity; do
     echo ====================

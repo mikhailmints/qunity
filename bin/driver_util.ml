@@ -5,6 +5,7 @@ open Syntax
 open Extended_syntax
 open Typechecking
 open Semantics
+open Gate
 open Compilation
 
 let read_file (filename : string) : string =

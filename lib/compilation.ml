@@ -2,24 +2,19 @@ open Util
 open Reals
 open Syntax
 open Typechecking
+open Gate
 
 let debug_mode = false
 let annotation_mode = ref true
 
-type gate =
-  | Identity
-  | PauliX of int
-  | Had of int
-  | U3Gate of (int * real * real * real)
-  | GphaseGate of int list * real
-  | Reset of int
-  | Swap of int * int
-  | Annotation of int list * string
-  | Controlled of (int list * bool list * gate)
-  | Sequence of (gate * gate)
-
-let ( @& ) a b = Sequence (a, b)
-
+(*
+A circuit is a wrapper around a gate that labels the qubits by their roles as
+input qubits, output qubits, prep qubits (which are initialized in the |0>
+state, flag qubigs (which are expected to be zero in the end if no error is
+thrown), and garbage qubits, which are measured and discarded, unless the
+circuit is instantiated with the reset_garb option set to false (as it is when
+constructing) a purified version of the circuit.
+*)
 type circuit = {
   name : string;
   in_regs : int list list;
@@ -31,6 +26,11 @@ type circuit = {
   gate : gate;
 }
 
+(*
+A circuit specification wraps a function for building a circuit provided a
+certain input register and a set of wires that were already used, as well as
+an option that tells whether or not to reset the garbage register.
+*)
 type circuit_spec = {
   in_sizes : int list;
   out_sizes : int list;
@@ -38,8 +38,19 @@ type circuit_spec = {
   circ_fun : int list list -> IntSet.t -> bool -> circuit;
 }
 
+(*
+A valuation for the intermediate representation maps strings (variable names)
+to quantum registers that they represent.
+*)
 type inter_valuation = int list StringMap.t
 
+(*
+An operator in the intermediate representation is any one of the operators
+detled in Appendix H.1 of Voichick et al, or a user-defined ILambda. The
+implementation of the pre-defined operators is contained in this file. A
+user-defined operator can apply a number of operators in sequence to some
+registers, storing them as variables in its body.
+*)
 type inter_op =
   | IEmpty
   | IIdentity of exprtype (* a {T} -> a *)
@@ -70,15 +81,26 @@ type inter_op =
   | ILambda of ((string * int) list * inter_com list * (string * int) list)
 (* Output sizes, arg names with sizes, body, return vars. *)
 
+(*
+A command in the intermediate representation consists of the output variable
+names, the and operator, input variable names. The commands represent
+assigning to the output variables the operator applied to the input variables,
+and they also delete the input variables since the registers will overlap in
+an arbitrary way in the reassignment.
+*)
 and inter_com = string list * inter_op * string list
 
+(* Alias for ILambda. *)
 let inter_lambda (arglist : (string * int) list) (body : inter_com list)
     (ret : (string * int) list) : inter_op =
   ILambda (arglist, body, ret)
 
-let inter_letapp (target : string list) (op : inter_op) (args : string list) =
+(* Alias for construcing an inter_com for clarity. *)
+let inter_letapp (target : string list) (op : inter_op) (args : string list) :
+    inter_com =
   (target, op, args)
 
+(* Add annotations describing the roles of the registers to a circuit. *)
 let annotate_circuit (circ : circuit) : circuit =
   if circ.name = "init" then
     circ
@@ -86,153 +108,38 @@ let annotate_circuit (circ : circuit) : circuit =
     {
       circ with
       gate =
-        Annotation (List.concat circ.in_regs, Printf.sprintf "%s in" circ.name)
+        List.fold_left ( @& ) Identity
+          (List.map
+             (fun (reg, i) ->
+               Annotation (reg, Printf.sprintf "%s in%d" circ.name i))
+             (List.combine circ.in_regs (range (List.length circ.in_regs))))
         @& Annotation (circ.prep_reg, Printf.sprintf "%s prep" circ.name)
         @& circ.gate
-        @& Annotation
-             (List.concat circ.out_regs, Printf.sprintf "%s out" circ.name)
+        @& List.fold_left ( @& ) Identity
+             (List.map
+                (fun (reg, i) ->
+                  Annotation (reg, Printf.sprintf "%s out%d" circ.name i))
+                (List.combine circ.out_regs
+                   (range (List.length circ.out_regs))))
         @& Annotation (circ.flag_reg, Printf.sprintf "%s flag" circ.name)
         @& Annotation (circ.garb_reg, Printf.sprintf "%s garb" circ.name);
     }
 
+(*
+Wrapper around calling a circuit_spec's circ_fun
+*)
 let build_circuit (cs : circuit_spec) (in_regs : int list list)
     (used_wires : IntSet.t) (reset_garb : bool) : circuit =
   let circ = cs.circ_fun in_regs used_wires reset_garb in
     if !annotation_mode then annotate_circuit circ else circ
 
-let rec gate_adjoint (u : gate) : gate =
-  match u with
-  | Identity -> Identity
-  | PauliX i -> PauliX i
-  | Had i -> Had i
-  | U3Gate (i, theta, phi, lambda) ->
-      U3Gate (i, Negate theta, Negate lambda, Negate phi)
-  | GphaseGate (l, theta) -> GphaseGate (l, Negate theta)
-  | Reset _ -> Identity
-  | Swap (i, j) -> Swap (i, j)
-  | Annotation (l, s) -> Annotation (l, s)
-  | Controlled (l, bl, u0) -> Controlled (l, bl, gate_adjoint u0)
-  | Sequence (u0, u1) -> Sequence (gate_adjoint u1, gate_adjoint u0)
-
 (*
-Rewire a gate by replacing all references to certain qubits with
-other qubits.
+To create a controlled version of something that is already provided as a
+circuit, this should be used instead of just adding a Controlled to the
+circuit's gate. This is because whatever permutation is applied to the input
+qubits when rearranging them should also be controlled. This undoes the
+permutation and redoes it under a control to ensure this.
 *)
-let rec gate_rewire (u : gate) (rewiring : int IntMap.t) : gate =
-  match u with
-  | Identity -> Identity
-  | PauliX i -> PauliX (int_map_find_or_keep i rewiring)
-  | Had i -> Had (int_map_find_or_keep i rewiring)
-  | U3Gate (i, theta, phi, lambda) ->
-      U3Gate (int_map_find_or_keep i rewiring, theta, phi, lambda)
-  | GphaseGate (l, theta) ->
-      GphaseGate (List.map (fun i -> int_map_find_or_keep i rewiring) l, theta)
-  | Reset i -> Reset (int_map_find_or_keep i rewiring)
-  | Swap (i, j) ->
-      Swap (int_map_find_or_keep i rewiring, int_map_find_or_keep j rewiring)
-  | Annotation (l, s) ->
-      Annotation (List.map (fun i -> int_map_find_or_keep i rewiring) l, s)
-  | Controlled (l, bl, u0) ->
-      Controlled
-        ( List.map (fun i -> int_map_find_or_keep i rewiring) l,
-          bl,
-          gate_rewire u0 rewiring )
-  | Sequence (u0, u1) ->
-      Sequence (gate_rewire u0 rewiring, gate_rewire u1 rewiring)
-
-let gate_cnot (b0 : int) (b1 : int) : gate =
-  Controlled ([b0], [true], PauliX b1)
-
-let rec gate_remove_identities (u : gate) : gate =
-  match u with
-  | Controlled (l, bl, u0) -> begin
-      let u0' = gate_remove_identities u0 in
-        if u0' = Identity then Identity else Controlled (l, bl, u0')
-    end
-  | Sequence (Identity, Identity) -> Identity
-  | Sequence (Identity, u0) -> gate_remove_identities u0
-  | Sequence (u0, Identity) -> gate_remove_identities u0
-  | Sequence (u0, u1) -> begin
-      let u0' = gate_remove_identities u0 in
-      let u1' = gate_remove_identities u1 in
-        match (u0', u1') with
-        | Identity, _ -> u1'
-        | _, Identity -> u0'
-        | _, _ -> Sequence (u0', u1')
-    end
-  | _ -> u
-
-let rec gate_distribute_controls (u : gate) : gate =
-  match u with
-  | Controlled (l, bl, Sequence (u0, u1)) ->
-      gate_distribute_controls
-        (Sequence
-           ( Controlled (l, bl, gate_distribute_controls u0),
-             Controlled (l, bl, gate_distribute_controls u1) ))
-  | Sequence (u0, u1) ->
-      Sequence (gate_distribute_controls u0, gate_distribute_controls u1)
-  | _ -> u
-
-let rec gate_combine_controls (u : gate) : gate =
-  match u with
-  | Controlled (l, bl, u0) -> begin
-      match gate_combine_controls u0 with
-      | Controlled (l', bl', u0') -> Controlled (l @ l', bl @ bl', u0')
-      | _ -> u
-    end
-  | Sequence (u0, u1) ->
-      Sequence (gate_combine_controls u0, gate_combine_controls u1)
-  | _ -> u
-
-(*
-Share a register to another one by applying CNOT gates for each qubit.
-*)
-let rec gate_share (reg0 : int list) (reg1 : int list) : gate =
-  match (reg0, reg1) with
-  | [], [] -> Identity
-  | h1 :: t1, h2 :: t2 -> gate_cnot h1 h2 @& gate_share t1 t2
-  | _ -> invalid_arg "Registers must be of the same size."
-
-(*
-Swap two registers of equal size
-*)
-let rec gate_swap_regs (reg0 : int list) (reg1 : int list) : gate =
-  match (reg0, reg1) with
-  | [], [] -> Identity
-  | h1 :: t1, h2 :: t2 -> Swap (h1, h2) @& gate_swap_regs t1 t2
-  | _ -> invalid_arg "Registers must be of the same size."
-
-let gate_permute (reg : int list) (perm : int list) =
-  let rec gate_permute_helper perm_map =
-    match IntMap.bindings perm_map with
-    | [] -> Identity
-    | (a, b) :: _ -> begin
-        if a = b then
-          gate_permute_helper (IntMap.remove a perm_map)
-        else if not (IntMap.mem b perm_map) then
-          failwith "Invalid permutation"
-        else
-          gate_permute_helper
-            (IntMap.add a (IntMap.find b perm_map) (IntMap.remove b perm_map))
-          @& Swap (a, b)
-      end
-  in
-  let perm_map = IntMap.of_seq (List.to_seq (List.combine reg perm)) in
-    gate_permute_helper perm_map
-
-let rec gate_lshift (reg : int list) : gate =
-  match reg with
-  | [] -> Identity
-  | [_] -> Identity
-  | h1 :: h2 :: t -> Swap (h1, h2) @& gate_lshift (h2 :: t)
-
-let gate_rshift (reg : int list) : gate = gate_adjoint (gate_lshift reg)
-
-let rec gate_reset_reg (reg : int list) : gate =
-  match reg with
-  | [] -> Identity
-  | h :: t -> Reset h @& gate_reset_reg t
-
 let controlled_circ (l : int list) (bl : bool list) (circ : circuit) : gate =
   let circ_in = List.concat circ.in_regs @ circ.prep_reg in
   let circ_out = List.concat circ.out_regs @ circ.flag_reg @ circ.garb_reg in
@@ -241,7 +148,7 @@ let controlled_circ (l : int list) (bl : bool list) (circ : circuit) : gate =
     @& Controlled (l, bl, gate_permute circ_in circ_out)
 
 (*
-Number of qubits needed to represent a value of a given size
+Number of qubits needed to represent a value of a given size.
 *)
 let rec type_size (t : exprtype) =
   match t with
@@ -251,10 +158,18 @@ let rec type_size (t : exprtype) =
   | SumType (t0, t1) -> 1 + max (type_size t0) (type_size t1)
   | ProdType (t0, t1) -> type_size t0 + type_size t1
 
+(*
+Number of qubits needed to represent a set of values corresponding to
+a certain context.
+*)
 let context_size (d : context) =
   List.fold_left ( + ) 0
     (List.map (fun (_, t) -> type_size t) (StringMap.bindings d))
 
+(*
+Utility function for error-checking when only one in_reg should be provided
+to a circuit_spec.
+*)
 let expect_single_in_reg (name : string) (in_regs : int list list) (size : int)
     : int list =
   match in_regs with
@@ -264,6 +179,9 @@ let expect_single_in_reg (name : string) (in_regs : int list list) (size : int)
         (Printf.sprintf "%s: expected input lengths [%d], got %s" name size
            (string_of_list string_of_int (List.map List.length in_regs)))
 
+(*
+A circuit that takes in nothing and outputs an empty register.
+*)
 let circuit_empty =
   {
     in_sizes = [];
@@ -285,6 +203,9 @@ let circuit_empty =
       end;
   }
 
+(*
+The identity circuit operating on a given type.
+*)
 let circuit_identity (t : exprtype) : circuit_spec =
   {
     in_sizes = [type_size t];
@@ -305,6 +226,9 @@ let circuit_identity (t : exprtype) : circuit_spec =
       end;
   }
 
+(*
+Circuit corresponding to a single-qubit gate.
+*)
 let circuit_u3 (theta : real) (phi : real) (lambda : real) : circuit_spec =
   {
     in_sizes = [1];
@@ -322,20 +246,14 @@ let circuit_u3 (theta : real) (phi : real) (lambda : real) : circuit_spec =
               flag_reg = [];
               garb_reg = [];
               used_wires;
-              gate =
-                begin
-                  let e = U3 (theta, phi, lambda) in
-                    if e = qnot then
-                      PauliX bit
-                    else if e = had then
-                      Had bit
-                    else
-                      U3Gate (bit, theta, phi, lambda)
-                end;
+              gate = U3Gate (bit, theta, phi, lambda);
             }
       end;
   }
 
+(*
+Circuit corresponding to a global phase gate.
+*)
 let circuit_gphase (t : exprtype) (theta : real) : circuit_spec =
   let size = type_size t in
     {
@@ -353,11 +271,14 @@ let circuit_gphase (t : exprtype) (theta : real) : circuit_spec =
               flag_reg = [];
               garb_reg = [];
               used_wires;
-              gate = GphaseGate (List.flatten in_regs, theta);
+              gate = GphaseGate theta;
             }
         end;
     }
 
+(*
+Lemma H.1
+*)
 let circuit_left (t0 : exprtype) (t1 : exprtype) : circuit_spec =
   let in_size = type_size t0 in
   let out_size = type_size (SumType (t0, t1)) in
@@ -383,6 +304,9 @@ let circuit_left (t0 : exprtype) (t1 : exprtype) : circuit_spec =
         end;
     }
 
+(*
+Lemma H.1
+*)
 let circuit_right (t0 : exprtype) (t1 : exprtype) : circuit_spec =
   let in_size = type_size t1 in
   let out_size = type_size (SumType (t0, t1)) in
@@ -405,11 +329,16 @@ let circuit_right (t0 : exprtype) (t1 : exprtype) : circuit_spec =
                 flag_reg = [];
                 garb_reg = [];
                 used_wires;
-                gate = PauliX (List.hd prep);
+                gate = gate_paulix (List.hd prep);
               }
         end;
     }
 
+(*
+Circuit implementing the share gate, which copies classical data from the
+input register. This is not quantum cloning (which is impossible), it will
+only duplicate the input when it is in a basis state.
+*)
 let circuit_share (size : int) : circuit_spec =
   {
     in_sizes = [size];
@@ -432,6 +361,10 @@ let circuit_share (size : int) : circuit_spec =
       end;
   }
 
+(*
+Circuit that takes in a value of type t0 and a value of type t1 and outputs
+a value of type t0 * t1 (functionally this is just the identity circuit).
+*)
 let circuit_pair (t0 : exprtype) (t1 : exprtype) : circuit_spec =
   {
     in_sizes = [type_size t0; type_size t1];
@@ -460,6 +393,11 @@ let circuit_pair (t0 : exprtype) (t1 : exprtype) : circuit_spec =
       end;
   }
 
+(*
+Takes the adjoint of a circuit specification. To do this, we need to instantiate
+the circuit with fresh wires and then do a rewiring using the provided input
+registers.
+*)
 let circuit_adjoint (cs : circuit_spec) : circuit_spec =
   {
     in_sizes = cs.out_sizes;
@@ -503,6 +441,9 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
       end;
   }
 
+(*
+Circuit implementing the direct sum of two circuits.
+*)
 let circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
   let in_size0, in_size1, out_size0, out_size1 =
     match (cs0.in_sizes, cs1.in_sizes, cs0.out_sizes, cs1.out_sizes) with
@@ -611,6 +552,10 @@ let circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
         end;
     }
 
+(*
+Associativity isomorphis in Lemma H.6. Takes (t0 + t1) + t2 and outputs
+t0 + (t1 + t2).
+*)
 let circuit_assoc (t0 : exprtype) (t1 : exprtype) (t2 : exprtype) :
     circuit_spec =
   (* 1 + max(1 + max(s0, s1), s2) *)
@@ -662,6 +607,10 @@ let circuit_assoc (t0 : exprtype) (t1 : exprtype) (t2 : exprtype) :
         end;
     }
 
+(*
+Left distributivity isomorphism in Lemma H.7. Takes t * (t0 + t1) and outputs
+(t * t0) + (t * t1).
+*)
 let circuit_distr_left (t : exprtype) (t0 : exprtype) (t1 : exprtype) :
     circuit_spec =
   let in_sizes = [type_size t; type_size (SumType (t0, t1))] in
@@ -693,6 +642,10 @@ let circuit_distr_left (t : exprtype) (t0 : exprtype) (t1 : exprtype) :
         end;
     }
 
+(*
+Right distributivity isomorphism. Takes (t0 + t1) * t and outputs
+(t0 * t) + (t1 * t).
+*)
 let circuit_distr_right (t0 : exprtype) (t1 : exprtype) (t : exprtype) :
     circuit_spec =
   let in_sizes = [type_size (SumType (t0, t1)); type_size t] in
@@ -749,6 +702,9 @@ let circuit_distr_right (t0 : exprtype) (t1 : exprtype) (t : exprtype) :
         end;
     }
 
+(*
+Lemma H.8
+*)
 let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
   let in_sizes = cs.in_sizes in
   let out_size = 1 + List.fold_left ( + ) 0 cs.out_sizes in
@@ -790,14 +746,14 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
                        if circ.flag_reg = [] then
                          Identity
                        else
-                         PauliX signal_bit
+                         gate_paulix signal_bit
                          @& gate_swap_regs
                               (List.concat circ.out_regs)
                               fresh_prep
                          @& Controlled
                               ( circ.flag_reg,
                                 list_constant false (List.length circ.flag_reg),
-                                PauliX signal_bit
+                                gate_paulix signal_bit
                                 @& gate_swap_regs
                                      (List.concat circ.out_regs)
                                      fresh_prep )
@@ -812,6 +768,9 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
         end;
     }
 
+(*
+Lemma H.9
+*)
 let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
   let in_sizes = cs.in_sizes in
   let out_size = 1 + List.fold_left ( + ) 0 cs.out_sizes in
@@ -838,7 +797,7 @@ let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
                   garb_reg = [];
                   used_wires;
                   gate =
-                    circ.gate @& PauliX signal_bit
+                    circ.gate @& gate_paulix signal_bit
                     @& begin
                          if circ.flag_reg = [] then
                            Identity
@@ -846,12 +805,15 @@ let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
                            Controlled
                              ( circ.flag_reg,
                                list_constant false (List.length circ.flag_reg),
-                               PauliX signal_bit )
+                               gate_paulix signal_bit )
                        end;
                 }
         end;
     }
 
+(*
+Discards the input by putting the input register into the garbage register.
+*)
 let circuit_discard (size : int) =
   {
     in_sizes = [size];
@@ -882,6 +844,10 @@ let circuit_discard (size : int) =
       end;
   }
 
+(*
+Purification of a circuit - ensures that when the circuit is built, no
+garbage wires are reset or reused.
+*)
 let circuit_purify (cs : circuit_spec) : circuit_spec =
   {
     in_sizes = cs.in_sizes;
@@ -900,6 +866,11 @@ let circuit_purify (cs : circuit_spec) : circuit_spec =
       end;
   }
 
+(*
+Given a context and a register containing something in the space associated
+to the context, splits the register into smaller registers mapped to each
+variable in the context.
+*)
 let context_reg_split (d : context) (reg : int list) : int list StringMap.t =
   let rec iter (cur : int list StringMap.t) (reg_rest : int list)
       (bind_rest : (string * exprtype) list) : int list StringMap.t =
@@ -912,6 +883,10 @@ let context_reg_split (d : context) (reg : int list) : int list StringMap.t =
   in
     iter StringMap.empty reg (StringMap.bindings d)
 
+(*
+Partition a register corresponding to a context into a part corresponding to
+those variables that are in a specified set and those that are not.
+*)
 let context_reg_partition (d : context) (reg : int list) (fv : StringSet.t) :
     int list * int list =
   let reg_map = context_reg_split d reg in
@@ -926,6 +901,11 @@ let context_reg_partition (d : context) (reg : int list) (fv : StringSet.t) :
       ( flatten_bindings (StringMap.bindings reg_map_in),
         flatten_bindings (StringMap.bindings reg_map_out) )
 
+(*
+Creates a circuit that partitions a register corresponding to a context into a
+part corresponding to those variables that are in a specified set and those that
+are not. These two new registers form the output registers of the circuit.
+*)
 let circuit_context_partition (d : context) (fv : StringSet.t) : circuit_spec =
   let in_size = context_size d in
   let d0, d1 = map_partition d fv in
@@ -952,6 +932,11 @@ let circuit_context_partition (d : context) (fv : StringSet.t) : circuit_spec =
         end;
     }
 
+(*
+A circuit that merges two disjoint (important!) contexts into one. Since the
+contexts are disjoint, this merge is simply the adjioint of the
+partition circuit.
+*)
 let circuit_context_merge (d0 : context) (d1 : context) : circuit_spec =
   let d =
     match map_merge false d0 d1 with
@@ -961,6 +946,12 @@ let circuit_context_merge (d0 : context) (d1 : context) : circuit_spec =
   let fv0 = map_dom d0 in
     circuit_adjoint (circuit_context_partition d fv0)
 
+(*
+Given a circuit and an intermediate representation command, as well as an
+intermediate representation valuation, applies the command's operator to the
+registers of the circuit. Returns an updated circuit and valuation (which
+has the new variables corresponding to the output registers of the circuit).
+*)
 let rec compile_inter_com_to_circuit (circ : circuit) (iv : inter_valuation)
     (ie : inter_com) : circuit * inter_valuation =
   let used_wires = circ.used_wires in
@@ -1016,6 +1007,10 @@ let rec compile_inter_com_to_circuit (circ : circuit) (iv : inter_valuation)
         in
           (res_circ, iv'')
 
+(*
+Applies a list of intermediate representation commands, in series, to a circuit,
+updating the valuation each time.
+*)
 and compile_inter_com_list_to_circuit (circ : circuit) (iv : inter_valuation)
     (iel : inter_com list) : circuit * inter_valuation =
   match iel with
@@ -1025,6 +1020,11 @@ and compile_inter_com_list_to_circuit (circ : circuit) (iv : inter_valuation)
         compile_inter_com_list_to_circuit circ' iv' ielt
     end
 
+(*
+Converts an intermediate representation operator to a circuit, calling the
+previously defined circuits for most cases and calling the above functions
+for the user-defined ILambda case.
+*)
 and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   match op with
   | IEmpty -> circuit_empty
@@ -1098,6 +1098,11 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
         }
     end
 
+(*
+Compilation of a pure expression into the intermediate representation.
+This creates a circuit that takes in two registers, corresponding to the
+classical and quantum contexts.
+*)
 let rec compile_pure_expr_to_inter_op (g : context) (d : context) (e : expr) :
     inter_op =
   let t =
@@ -1190,6 +1195,11 @@ let rec compile_pure_expr_to_inter_op (g : context) (d : context) (e : expr) :
             [("g", gsize); ("res", tsize)]
       end
 
+(*
+Compilation of a mixed expression into the intermediate representation.
+This creates a circuit that takes in one register, corresponding to the
+quantum context.
+*)
 and compile_mixed_expr_to_inter_op (d : context) (e : expr) : inter_op =
   let t =
     match mixed_type_check d e with
@@ -1298,6 +1308,9 @@ and compile_mixed_expr_to_inter_op (d : context) (e : expr) : inter_op =
         | _ -> failwith "Error in mixed expression compilation"
       end
 
+(*
+Compilation of a pure program into the intermediate representation.
+*)
 and compile_pure_prog_to_inter_op (f : prog) : inter_op =
   match f with
   | U3 (theta, phi, lambda) -> IU3 (theta, phi, lambda)
@@ -1329,6 +1342,9 @@ and compile_pure_prog_to_inter_op (f : prog) : inter_op =
     end
   | Gphase (t, theta) -> IGphase (t, theta)
 
+(*
+Compilation of a mixed program into the intermediate representation.
+*)
 and compile_mixed_prog_to_inter_op (f : prog) : inter_op =
   match (f, prog_type_check f) with
   | _, NoneE err -> failwith err
@@ -1353,6 +1369,12 @@ and compile_mixed_prog_to_inter_op (f : prog) : inter_op =
     end
   | _ -> failwith "Error in mixed program compilation"
 
+(*
+Main procedure for compiling a Qunity expression into a low-level quantum
+gate: into the intermediate representation, then compiling the intermediate
+representation to a circuit, then applying several postprocessing steps, and
+outputting the circuit's gate and additional relevant information.
+*)
 let expr_compile (annotate : bool) (e : expr) :
     gate * int * int list * int list =
   annotation_mode := annotate;

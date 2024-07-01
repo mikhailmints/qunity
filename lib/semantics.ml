@@ -24,7 +24,7 @@ let rec expr_to_basis_state (e : expr) : matrix =
     | NoneE err -> failwith err
   in
     match (e, t) with
-    | Null, Qunit -> mat_id 1
+    | Null, Qunit -> mat_identity 1
     | Apply (Left (t0, t1), e0), SumType (t0', t1') when t0 = t0' && t1 = t1'
       ->
         vec_dirsum (expr_to_basis_state e0) (vec_zero (type_dimension t1))
@@ -60,7 +60,7 @@ let index_to_basis_state (t : exprtype) (i : int) : matrix =
 let valuation_to_basis_state (tau : valuation) : matrix =
   List.fold_left
     (fun cur (_, e) -> mat_tensor cur (expr_to_basis_state e))
-    (mat_id 1) (StringMap.bindings tau)
+    (mat_identity 1) (StringMap.bindings tau)
 
 let all_context_basis_valuations (d : context) : valuation list =
   let rec iter (bindings : (string * exprtype) list) (cur : valuation list) :
@@ -145,7 +145,7 @@ let rec pure_expr_semantics (g : context) (d : context) (e : expr)
     | Var x -> begin
         match StringMap.bindings d with
         | [] -> expr_to_basis_state (StringMap.find x sigma)
-        | [(x', _)] when x' = x -> mat_id tdim
+        | [(x', _)] when x' = x -> mat_identity tdim
         | _ -> failwith "Error in Var semantics"
       end
     | Qpair (e0, e1) -> begin
@@ -324,7 +324,7 @@ and pure_prog_semantics (f : prog) : matrix =
   | Gphase (t, r), _ ->
       mat_scalar_mul
         (Complex.polar 1. (float_of_real r))
-        (mat_id (type_dimension t))
+        (mat_identity (type_dimension t))
 
 and mixed_prog_semantics (f : prog) : superoperator =
   match (f, prog_type_check f) with
