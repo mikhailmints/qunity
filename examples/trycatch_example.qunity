@@ -2,4 +2,3 @@ try
     BitPlus |> lambda Bit0 {Bit} -> Bit1
 catch
     BitMinus
-

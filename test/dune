@@ -1,5 +1,5 @@
 (tests
- (names test_typechecking test_semantics)
+ (names test_typechecking test_semantics test_compilation)
  (libraries qunity_prototypes))
 
 (env

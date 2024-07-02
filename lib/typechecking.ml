@@ -24,7 +24,7 @@ let rec free_vars (e : expr) : StringSet.t =
 
 let rec dephase (e : expr) : expr list =
   match e with
-  | Apply (Gphase _, e') -> dephase e'
+  | Apply (Rphase (_, _, r0, r1), e') when r0 = r1 -> dephase e'
   | Ctrl (_, _, l, _) ->
       List.flatten (List.map (fun (_, ej') -> dephase ej') l)
   | _ -> [e]
@@ -479,7 +479,16 @@ and prog_type_check (f : prog) : progtype optionE =
         end
     end
   (* T-GPHASE *)
-  | Gphase (t, _) -> SomeE (Coherent (t, t))
+  | Rphase (t, er, _, _) -> begin
+    match context_check StringMap.empty t er with
+    | NoneE err -> NoneE (err ^ "\nin Rphase")
+    | SomeE d -> begin
+      match pure_type_check StringMap.empty d er with
+      | NoneE err -> NoneE (err ^ "\nin Rphase")
+      | SomeE t' when t' = t -> SomeE (Coherent (t, t))
+      | _ -> NoneE "Type mismatch in Rphase"
+    end
+  end
 
 let expr_typecheck_noopt (e : expr) =
   match mixed_type_check StringMap.empty e with

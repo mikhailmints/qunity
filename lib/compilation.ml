@@ -55,7 +55,7 @@ type inter_op =
   | IEmpty
   | IIdentity of exprtype (* a {T} -> a *)
   | IU3 of real * real * real
-  | IGphase of exprtype * real
+  | IRphase of exprtype * expr * real * real
   | ILeft of exprtype * exprtype (* a {T0} -> left{T0, T1} a *)
   | IRight of exprtype * exprtype (* a {T1} -> right{T0, T1} a *)
   | IPair of exprtype * exprtype (* a {T0}, b {T1} -> (a, b) {T0 * T1} *)
@@ -1030,7 +1030,8 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | IEmpty -> circuit_empty
   | IIdentity t -> circuit_identity t
   | IU3 (theta, phi, lambda) -> circuit_u3 theta phi lambda
-  | IGphase (t, theta) -> circuit_gphase t theta
+  | IRphase (t, _, r0, r1) ->
+      if r0 = r1 then circuit_gphase t r0 else failwith "TODO"
   | ILeft (t0, t1) -> circuit_left t0 t1
   | IRight (t0, t1) -> circuit_right t0 t1
   | IPair (t0, t1) -> circuit_pair t0 t1
@@ -1340,7 +1341,7 @@ and compile_pure_prog_to_inter_op (f : prog) : inter_op =
                 [("res", type_size t')]
           end
     end
-  | Gphase (t, theta) -> IGphase (t, theta)
+  | Rphase (t, er, r0, r1) -> IRphase (t, er, r0, r1)
 
 (*
 Compilation of a mixed program into the intermediate representation.

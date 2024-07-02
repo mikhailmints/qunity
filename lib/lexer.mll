@@ -11,7 +11,7 @@ let int = '-'? digit+
 let lower = ['a'-'z']
 let upper = ['A'-'Z']
 let letter = (lower | upper)
-let var = lower (lower | digit | '_' | ''')*
+let var = (lower | '_') (lower | digit | '_' | ''')*
 let xvar = upper (letter | digit | '_' | ''')*
 
 rule comment = parse
@@ -47,6 +47,7 @@ and read = parse
     | "u3" {U3}
     | "left" {LEFT}
     | "right" {RIGHT}
+    | "rphase" {RPHASE}
     | "gphase" {GPHASE}
     | int { CONST (int_of_string (Lexing.lexeme lexbuf)) }
     | "pi" {PI}
@@ -75,6 +76,10 @@ and read = parse
     | "then" {THEN}
     | "else" {ELSE}
     | "endif" {ENDIF}
+    (* | string {
+        let s = Lexing.lexeme lexbuf in
+        STRING (String.sub s 1 (String.length s))
+        } *)
     | var { VAR (Lexing.lexeme lexbuf) }
     | xvar { XVAR (Lexing.lexeme lexbuf) }
     | eof {EOF}

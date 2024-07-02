@@ -32,6 +32,7 @@ open Extended_syntax
 %token U3
 %token LEFT
 %token RIGHT
+%token RPHASE
 %token GPHASE
 
 %token <int> CONST
@@ -120,7 +121,10 @@ xexpr:
     | RIGHT; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE {Right (t0, t1)}
     | LAMBDA; e0 = xexpr; LBRACE; t = xexpr; RBRACE; ARROW;
         e1 = xexpr {Lambda (e0, t, e1)}
-    | GPHASE; LBRACE; t = xexpr; COMMA; r = real; RBRACE {Gphase (t, r)}
+    | RPHASE; LBRACE; t = xexpr; COMMA; er = xexpr; COMMA; r0 = real; COMMA;
+        r1 = real; RBRACE {Rphase (t, er, r0, r1)}
+    | GPHASE; LBRACE; t = xexpr; COMMA; r = real;
+        RBRACE {Rphase (t, Var "_", r, r)}
     | LBRACKET; r = real; RBRACKET {XReal r}
     | name = XVAR {Invoke (name, [])}
     | name = XVAR; LANGLE; l = arglist {Invoke (name, l)}

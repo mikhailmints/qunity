@@ -173,13 +173,14 @@ let rec gate_reset_reg (reg : int list) : gate =
   | [] -> Identity
   | h :: t -> Reset h @& gate_reset_reg t
 
-let gate_semantics (u : gate) (nqubits : int) : matrix =
+let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
+  let qdim = 1 lsl nqubits in
   let rec gate_unitary_semantics (u : gate) : matrix =
     match u with
     | Identity
     | GphaseGate _
     | Annotation _ ->
-        mat_identity nqubits
+        mat_identity qdim
     | U3Gate (i, theta, phi, lambda) -> begin
         mat_tensor
           (mat_identity (1 lsl i))
@@ -192,7 +193,7 @@ let gate_semantics (u : gate) (nqubits : int) : matrix =
         gate_unitary_semantics (gate_cnot a b @& gate_cnot b a @& gate_cnot a b)
     | Controlled (l, bl, u0) -> begin
         let u0mat = gate_unitary_semantics u0 in
-          mat_from_basis_action (1 lsl nqubits)
+          mat_from_basis_action qdim
             begin
               fun i ->
                 if
@@ -204,7 +205,7 @@ let gate_semantics (u : gate) (nqubits : int) : matrix =
                 then
                   mat_column u0mat i
                 else
-                  mat_column (mat_identity nqubits) i
+                  mat_column (mat_identity qdim) i
             end
       end
     | Sequence (u0, u1) ->
@@ -213,7 +214,20 @@ let gate_semantics (u : gate) (nqubits : int) : matrix =
   in
   let rec gate_semantics_helper (u : gate) (state : matrix) : matrix =
     match u with
-    | Reset _ -> failwith "TODO"
+    | Reset a ->
+        {
+          r = qdim;
+          c = qdim;
+          f =
+            begin
+              fun i j ->
+                let abit = 1 lsl (nqubits - 1 - a) in
+                  if i land abit <> 0 || j land abit <> 0 then
+                    Complex.zero
+                  else
+                    Complex.add (state.f i j) (state.f (i + abit) (j + abit))
+            end;
+        }
     | Sequence (u0, u1) ->
         gate_semantics_helper u1 (gate_semantics_helper u0 state)
     | _ -> begin
@@ -221,5 +235,17 @@ let gate_semantics (u : gate) (nqubits : int) : matrix =
           umat *@ state *@ mat_adjoint umat
       end
   in
-    gate_semantics_helper u
-      (basis_column_vec nqubits 0 *@ basis_row_vec nqubits 0)
+  let l = List.length out_reg in
+  let final =
+    gate_semantics_helper
+      (u
+      @& gate_permute
+           (out_reg @ int_list_diff (range nqubits) out_reg)
+           (range nqubits))
+      (basis_column_vec qdim 0 *@ basis_row_vec qdim 0)
+  in
+    {
+      r = 1 lsl l;
+      c = 1 lsl l;
+      f = (fun i j -> final.f (i lsl (nqubits - l)) (j lsl (nqubits - l)));
+    }

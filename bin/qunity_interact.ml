@@ -37,7 +37,10 @@ let () =
             | Some xe -> begin
                 match xexpr_eval xe !dm StringMap.empty with
                 | RNone err -> Printf.printf "Preprocessing error: %s\n\n" err
-                | RExpr e -> execute_expr e
+                | RExpr e -> begin
+                    Printf.printf "%s" (string_of_expr e);
+                    execute_expr e
+                  end
                 | RType t -> Printf.printf "Type: %s\n\n" (string_of_type t)
                 | RProg f -> begin
                     match prog_type_check f with
@@ -53,7 +56,7 @@ let () =
                         end;
                         Printf.printf "\nMixed semantics:\n%!";
                         print_superop (mixed_prog_semantics f);
-                        Printf.printf "\n";
+                        Printf.printf "\n"
                     | NoneE err ->
                         Printf.printf "Typechecking error: %s\n\n" err
                   end

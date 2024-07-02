@@ -115,7 +115,12 @@ let basis_index_extension (g : context) (sigma : valuation) (d : context)
       | NoneE err -> failwith err
       | SomeE tau -> tau)
 
-let partial_trace (d : context) (fv : StringSet.t) (m : matrix) : matrix =
+(*
+In a density matrix m corresponding to the context d, traces out all variables
+that are not in the specified set fv.
+*)
+let context_partial_trace (d : context) (fv : StringSet.t) (m : matrix) :
+    matrix =
   let d', d0 = map_partition d fv in
     {
       r = context_dimension d';
@@ -321,10 +326,21 @@ and pure_prog_semantics (f : prog) : matrix =
           *@ mat_adjoint
                (pure_expr_semantics StringMap.empty d e StringMap.empty)
     end
-  | Gphase (t, r), _ ->
-      mat_scalar_mul
-        (Complex.polar 1. (float_of_real r))
-        (mat_identity (type_dimension t))
+  | Rphase (t, er, r0, r1), _ -> begin
+      match context_check StringMap.empty t er with
+      | NoneE err -> failwith err
+      | SomeE d -> begin
+          let er_sem =
+            pure_expr_semantics StringMap.empty d er StringMap.empty
+          in
+          let er_proj = er_sem *@ mat_adjoint er_sem in
+            mat_plus
+              (mat_scalar_mul (Complex.polar 1. (float_of_real r0)) er_proj)
+              (mat_scalar_mul
+                 (Complex.polar 1. (float_of_real r1))
+                 (mat_minus (mat_identity (type_dimension t)) er_proj))
+        end
+    end
 
 and mixed_prog_semantics (f : prog) : superoperator =
   match (f, prog_type_check f) with
@@ -349,7 +365,7 @@ and mixed_prog_semantics (f : prog) : superoperator =
                 let v = index_to_basis_state t i in
                 let v' = index_to_basis_state t j in
                   superop_apply e'_sem
-                    (partial_trace d fve'
+                    (context_partial_trace d fve'
                        (mat_adjoint e_pure_sem *@ v *@ mat_adjoint v'
                       *@ e_pure_sem)))
     end

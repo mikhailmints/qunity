@@ -11,8 +11,6 @@ let rec complex_sum_to_n (n : int) (f : int -> Complex.t) =
   else
     Complex.add (f (n - 1)) (complex_sum_to_n (n - 1) f)
 
-let mat_well_formed (m : matrix) : bool = m.r > 0 && m.c > 0
-
 let mat_optimize (m : matrix) : matrix =
   let arr =
     Array.of_list
@@ -21,6 +19,9 @@ let mat_optimize (m : matrix) : matrix =
          (range m.r))
   in
     { r = m.r; c = m.c; f = (fun i j -> arr.(i).(j)) }
+
+let mat_scalar_mul (z : Complex.t) (m : matrix) : matrix =
+  { r = m.r; c = m.c; f = (fun i j -> Complex.mul z (m.f i j)) }
 
 let mat_plus (m1 : matrix) (m2 : matrix) : matrix =
   if m1.r <> m2.r || m1.c <> m2.c then
@@ -36,14 +37,14 @@ let mat_plus (m1 : matrix) (m2 : matrix) : matrix =
         f = (fun i j -> Complex.add (m1.f i j) (m2.f i j));
       }
 
+let mat_minus (m1 : matrix) (m2 : matrix) : matrix =
+  mat_plus m1 (mat_scalar_mul (Complex.neg Complex.one) m2)
+
 let mat_transpose (m : matrix) : matrix =
   { r = m.c; c = m.r; f = (fun i j -> m.f j i) }
 
 let mat_adjoint (m : matrix) : matrix =
   { r = m.c; c = m.r; f = (fun i j -> Complex.conj (m.f j i)) }
-
-let mat_scalar_mul (z : Complex.t) (m : matrix) : matrix =
-  { r = m.r; c = m.c; f = (fun i j -> Complex.mul z (m.f i j)) }
 
 let mat_mul (m1 : matrix) (m2 : matrix) : matrix =
   if m1.c <> m2.r then
@@ -119,7 +120,7 @@ let mat_from_basis_action (c : int) (bfun : int -> matrix) =
 
 let mat_identity (n : int) =
   if n <= 0 then
-    invalid_arg "Matrix size must positive"
+    invalid_arg "Matrix size must be positive"
   else
     {
       r = n;

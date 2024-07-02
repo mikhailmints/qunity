@@ -18,7 +18,7 @@ type xexpr =
   | Left of (xexpr * xexpr)
   | Right of (xexpr * xexpr)
   | Lambda of (xexpr * xexpr * xexpr)
-  | Gphase of (xexpr * realexpr)
+  | Rphase of (xexpr * xexpr * realexpr * realexpr)
   | XReal of realexpr
   | Invoke of string * xexpr list
   | Ifeq of (xexpr * xexpr * xexpr * xexpr)
@@ -69,6 +69,21 @@ let rec realexpr_eval (r : realexpr) (xv : xvaluation) : real =
   | XRound r1 -> Round (realexpr_eval r1 xv)
 
 and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
+  let expand_xelse (t0 : exprtype) (xelseopt : xexpr option) (l : (expr * expr) list) : (expr * expr) list optionE =
+    match xelseopt with
+          | None -> SomeE l
+          | Some xelse -> begin
+              match missing_span t0 (List.map fst l) with
+              | None ->
+                  NoneE "Ortho check failed when preprocessing else expression"
+              | Some mspan -> begin
+                  match xexpr_eval xelse dm xv with
+                  | RNone err -> NoneE (err ^ "\nin Ctrl")
+                  | RExpr eelse ->
+                      SomeE (l @ List.map (fun e -> (e, eelse)) mspan)
+                  | _ -> NoneE "Expected expression"
+                end
+            end in
   match v with
   | Null -> RExpr Null
   | Var x -> RExpr (Var x)
@@ -94,22 +109,11 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
           xexpr_eval xt1 dm xv )
       with
       | RExpr e0, RType t0, Some l, RType t1 -> begin
-          match xelseopt with
-          | None -> RExpr (Ctrl (e0, t0, l, t1))
-          | Some xelse -> begin
-              match missing_span t0 (List.map fst l) with
-              | None ->
-                  RNone "Ortho check failed when preprocessing else expression"
-              | Some mspan -> begin
-                  match xexpr_eval xelse dm xv with
-                  | RNone err -> RNone (err ^ "\nin Ctrl")
-                  | RExpr eelse ->
-                      let l' = l @ List.map (fun e -> (e, eelse)) mspan in
-                        RExpr (Ctrl (e0, t0, l', t1))
-                  | _ -> RNone "Expected expression"
-                end
-            end
+          match (expand_xelse t0 xelseopt l) with
+          | NoneE err -> RNone err
+          | SomeE l' -> RExpr (Ctrl (e0, t0, l', t1))
         end
+      | RNone err, _, _, _ | _, RNone err, _, _ | _, _, _, RNone err -> RNone err
       | _ -> RNone "Preprocessing error in Ctrl"
     end
   | Try (xe0, xe1) -> begin
@@ -183,14 +187,18 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
           RNone (err ^ "\nin Lambda")
       | _ -> RNone "Expected program in Lambda"
     end
-  | Gphase (xt, r) -> begin
-      match xexpr_eval xt dm xv with
-      | RType t -> begin
-          try RProg (Gphase (t, realexpr_eval r xv)) with
+  | Rphase (xt, xer, r0, r1) -> begin
+      match (xexpr_eval xt dm xv, xexpr_eval xer dm xv) with
+      | RType t, RExpr er -> begin
+          try
+            RProg (Rphase (t, er, realexpr_eval r0 xv, realexpr_eval r1 xv))
+          with
           | Failure err -> RNone err
         end
-      | RNone err -> RNone (err ^ "\nin Gphase")
-      | _ -> RNone "Expected program in Gphase"
+      | RNone err, _
+      | _, RNone err ->
+          RNone (err ^ "\nin Rphase")
+      | _ -> RNone "Expected program in Rphase"
     end
   | XReal r -> begin
       try RReal (realexpr_eval r xv) with

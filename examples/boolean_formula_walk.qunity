@@ -1,0 +1,67 @@
+def Child := Bit end
+def Vleft := Bit0 end
+def Vright := Bit1 end
+def Coin := Maybe <Child> end
+def Cdown := Nothing <Child> end
+def Cleft := Just <Child> of Vleft end
+def Cright := Just <Child> of Vright end
+
+def Vertex <N> :=
+    if N = [0] then
+        void
+    else
+        qunit + (Vertex <[N - 1]> * Child)
+    endif
+end
+
+def Root <N> :=
+    left {qunit, Vertex <[N]> * Child} of ()
+end
+
+def Qcons <E, N, E0> :=
+    right {qunit, Vertex <[N]> * Child} of (E, E0)
+end
+
+def Root' <N> :=
+    Qcons <Root <N>, [N + 1], Vleft>
+end
+
+def Leaf <N> :=
+    NTensorT <N, Child>
+end
+
+def UState :=
+    Bit0 |>
+    u3 {2 * arccos(sqrt(1 / 3)), 0, 0} |>
+    lambda x {Bit} -> ctrl {Bit, Bit * Bit} x [
+        Bit0 -> (x, Bit0);
+        Bit1 -> (x, BitPlus)
+    ] |>
+    lambda x {Bit * Bit} -> ctrl {Bit * Bit, (Bit * Bit) * Coin} x [
+        (Bit0, _) -> (x, Cdown);
+        (Bit1, Bit0) -> (x, Cleft);
+        (Bit1, Bit1) -> (x, Cright)
+    ] |>
+    Snd <Bit * Bit, Coin>
+end
+
+def U'State <N> :=
+    Bit0 |>
+    u3 {2 * arccos(1 / sqrt(sqrt(N))), 0, 0} |>
+    lambda x {Bit} -> ctrl {Bit, Bit * Coin} x [
+        Bit0 -> (x, Cdown);
+        Bit1 -> (x, Cleft)
+    ] |>
+    Snd <Bit, Coin>
+end
+
+def AsLeaf <N> :=
+    if N = [0] then
+        lambda Root' <[0]> {Vertex <[2]>} -> ()
+    else
+        lambda Qcons <x, [N + 1], x0> {Vertex <[N + 2]>} ->
+            (x0, x |> AsLeaf <[N - 1]>)
+    endif
+end
+
+

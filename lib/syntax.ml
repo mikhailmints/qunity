@@ -23,15 +23,18 @@ and prog =
   | Left of (exprtype * exprtype)
   | Right of (exprtype * exprtype)
   | Lambda of (expr * exprtype * expr)
-  | Gphase of (exprtype * real)
+  | Rphase of (exprtype * expr * real * real)
 
 let bit = SumType (Qunit, Qunit)
 let had = U3 (Div (Pi, Const 2), Const 0, Pi)
 let qnot = U3 (Pi, Const 0, Pi)
 let bit0 = Apply (Left (Qunit, Qunit), Null)
 let bit1 = Apply (Right (Qunit, Qunit), Null)
+let bitplus = Apply (had, bit0)
+let bitminus = Apply (had, bit1)
 let qid (t : exprtype) = Lambda (Var "x", t, Var "x")
-let phaseflip (t : exprtype) = Gphase (t, Pi)
+let gphase (t : exprtype) (r : real) = Rphase (t, Var "_", r, r)
+let phaseflip (t : exprtype) = gphase t Pi
 let adjoint (t : exprtype) (f : prog) = Lambda (Apply (f, Var "x"), t, Var "x")
 
 let rec string_of_type (t : exprtype) =
@@ -66,7 +69,7 @@ let rec string_of_expr (e : expr) : string =
   | Try (e0, e1) ->
       Printf.sprintf "try %s catch %s" (string_of_expr e0) (string_of_expr e1)
   | Apply (f, e') ->
-      Printf.sprintf "(%s) (%s)" (string_of_prog f) (string_of_expr e')
+      Printf.sprintf "(%s) of (%s)" (string_of_prog f) (string_of_expr e')
 
 and string_of_prog (f : prog) : string =
   match f with
@@ -82,8 +85,9 @@ and string_of_prog (f : prog) : string =
   | Lambda (e, t, e') ->
       Printf.sprintf "lambda (%s){%s} -> (%s)" (string_of_expr e)
         (string_of_type t) (string_of_expr e')
-  | Gphase (t, r) ->
-      Printf.sprintf "gphase{%s, %s}" (string_of_type t) (string_of_real r)
+  | Rphase (t, e, r0, r1) ->
+      Printf.sprintf "rphase{%s, %s, %s, %s}" (string_of_type t)
+        (string_of_expr e) (string_of_real r0) (string_of_real r1)
 
 let string_of_progtype (ft : progtype) : string =
   match ft with

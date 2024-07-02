@@ -48,6 +48,18 @@ def Snd <T0, T1> :=
     lambda (x0, x1) {T0 * T1} -> x1
 end
 
+def Maybe <T> :=
+    qunit + T
+end
+
+def Nothing <T> :=
+    left {qunit, T} of ()
+end
+
+def Just <T> :=
+    right {qunit, T}
+end
+
 /*
 Tensor product of type T, N times
 */
@@ -86,14 +98,8 @@ def Equals <T, E> :=
     lambda x {T} -> try x |> lambda E {T} -> Bit1 catch Bit0
 end
 
-/*
-This doesn't work as expected due to control semantics
-*/
 def Reflect <T, E> :=
-    lambda x {T} -> ctrl {Bit, T} (Equals <T, E> of x) [
-        Bit1 -> x;
-        Bit0 -> x |> gphase {T, pi}
-    ]
+    rphase {T, E, 0, pi}
 end
 
 def Tag <T0, T1> :=
