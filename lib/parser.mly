@@ -54,6 +54,11 @@ open Extended_syntax
 %token SQRT
 %token ROUND
 %token MOD
+%token LEQ
+%token GEQ
+%token LT
+%token GT
+%token FAIL
 
 %token DEF
 %token DEFSTART
@@ -128,9 +133,18 @@ xexpr:
     | LBRACKET; r = real; RBRACKET {XReal r}
     | name = XVAR {Invoke (name, [])}
     | name = XVAR; LANGLE; l = arglist {Invoke (name, l)}
-    | IF; v0 = xexpr; EQUAL; v1 = xexpr; THEN; vtrue = xexpr;
-        ELSE vfalse = xexpr; ENDIF {Ifeq (v0, v1, vtrue, vfalse)}
+    | IF; v0 = xexpr; c = cmp; v1 = xexpr; THEN; vtrue = xexpr;
+        ELSE vfalse = xexpr; ENDIF {Ifcmp (v0, c, v1, vtrue, vfalse)}
     | LPAREN; x = xexpr; RPAREN {x}
+    | FAIL {Fail}
+    ;
+
+cmp :
+    | EQUAL {Equal}
+    | LEQ {Leq}
+    | LT {Lt}
+    | GEQ {Geq}
+    | GT {Gt}
     ;
 
 real:
@@ -162,6 +176,7 @@ ctrlblock:
     | e0 = xexpr; ARROW; e1 = xexpr; SEMICOLON; l = ctrlblock
         {((e0, e1) :: fst l, snd l)}
     | e0 = xexpr; ARROW; e1 = xexpr; RBRACKET {([(e0, e1)], None)}
+    | RBRACKET {([], None)}
     | e0 = xexpr; ARROW; e1 = xexpr; SEMICOLON; ELSE; ARROW; e2 = xexpr RBRACKET
         {([(e0, e1)], Some e2)}
     ;

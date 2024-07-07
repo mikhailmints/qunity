@@ -63,7 +63,7 @@ let rec string_of_expr (e : expr) : string =
            ""
            (List.map
               (fun (ej, ej') ->
-                Printf.sprintf "(%s -> %s)" (string_of_expr ej)
+                Printf.sprintf "(%s) -> (%s)" (string_of_expr ej)
                   (string_of_expr ej'))
               l))
   | Try (e0, e1) ->

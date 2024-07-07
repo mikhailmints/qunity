@@ -64,10 +64,14 @@ end
 Tensor product of type T, N times
 */
 def NTensorT <N, T> :=
-    if N = [0] then
-        qunit
+    if N << [0] then
+        fail
     else
-        T * NTensorT <[N - 1], T>
+        if N = [0] then
+            qunit
+        else
+            T * NTensorT <[N - 1], T>
+        endif
     endif
 end
 
@@ -75,10 +79,14 @@ end
 Tensor product of expression E, N times
 */
 def NTensorE <N, E> :=
-    if N = [0] then
-        ()
+    if N << [0] then
+        fail
     else
-        (E, NTensorE <[N - 1], E>)
+        if N = [0] then
+            ()
+        else
+            (E, NTensorE <[N - 1], E>)
+        endif
     endif
 end
 
@@ -86,11 +94,41 @@ end
 Tensor product of program F, acting on type T, N times
 */
 def NTensorF <N, F, T> :=
-    if N = [0] then
-        Qid <qunit>
+    if N << [0] then
+        fail
     else
-        lambda (x, x') {NTensorT <N, T>} ->
-        (F of x, NTensorF <[N - 1], F, T> of x')
+        if N = [0] then
+            Qid <qunit>
+        else
+            lambda (x, x') {NTensorT <N, T>} ->
+            (F of x, NTensorF <[N - 1], F, T> of x')
+        endif
+    endif
+end
+
+def Append <N, T> :=
+    if N << [0] then
+        fail
+    else
+        if N = [0] then
+            lambda (y, x) {qunit * T} -> (x, y)
+        else
+            lambda ((y0, y1), x) {NTensorT <[N], T> * T} ->
+                (y0, Append <[N - 1], T> of (y1, x))
+        endif
+    endif
+end
+
+def Reverse <N, T> :=
+    if N << [0] then
+        fail
+    else
+        if N = [0] then
+            Qid <qunit>
+        else
+            lambda (x, y) {NTensorT <[N], T>} ->
+                Append <[N - 1], T> of (Reverse <[N - 1], T> of y, x)
+        endif
     endif
 end
 
@@ -126,13 +164,17 @@ end
 Little-endian encoding of number N as a quantum state
 */
 def NumToState <N> :=
-    if N = [0] then
-        ()
+    if N << [0] then
+        fail
     else
-        if [N % 2] = [0] then
-            (Bit0, NumToState <[N / 2]>)
+        if N = [0] then
+            ()
         else
-            (Bit1, NumToState <[(N - 1) / 2]>)
+            if [N % 2] = [0] then
+                (Bit0, NumToState <[N / 2]>)
+            else
+                (Bit1, NumToState <[(N - 1) / 2]>)
+            endif
         endif
     endif
 end
@@ -141,9 +183,13 @@ end
 Retries an evaluation of E N times, amplifying the probability of success
 */
 def Retry <N, E> :=
-    if N = [0] then
-        E
+    if N << [0] then
+        fail
     else
-        try E catch Retry <[N - 1], E>
+        if N = [0] then
+            E
+        else
+            try E catch Retry <[N - 1], E>
+        endif
     endif
 end

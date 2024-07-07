@@ -11,7 +11,8 @@
   gate
   compilation
   parser
-  lexer))
+  lexer)
+ (libraries num))
 
 (menhir
  (modules parser))

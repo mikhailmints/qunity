@@ -1,3 +1,6 @@
+open Ratio
+open Util
+
 type real =
   | Pi
   | Euler
@@ -19,105 +22,193 @@ type real =
   | Sqrt of real
   | Round of real
 
-type realexpr =
-  | XPi
-  | XEuler
-  | XConst of int
-  | XVar of string
-  | XNegate of realexpr
-  | XPlus of (realexpr * realexpr)
-  | XTimes of (realexpr * realexpr)
-  | XDiv of (realexpr * realexpr)
-  | XPow of (realexpr * realexpr)
-  | XMod of (realexpr * realexpr)
-  | XSin of realexpr
-  | XCos of realexpr
-  | XTan of realexpr
-  | XArcsin of realexpr
-  | XArccos of realexpr
-  | XArctan of realexpr
-  | XExp of realexpr
-  | XLn of realexpr
-  | XSqrt of realexpr
-  | XRound of realexpr
-
 let rec string_of_real (r : real) : string =
   match r with
   | Pi -> "pi"
   | Euler -> "e"
   | Const x -> string_of_int x
-  | Negate r1 -> Printf.sprintf "-(%s)" (string_of_real r1)
-  | Plus (r1, r2) ->
-      Printf.sprintf "(%s) + (%s)" (string_of_real r1) (string_of_real r2)
-  | Times (r1, r2) ->
-      Printf.sprintf "(%s) * (%s)" (string_of_real r1) (string_of_real r2)
-  | Div (r1, r2) ->
-      Printf.sprintf "(%s) / (%s)" (string_of_real r1) (string_of_real r2)
-  | Pow (r1, r2) ->
-      Printf.sprintf "(%s) ^ (%s)" (string_of_real r1) (string_of_real r2)
-  | Mod (r1, r2) ->
-      Printf.sprintf "(%s) %% (%s)" (string_of_real r1) (string_of_real r2)
-  | Sin r1 -> Printf.sprintf "sin(%s)" (string_of_real r1)
-  | Cos r1 -> Printf.sprintf "cos(%s)" (string_of_real r1)
-  | Tan r1 -> Printf.sprintf "tan(%s)" (string_of_real r1)
-  | Arcsin r1 -> Printf.sprintf "arcsin(%s)" (string_of_real r1)
-  | Arccos r1 -> Printf.sprintf "arccos(%s)" (string_of_real r1)
-  | Arctan r1 -> Printf.sprintf "arctan(%s)" (string_of_real r1)
-  | Exp r1 -> Printf.sprintf "exp(%s)" (string_of_real r1)
-  | Ln r1 -> Printf.sprintf "ln(%s)" (string_of_real r1)
-  | Sqrt r1 -> Printf.sprintf "sqrt(%s)" (string_of_real r1)
-  | Round r1 -> Printf.sprintf "round(%s)" (string_of_real r1)
+  | Negate r0 -> Printf.sprintf "-(%s)" (string_of_real r0)
+  | Plus (r0, r1) ->
+      Printf.sprintf "(%s) + (%s)" (string_of_real r0) (string_of_real r1)
+  | Times (r0, r1) ->
+      Printf.sprintf "(%s) * (%s)" (string_of_real r0) (string_of_real r1)
+  | Div (r0, r1) ->
+      Printf.sprintf "(%s) / (%s)" (string_of_real r0) (string_of_real r1)
+  | Pow (r0, r1) ->
+      Printf.sprintf "(%s) ^ (%s)" (string_of_real r0) (string_of_real r1)
+  | Mod (r0, r1) ->
+      Printf.sprintf "(%s) %% (%s)" (string_of_real r0) (string_of_real r1)
+  | Sin r0 -> Printf.sprintf "sin(%s)" (string_of_real r0)
+  | Cos r0 -> Printf.sprintf "cos(%s)" (string_of_real r0)
+  | Tan r0 -> Printf.sprintf "tan(%s)" (string_of_real r0)
+  | Arcsin r0 -> Printf.sprintf "arcsin(%s)" (string_of_real r0)
+  | Arccos r0 -> Printf.sprintf "arccos(%s)" (string_of_real r0)
+  | Arctan r0 -> Printf.sprintf "arctan(%s)" (string_of_real r0)
+  | Exp r0 -> Printf.sprintf "exp(%s)" (string_of_real r0)
+  | Ln r0 -> Printf.sprintf "ln(%s)" (string_of_real r0)
+  | Sqrt r0 -> Printf.sprintf "sqrt(%s)" (string_of_real r0)
+  | Round r0 -> Printf.sprintf "round(%s)" (string_of_real r0)
 
 let rec python_string_of_real (r : real) : string =
   match r with
   | Pi -> "np.pi"
   | Euler -> "np.e"
   | Const x -> string_of_int x
-  | Negate r1 -> Printf.sprintf "-(%s)" (python_string_of_real r1)
-  | Plus (r1, r2) ->
-      Printf.sprintf "(%s) + (%s)" (python_string_of_real r1)
-        (python_string_of_real r2)
-  | Times (r1, r2) ->
-      Printf.sprintf "(%s) * (%s)" (python_string_of_real r1)
-        (python_string_of_real r2)
-  | Div (r1, r2) ->
-      Printf.sprintf "(%s) / (%s)" (python_string_of_real r1)
-        (python_string_of_real r2)
-  | Pow (r1, r2) ->
-      Printf.sprintf "(%s) ** (%s)" (python_string_of_real r1)
-        (python_string_of_real r2)
-  | Mod (r1, r2) ->
-      Printf.sprintf "(%s) %% (%s)" (python_string_of_real r1)
-        (python_string_of_real r2)
-  | Sin r1 -> Printf.sprintf "np.sin(%s)" (python_string_of_real r1)
-  | Cos r1 -> Printf.sprintf "np.cos(%s)" (python_string_of_real r1)
-  | Tan r1 -> Printf.sprintf "np.tan(%s)" (python_string_of_real r1)
-  | Arcsin r1 -> Printf.sprintf "np.arcsin(%s)" (python_string_of_real r1)
-  | Arccos r1 -> Printf.sprintf "np.arccos(%s)" (python_string_of_real r1)
-  | Arctan r1 -> Printf.sprintf "np.arctan(%s)" (python_string_of_real r1)
-  | Exp r1 -> Printf.sprintf "np.exp(%s)" (python_string_of_real r1)
-  | Ln r1 -> Printf.sprintf "np.log(%s)" (python_string_of_real r1)
-  | Sqrt r1 -> Printf.sprintf "np.sqrt(%s)" (python_string_of_real r1)
-  | Round r1 -> Printf.sprintf "np.round(%s)" (string_of_real r1)
+  | Negate r0 -> Printf.sprintf "-(%s)" (python_string_of_real r0)
+  | Plus (r0, r1) ->
+      Printf.sprintf "(%s) + (%s)" (python_string_of_real r0)
+        (python_string_of_real r1)
+  | Times (r0, r1) ->
+      Printf.sprintf "(%s) * (%s)" (python_string_of_real r0)
+        (python_string_of_real r1)
+  | Div (r0, r1) ->
+      Printf.sprintf "(%s) / (%s)" (python_string_of_real r0)
+        (python_string_of_real r1)
+  | Pow (r0, r1) ->
+      Printf.sprintf "(%s) ** (%s)" (python_string_of_real r0)
+        (python_string_of_real r1)
+  | Mod (r0, r1) ->
+      Printf.sprintf "(%s) %% (%s)" (python_string_of_real r0)
+        (python_string_of_real r1)
+  | Sin r0 -> Printf.sprintf "np.sin(%s)" (python_string_of_real r0)
+  | Cos r0 -> Printf.sprintf "np.cos(%s)" (python_string_of_real r0)
+  | Tan r0 -> Printf.sprintf "np.tan(%s)" (python_string_of_real r0)
+  | Arcsin r0 -> Printf.sprintf "np.arcsin(%s)" (python_string_of_real r0)
+  | Arccos r0 -> Printf.sprintf "np.arccos(%s)" (python_string_of_real r0)
+  | Arctan r0 -> Printf.sprintf "np.arctan(%s)" (python_string_of_real r0)
+  | Exp r0 -> Printf.sprintf "np.exp(%s)" (python_string_of_real r0)
+  | Ln r0 -> Printf.sprintf "np.log(%s)" (python_string_of_real r0)
+  | Sqrt r0 -> Printf.sprintf "np.sqrt(%s)" (python_string_of_real r0)
+  | Round r0 -> Printf.sprintf "np.round(%s)" (string_of_real r0)
 
 let rec float_of_real (r : real) : float =
   match r with
   | Pi -> Float.pi
   | Euler -> Float.exp 1.
   | Const x -> float_of_int x
-  | Negate r1 -> -1. *. float_of_real r1
-  | Plus (r1, r2) -> float_of_real r1 +. float_of_real r2
-  | Times (r1, r2) -> float_of_real r1 *. float_of_real r2
-  | Div (r1, r2) -> float_of_real r1 /. float_of_real r2
-  | Pow (r1, r2) -> Float.pow (float_of_real r1) (float_of_real r2)
-  | Mod (r1, r2) -> mod_float (float_of_real r1) (float_of_real r2)
-  | Sin r1 -> Float.sin (float_of_real r1)
-  | Cos r1 -> Float.cos (float_of_real r1)
-  | Tan r1 -> Float.tan (float_of_real r1)
-  | Arcsin r1 -> Float.asin (float_of_real r1)
-  | Arccos r1 -> Float.acos (float_of_real r1)
-  | Arctan r1 -> Float.atan (float_of_real r1)
-  | Exp r1 -> Float.exp (float_of_real r1)
-  | Ln r1 -> Float.log (float_of_real r1)
-  | Sqrt r1 -> Float.sqrt (float_of_real r1)
-  | Round r1 -> Float.round (float_of_real r1)
+  | Negate r0 -> -1. *. float_of_real r0
+  | Plus (r0, r1) -> float_of_real r0 +. float_of_real r1
+  | Times (r0, r1) -> float_of_real r0 *. float_of_real r1
+  | Div (r0, r1) -> float_of_real r0 /. float_of_real r1
+  | Pow (r0, r1) -> Float.pow (float_of_real r0) (float_of_real r1)
+  | Mod (r0, r1) -> mod_float (float_of_real r0) (float_of_real r1)
+  | Sin r0 -> Float.sin (float_of_real r0)
+  | Cos r0 -> Float.cos (float_of_real r0)
+  | Tan r0 -> Float.tan (float_of_real r0)
+  | Arcsin r0 -> Float.asin (float_of_real r0)
+  | Arccos r0 -> Float.acos (float_of_real r0)
+  | Arctan r0 -> Float.atan (float_of_real r0)
+  | Exp r0 -> Float.exp (float_of_real r0)
+  | Ln r0 -> Float.log (float_of_real r0)
+  | Sqrt r0 -> Float.sqrt (float_of_real r0)
+  | Round r0 -> Float.round (float_of_real r0)
+
+let rec int_of_real (r : real) : int option =
+  match r with
+  | Const x -> Some x
+  | Negate r0 -> begin
+      match int_of_real r0 with
+      | Some n0 -> Some (-n0)
+      | None -> None
+    end
+  | Plus (r0, r1) -> begin
+      match (int_of_real r0, int_of_real r1) with
+      | Some n0, Some n1 -> Some (n0 + n1)
+      | _ -> None
+    end
+  | Times (r0, r1) -> begin
+      match (int_of_real r0, int_of_real r1) with
+      | Some n0, Some n1 -> Some (n0 * n1)
+      | _ -> None
+    end
+  | Mod (r0, r1) -> begin
+      match (int_of_real r0, int_of_real r1) with
+      | Some n0, Some n1 -> Some (n0 mod n1)
+      | _ -> None
+    end
+  | Round r0 -> begin
+      match ratio_of_real r0 with
+      | Some q0 -> Some (Big_int.int_of_big_int (round_ratio q0))
+      | None -> None
+    end
+  | _ -> None
+
+and ratio_of_real (r : real) : ratio option =
+  match r with
+  | Const x -> Some (ratio_of_int x)
+  | Negate r0 -> begin
+      match ratio_of_real r0 with
+      | Some q0 -> Some (minus_ratio q0)
+      | None -> None
+    end
+  | Plus (r0, r1) -> begin
+      match (ratio_of_real r0, ratio_of_real r1) with
+      | Some q0, Some q1 -> Some (add_ratio q0 q1)
+      | _ -> None
+    end
+  | Times (r0, r1) -> begin
+      match (ratio_of_real r0, ratio_of_real r1) with
+      | Some q0, Some q1 -> Some (mult_ratio q0 q1)
+      | _ -> None
+    end
+  | Div (r0, r1) -> begin
+      match (ratio_of_real r0, ratio_of_real r1) with
+      | Some q0, Some q1 -> Some (div_ratio q0 q1)
+      | _ -> None
+    end
+  | Mod (r0, r1) -> begin
+      match (int_of_real r0, int_of_real r1) with
+      | Some n0, Some n1 -> Some (ratio_of_int (n0 mod n1))
+      | _ -> None
+    end
+  | Pow (r0, r1) -> begin
+      match (ratio_of_real r0, int_of_real r1) with
+      | Some q0, Some n1 -> Some (power_ratio_positive_int q0 n1)
+      | _ -> None
+    end
+  | Round r0 -> begin
+      match ratio_of_real r0 with
+      | Some q0 -> Some (ratio_of_big_int (round_ratio q0))
+      | None -> None
+    end
+  | _ -> None
+
+let real_equal (r0 : real) (r1 : real) =
+  if r0 = r1 then
+    true
+  else
+    match (ratio_of_real r0, ratio_of_real r1) with
+    | Some q0, Some q1 -> eq_ratio q0 q1
+    | _ -> float_approx_equal (float_of_real r0) (float_of_real r1)
+
+let real_le (r0 : real) (r1 : real) =
+  if real_equal r0 r1 then
+    true
+  else
+    match (ratio_of_real r0, ratio_of_real r1) with
+    | Some q0, Some q1 -> le_ratio q0 q1
+    | _ -> float_of_real r0 <= float_of_real r1
+
+let real_lt (r0 : real) (r1 : real) =
+  if real_equal r0 r1 then
+    false
+  else
+    match (ratio_of_real r0, ratio_of_real r1) with
+    | Some q0, Some q1 -> lt_ratio q0 q1
+    | _ -> float_of_real r0 < float_of_real r1
+
+let real_ge (r0 : real) (r1 : real) =
+  if real_equal r0 r1 then
+    true
+  else
+    match (ratio_of_real r0, ratio_of_real r1) with
+    | Some q0, Some q1 -> ge_ratio q0 q1
+    | _ -> float_of_real r0 >= float_of_real r1
+
+let real_gt (r0 : real) (r1 : real) =
+  if real_equal r0 r1 then
+    false
+  else
+    match (ratio_of_real r0, ratio_of_real r1) with
+    | Some q0, Some q1 -> gt_ratio q0 q1
+    | _ -> float_of_real r0 > float_of_real r1

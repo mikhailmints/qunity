@@ -478,7 +478,7 @@ and prog_type_check (f : prog) : progtype optionE =
             end
         end
     end
-  (* T-GPHASE *)
+  (* T-RPHASE *)
   | Rphase (t, er, _, _) -> begin
     match context_check StringMap.empty t er with
     | NoneE err -> NoneE (err ^ "\nin Rphase")

@@ -193,7 +193,7 @@ let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
         gate_unitary_semantics (gate_cnot a b @& gate_cnot b a @& gate_cnot a b)
     | Controlled (l, bl, u0) -> begin
         let u0mat = gate_unitary_semantics u0 in
-          mat_from_basis_action qdim
+          mat_from_basis_action qdim qdim
             begin
               fun i ->
                 if
@@ -215,19 +215,16 @@ let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
   let rec gate_semantics_helper (u : gate) (state : matrix) : matrix =
     match u with
     | Reset a ->
-        {
-          r = qdim;
-          c = qdim;
-          f =
-            begin
-              fun i j ->
-                let abit = 1 lsl (nqubits - 1 - a) in
-                  if i land abit <> 0 || j land abit <> 0 then
-                    Complex.zero
-                  else
-                    Complex.add (state.f i j) (state.f (i + abit) (j + abit))
-            end;
-        }
+        mat_from_fun qdim qdim
+          begin
+            fun i j ->
+              let abit = 1 lsl (nqubits - 1 - a) in
+                if i land abit <> 0 || j land abit <> 0 then
+                  Complex.zero
+                else
+                  Complex.add (mat_entry state i j)
+                    (mat_entry state (i + abit) (j + abit))
+          end
     | Sequence (u0, u1) ->
         gate_semantics_helper u1 (gate_semantics_helper u0 state)
     | _ -> begin
@@ -244,8 +241,5 @@ let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
            (range nqubits))
       (basis_column_vec qdim 0 *@ basis_row_vec qdim 0)
   in
-    {
-      r = 1 lsl l;
-      c = 1 lsl l;
-      f = (fun i j -> final.f (i lsl (nqubits - l)) (j lsl (nqubits - l)));
-    }
+    mat_from_fun (1 lsl l) (1 lsl l) (fun i j ->
+        mat_entry final (i lsl (nqubits - l)) (j lsl (nqubits - l)))

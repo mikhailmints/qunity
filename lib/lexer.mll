@@ -39,6 +39,10 @@ and read = parse
     | "in" {IN}
     | "|>" {PIPE}
     | "->" {ARROW}
+    | "<=" {LEQ}
+    | ">=" {GEQ}
+    | "<<" {LT}
+    | ">>" {GT}
     | "<" {LANGLE}
     | ">" {RANGLE}
     | "of" {OF}
@@ -76,10 +80,7 @@ and read = parse
     | "then" {THEN}
     | "else" {ELSE}
     | "endif" {ENDIF}
-    (* | string {
-        let s = Lexing.lexeme lexbuf in
-        STRING (String.sub s 1 (String.length s))
-        } *)
+    | "fail" {FAIL}
     | var { VAR (Lexing.lexeme lexbuf) }
     | xvar { XVAR (Lexing.lexeme lexbuf) }
     | eof {EOF}

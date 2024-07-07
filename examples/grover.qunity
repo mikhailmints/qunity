@@ -1,4 +1,6 @@
-// A single Grover iteration for oracle F on N qubits
+/*
+A single Grover iteration for oracle F on N qubits
+*/
 def GroverIter <N, F> :=
     lambda x {NTensorT <N, Bit>} ->
     // Apply F as a phase oracle
@@ -10,7 +12,9 @@ def GroverIter <N, F> :=
     Reflect <NTensorT <N, Bit>, NTensorE <N, BitPlus>>
 end
 
-// Run Grover's algorithm for Niter iterations
+/*
+Run Grover's algorithm for Niter iterations
+*/
 def Grover <N, F, Niter> :=
     if Niter = [0] then
         NTensorE <N, BitPlus>
@@ -19,11 +23,13 @@ def Grover <N, F, Niter> :=
     endif
 end
 
-def N := [3] end
-def Answer := (Bit0, (Bit1, (Bit0, ()))) end
+def N := [5] end
+def Answer := (Bit0, (Bit1, (Bit1, (Bit0, (Bit0, ()))))) end
 
-// Quantum oracle representing a function acting on 3 bits that outputs
-// 1 for the input 010 and 0 for other inputs
+/*
+Quantum oracle representing a function acting on N bits that outputs
+1 for the input Answer and 0 for other inputs
+*/
 def F :=
     lambda x {NTensorT <N, Bit>} ->
     ctrl {NTensorT <N, Bit>, NTensorT <N, Bit> * Bit} x [

@@ -52,11 +52,15 @@ let test_compilation_correctness (testname : string) (e : expr) =
               mat_approx_equal
                 (mat_adjoint bs *@ sem *@ bs)
                 (mat_adjoint enc_bs *@ gate_sem *@ enc_bs))
-          (all_basis_exprs t)
+          (Array.to_list (all_basis_exprs t))
       then
         Printf.printf "passed\n"
       else begin
         Printf.printf "FAILED\n";
+        Printf.printf "sem matrix:\n";
+        print_mat sem;
+        Printf.printf "gate_sem matrix:\n";
+        print_mat gate_sem;
         all_passed := false
       end
   with

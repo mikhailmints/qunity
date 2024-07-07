@@ -165,6 +165,9 @@ let range (i : int) : int list =
   let rec iter i = if i <= 0 then [] else (i - 1) :: iter (i - 1) in
     List.rev (iter i)
 
+let range_arr (i : int) : int array =
+  Array.of_list (range i)
+
 let float_approx_equal (a : float) (b : float) : bool =
   let eps = 1e-15 in
     Float.abs (a -. b) <= eps

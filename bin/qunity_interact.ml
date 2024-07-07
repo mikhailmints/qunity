@@ -37,10 +37,7 @@ let () =
             | Some xe -> begin
                 match xexpr_eval xe !dm StringMap.empty with
                 | RNone err -> Printf.printf "Preprocessing error: %s\n\n" err
-                | RExpr e -> begin
-                    Printf.printf "%s" (string_of_expr e);
-                    execute_expr e
-                  end
+                | RExpr e -> execute_expr e
                 | RType t -> Printf.printf "Type: %s\n\n" (string_of_type t)
                 | RProg f -> begin
                     match prog_type_check f with

@@ -6,6 +6,9 @@ def Cdown := Nothing <Child> end
 def Cleft := Just <Child> of Vleft end
 def Cright := Just <Child> of Vright end
 
+/*
+List of up to N - 1 elements
+*/
 def Vertex <N> :=
     if N = [0] then
         void
@@ -14,14 +17,27 @@ def Vertex <N> :=
     endif
 end
 
+/*
+Type: Vertex <[N + 1]>
+Empty list that can contain up to N elements
+*/
 def Root <N> :=
     left {qunit, Vertex <[N]> * Child} of ()
 end
 
+/*
+E : Vertex <[N]>
+E0 : Child
+outputs: Vertex <[N + 1]>
+*/
 def Qcons <E, N, E0> :=
     right {qunit, Vertex <[N]> * Child} of (E, E0)
 end
 
+/*
+Type: Vertex <[N + 2]>
+Has Vleft and can add N additional children
+*/
 def Root' <N> :=
     Qcons <Root <N>, [N + 1], Vleft>
 end
@@ -31,30 +47,44 @@ def Leaf <N> :=
 end
 
 def UState :=
-    Bit0 |>
-    u3 {2 * arccos(sqrt(1 / 3)), 0, 0} |>
-    lambda x {Bit} -> ctrl {Bit, Bit * Bit} x [
+    Bit0
+    |> u3 {2 * arccos(sqrt(1 / 3)), 0, 0}
+    |> lambda x {Bit} -> ctrl {Bit, Bit * Bit} x [
         Bit0 -> (x, Bit0);
         Bit1 -> (x, BitPlus)
-    ] |>
-    lambda x {Bit * Bit} -> ctrl {Bit * Bit, (Bit * Bit) * Coin} x [
-        (Bit0, _) -> (x, Cdown);
+    ]
+    |> lambda x {Bit * Bit} -> ctrl {Bit * Bit, (Bit * Bit) * Coin} x [
+        (Bit0, Bit0) -> (x, Cdown);
         (Bit1, Bit0) -> (x, Cleft);
         (Bit1, Bit1) -> (x, Cright)
-    ] |>
-    Snd <Bit * Bit, Coin>
+    ]
+    |> lambda (
+        ctrl {Coin, (Bit * Bit) * Coin} x' [
+            Cdown -> ((Bit0, Bit0), x');
+            Cleft -> ((Bit1, Bit0), x');
+            Cright -> ((Bit1, Bit1), x')
+        ]
+    ) {(Bit * Bit) * Coin} -> x'
 end
 
 def U'State <N> :=
-    Bit0 |>
-    u3 {2 * arccos(1 / sqrt(sqrt(N))), 0, 0} |>
-    lambda x {Bit} -> ctrl {Bit, Bit * Coin} x [
+    Bit0
+    |> u3 {2 * arccos(1 / sqrt(sqrt(N))), 0, 0}
+    |> lambda x {Bit} -> ctrl {Bit, Bit * Coin} x [
         Bit0 -> (x, Cdown);
         Bit1 -> (x, Cleft)
-    ] |>
-    Snd <Bit, Coin>
+    ]
+    |> lambda (
+        ctrl {Coin, Bit * Coin} x' [
+            Cdown -> (Bit0, x');
+            Cleft -> (Bit1, x')
+        ]
+    ) {Bit * Coin} -> x'
 end
 
+/*
+Vertex <[N + 2]> -> Leaf <[N]>
+*/
 def AsLeaf <N> :=
     if N = [0] then
         lambda Root' <[0]> {Vertex <[2]>} -> ()
@@ -64,4 +94,81 @@ def AsLeaf <N> :=
     endif
 end
 
+def Downcast <N> :=
+    if N = [0] then
+        lambda v {Vertex <[1]>} -> ctrl {Vertex <[1]>, Vertex <[0]>} v []
+    else
+        lambda v {Vertex <[N + 1]>} ->
+            ctrl {Vertex <[N + 1]>, Vertex <[N + 1]> * Vertex <[N]>} v [
+                Root <[N]> -> (v, Root <[N - 1]>);
+                Qcons <v', [N], x> ->
+                    (v, Qcons <Downcast <[N - 1]> of v', [N - 1], x>)
+            ]
+            |> lambda (
+                ctrl {Vertex <[N]>, Vertex <[N + 1]> * Vertex <[N]>} v [
+                    Root <[N - 1]> -> (Root <[N]>, v);
+                    Qcons <v', [N - 1], x> ->
+                        (Qcons <Adjoint <Downcast <[N - 1]>,
+                        Vertex <[N - 1]>> of v', [N], x>, v)
+                ]
+            ) {Vertex <[N + 1]> * Vertex <[N]>} -> v
+    endif
+end
+
+def LeftChild <N> :=
+    lambda v {Vertex <N>} -> Downcast <N> of Qcons <v, [N], Vleft>
+end
+
+def RightChild <N> :=
+    lambda v {Vertex <N>} -> Downcast <N> of Qcons <v, [N], Vright>
+end
+
+def Diffusion <N, F> :=
+    lambda (c, v) {Coin * Vertex <[N + 2]>} ->
+        ctrl {Vertex <[N + 2]>, Coin * Vertex <[N + 2]>} v [
+            Qcons <Qcons <v', [N], x>, [N + 1], x'> ->
+                ctrl {Maybe <Leaf <N>>, Coin * Vertex <[N + 2]>} (
+                    try
+                        Qcons <Qcons <v', [N], x>, [N + 1], x'>
+                        |> AsLeaf <[N]> |> Just <Leaf <N>>
+                    catch
+                        Nothing <Leaf <N>>
+                ) [
+                    Nothing <Leaf <N>> -> (c |> Reflect <Coin, UState>, v);
+                    Just <Leaf <N>> of l ->
+                        ctrl {Bit, Coin * Vertex <[N + 2]>} (F of l) [
+                            Bit0 -> (c, v);
+                            Bit1 ->
+                                (c, v) |> gphase {Coin * Vertex <[N + 2]>, pi}
+                        ]
+                ];
+            Root' <[N]> -> (c |> Reflect <Coin, U'State <[N]>>, v);
+            Root <[N + 1]> -> (c, v)
+        ]
+end
+
+def NextCoin <N> :=
+    lambda x {Coin * Vertex <[N + 1]>} ->
+        ctrl {Coin * Vertex <[N + 1]>, (Coin * Vertex <[N + 1]>) * Coin} x [
+            (Cdown, Qcons <v, [N], Vleft>) -> (x, Cleft);
+            (Cdown, Qcons <v, [N], Vright>) -> (x, Cright);
+            (Cright, v) -> (x, Cdown);
+            (Cleft, v) -> (x, Cdown)
+        ]
+end
+
+def Walk <N> :=
+    lambda x {Coin * Vertex <[N + 1]>} ->
+        x |> NextCoin <[N]>
+        |> lambda ((c, v), c') {(Coin * Vertex <[N + 1]>) * Coin} ->
+            ctrl {Coin * Coin, (Coin * Vertex <[N + 1]>) * Coin} (c, c') [
+                (Cdown, Cleft) ->
+                    ((c', Adjoint <LeftChild <[N + 1]>, Vertex <[N + 1]>> of v), c);
+                (Cdown, Cright) ->
+                    ((c', Adjoint <RightChild <[N + 1]>, Vertex <[N + 1]>> of v), c);
+                (Cleft, Cdown) -> ((c', LeftChild <[N + 1]> of v), c);
+                (Cright, Cdown) -> ((c', RightChild <[N + 1]> of v), c)
+            ]
+        |> Adjoint <NextCoin <[N]>, (Coin * Vertex <[N + 1]>) * Coin>
+end
 
