@@ -5,5 +5,21 @@
 # and also optionally:
 #   set blink-matching-paren off
 
+ocamlstring=false
+
+while :; do
+    case $1 in
+        --ocamlstring=*)
+            ocamlstring="${1#*=}"
+            ;;
+        -?*)
+            printf "Unknown option: %s\n" "$1" >&2
+            exit
+            ;;
+        *) break
+    esac
+    shift
+done
+
 dune build
-rlwrap -ppurple ./_build/default/bin/qunity_interact.exe
+rlwrap -ppurple ./_build/default/bin/qunity_interact.exe $ocamlstring

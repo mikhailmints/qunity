@@ -1,11 +1,13 @@
 {
 open Parser
+
+exception Lexing_error of string
 }
 
 
 let linecomment = "//"[^ '\n']+
 let multilinecomment = "/*"_*?"*/"
-let white = [' ' '\t' '\n']+
+let white = [' ' '\t']+
 let digit = ['0'-'9']
 let int = '-'? digit+
 let lower = ['a'-'z']
@@ -15,10 +17,12 @@ let var = (lower | '_') (lower | digit | '_' | ''')*
 let xvar = upper (letter | digit | '_' | ''')*
 
 rule comment = parse
+    | "\n" {Lexing.new_line lexbuf; comment lexbuf}
     | "*/" {read lexbuf}
     | _ {comment lexbuf}
 
 and read = parse
+    | "\n" {Lexing.new_line lexbuf; read lexbuf}
     | "/*" {comment lexbuf}
     | linecomment
     | white {read lexbuf}
@@ -39,10 +43,10 @@ and read = parse
     | "in" {IN}
     | "|>" {PIPE}
     | "->" {ARROW}
-    | "<=" {LEQ}
-    | ">=" {GEQ}
-    | "<<" {LT}
-    | ">>" {GT}
+    | "leq" {LEQ}
+    | "geq" {GEQ}
+    | "lt" {LT}
+    | "gt" {GT}
     | "<" {LANGLE}
     | ">" {RANGLE}
     | "of" {OF}
@@ -84,3 +88,4 @@ and read = parse
     | var { VAR (Lexing.lexeme lexbuf) }
     | xvar { XVAR (Lexing.lexeme lexbuf) }
     | eof {EOF}
+    | _ as c { raise (Lexing_error (Printf.sprintf "Unexpected character: %c" c)) }

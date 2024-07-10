@@ -28,7 +28,7 @@ end
 /*
 E : Vertex <[N]>
 E0 : Child
-outputs: Vertex <[N + 1]>
+Type: Vertex <[N + 1]>
 */
 def Qcons <E, N, E0> :=
     right {qunit, Vertex <[N]> * Child} of (E, E0)
@@ -69,7 +69,7 @@ end
 
 def U'State <N> :=
     Bit0
-    |> u3 {2 * arccos(1 / sqrt(sqrt(N))), 0, 0}
+    |> u3 {2 * arccos(1 / sqrt(sqrt(2 ^ N))), 0, 0}
     |> lambda x {Bit} -> ctrl {Bit, Bit * Coin} x [
         Bit0 -> (x, Cdown);
         Bit1 -> (x, Cleft)
@@ -94,6 +94,9 @@ def AsLeaf <N> :=
     endif
 end
 
+/*
+Vertex <[N + 1]> -> Vertex <[N]>
+*/
 def Downcast <N> :=
     if N = [0] then
         lambda v {Vertex <[1]>} -> ctrl {Vertex <[1]>, Vertex <[0]>} v []
@@ -115,14 +118,25 @@ def Downcast <N> :=
     endif
 end
 
+/*
+Vertex <[N]> -> Vertex <[N]>
+*/
 def LeftChild <N> :=
     lambda v {Vertex <N>} -> Downcast <N> of Qcons <v, [N], Vleft>
 end
 
+/*
+Vertex <[N]> -> Vertex <[N]>
+*/
 def RightChild <N> :=
     lambda v {Vertex <N>} -> Downcast <N> of Qcons <v, [N], Vright>
 end
 
+/*
+If the current vertex is a leaf, apply the F oracle. If it is an internal
+vertex, reflect the coin over the U state, and if it is the Root' vertex,
+reflect the coin over the U' state.
+*/
 def Diffusion <N, F> :=
     lambda (c, v) {Coin * Vertex <[N + 2]>} ->
         ctrl {Vertex <[N + 2]>, Coin * Vertex <[N + 2]>} v [
@@ -147,28 +161,162 @@ def Diffusion <N, F> :=
         ]
 end
 
+/*
+If current coin goes left or right, next coin is down. If current coin goes
+down from left child, next coin is left, and if current coin goes down from
+right child, next coin is right.
+*/
 def NextCoin <N> :=
-    lambda x {Coin * Vertex <[N + 1]>} ->
-        ctrl {Coin * Vertex <[N + 1]>, (Coin * Vertex <[N + 1]>) * Coin} x [
-            (Cdown, Qcons <v, [N], Vleft>) -> (x, Cleft);
-            (Cdown, Qcons <v, [N], Vright>) -> (x, Cright);
+    lambda x {Coin * Vertex <[N + 2]>} ->
+        ctrl {Coin * Vertex <[N + 2]>, (Coin * Vertex <[N + 2]>) * Coin} x [
+            (Cdown, Qcons <v, [N + 1], Vleft>) -> (x, Cleft);
+            (Cdown, Qcons <v, [N + 1], Vright>) -> (x, Cright);
             (Cright, v) -> (x, Cdown);
             (Cleft, v) -> (x, Cdown)
         ]
 end
 
+/*
+Updates the vertex index according to the coin, and changes the coin,
+effectively flipping the direction of the given edge.
+*/
 def Walk <N> :=
-    lambda x {Coin * Vertex <[N + 1]>} ->
+    lambda x {Coin * Vertex <[N + 2]>} ->
         x |> NextCoin <[N]>
-        |> lambda ((c, v), c') {(Coin * Vertex <[N + 1]>) * Coin} ->
-            ctrl {Coin * Coin, (Coin * Vertex <[N + 1]>) * Coin} (c, c') [
+        |> lambda ((c, v), c') {(Coin * Vertex <[N + 2]>) * Coin} ->
+            ctrl {Coin * Coin, (Coin * Vertex <[N + 2]>) * Coin} (c, c') [
                 (Cdown, Cleft) ->
-                    ((c', Adjoint <LeftChild <[N + 1]>, Vertex <[N + 1]>> of v), c);
+                    ((c', Adjoint <LeftChild <[N + 2]>, Vertex <[N + 2]>> of v), c);
                 (Cdown, Cright) ->
-                    ((c', Adjoint <RightChild <[N + 1]>, Vertex <[N + 1]>> of v), c);
-                (Cleft, Cdown) -> ((c', LeftChild <[N + 1]> of v), c);
-                (Cright, Cdown) -> ((c', RightChild <[N + 1]> of v), c)
+                    ((c', Adjoint <RightChild <[N + 2]>, Vertex <[N + 2]>> of v), c);
+                (Cleft, Cdown) -> ((c', LeftChild <[N + 2]> of v), c);
+                (Cright, Cdown) -> ((c', RightChild <[N + 2]> of v), c)
             ]
-        |> Adjoint <NextCoin <[N]>, (Coin * Vertex <[N + 1]>) * Coin>
+        |> Adjoint <NextCoin <[N]>, (Coin * Vertex <[N + 2]>) * Coin>
 end
 
+def RunQuantumWalk <N, F, Niter> :=
+    if Niter = [0] then
+        Qid <Coin * Vertex <[N + 2]>>
+    else
+        lambda x {Coin * Vertex <[N + 2]>} ->
+            x |> Diffusion <[N], F> |> Walk <[N]>
+            |> RunQuantumWalk <[N], F, [Niter - 1]>
+    endif
+end
+
+def InitialTState <Tbits> :=
+    if Tbits lt [1] then
+        fail
+    else
+        NTensorE <[Tbits], BitPlus>
+        |> rphase {NTensorT <[Tbits], Bit>, (Bit1, _), -pi / 2, 0} |>
+        if Tbits = [1] then
+            Qid <NTensorT <[Tbits], Bit>>
+        else
+            rphase {NTensorT <[Tbits], Bit>, (_0, (Bit1, _1)), pi, 0}
+        endif
+        |> Reverse <[Tbits], Bit>
+    endif
+end
+
+/*
+Given a Tbits-bit register treg, applies the quantum walk t many times when
+the register is in state t, coherently.
+*/
+def ControlledWalk <Tbits, N, F> :=
+    if Tbits = [0] then
+        Qid <NTensorT <[Tbits], Bit> * (Coin * Vertex <[N + 2]>)>
+    else
+        lambda ((t0, trest), (c, v))
+        {NTensorT <[Tbits], Bit> * (Coin * Vertex <[N + 2]>)} ->
+            ctrl {Bit, NTensorT <[Tbits], Bit> * (Coin * Vertex <[N + 2]>)} t0 [
+                Bit0 -> ((t0, trest), (c, v));
+                Bit1 -> (
+                    (t0, trest),
+                    (c, v) |> RunQuantumWalk <[N], F, [2 ^ (Tbits - 1)]>
+                )
+            ]
+            |> lambda ((t0, trest), (c, v))
+            {NTensorT <[Tbits], Bit> * (Coin * Vertex <[N + 2]>)} ->
+                let (t0, (trest', (c', v')))
+                {Bit * (NTensorT <[Tbits - 1], Bit> * (Coin * Vertex <[N + 2]>))} =
+                (t0, (trest, (c, v)) |> ControlledWalk <[Tbits - 1], N, F>)
+                in ((t0, trest'), (c', v'))
+    endif
+end
+
+/*
+Definitions for QFT
+*/
+
+def And :=
+    lambda x {Bit * Bit} ->
+    ctrl {Bit * Bit, (Bit * Bit) * Bit} x [
+        (Bit0, Bit0) -> (x, Bit0);
+        (Bit0, Bit1) -> (x, Bit0);
+        (Bit1, Bit0) -> (x, Bit0);
+        (Bit1, Bit1) -> (x, Bit1)
+    ] |> Snd <Bit * Bit, Bit>
+end
+
+def Couple <K> :=
+    lambda (x0, x1) {Bit * Bit} ->
+    ctrl {Bit, Bit * Bit} And of (x0, x1) [
+        Bit0 -> (x1, x0);
+        Bit1 -> (x1, x0) |> gphase {Bit * Bit, 2 * pi / (2 ^ K)}
+    ]
+end
+
+def Rotations <N> :=
+    if N = [0] then
+        Qid <qunit>
+    else
+        if N = [1] then
+            lambda (x, ()) {NTensorT <[1], Bit>} -> (Had of x, ())
+        else
+            lambda (x0, x) {NTensorT <N, Bit>} ->
+            let (x0, (y0', y)) {NTensorT <N, Bit>} =
+            (x0, x |> Rotations <[N - 1]>) in
+            let ((y0, y1), y) {(Bit * Bit) * NTensorT <[N - 2], Bit>} =
+            ((x0, y0') |> Couple <N>, y) in (y0, (y1, y))
+        endif
+    endif
+end
+
+def Qft <N> :=
+    if N = [0] then
+        Qid <qunit>
+    else
+        lambda x {NTensorT <N, Bit>} ->
+        let (x0, x') {NTensorT <N, Bit>} =
+        x |> Rotations <N> in
+        (x0, x' |> Qft <[N - 1]>)
+    endif
+end
+
+/*
+Perform phase estimation on the quantum walk using a register of Tbits bits.
+*/
+def QuantumWalkAlgorithm <Tbits, N, F> :=
+    (InitialTState <[Tbits]>, (Cleft, Root <[N + 1]>))
+    |> ControlledWalk <[Tbits], [N], F>
+    |> Fst <NTensorT <[Tbits], Bit>, (Coin * Vertex <[N + 2]>)>
+    |> Adjoint <Qft <[Tbits]>, NTensorT <[Tbits], Bit>>
+    |> lambda (x, x0) {NTensorT <[Tbits], Bit>} ->
+        ctrl {NTensorT <[Tbits - 1], Bit>, NTensorT <[Tbits - 1], Bit> * Bit} x0 [
+            NTensorE <[Tbits - 1], Bit0> -> (x0, Bit0);
+            else -> (x0, Bit1)
+        ]
+    |> Snd <NTensorT <[Tbits - 1], Bit>, Bit>
+end
+
+def Tbits := [4] end
+
+def N := [1] end
+
+def F :=
+    lambda (c0, ()) {Leaf <[N]>} -> Bit1
+end
+
+QuantumWalkAlgorithm <[Tbits], [N], F>

@@ -1,8 +1,6 @@
 open Util
 open Syntax
 
-type context = exprtype StringMap.t
-
 (*
 Finds the free variables in an expression e.
 *)
@@ -109,7 +107,8 @@ let missing_span (t : exprtype) (l : expr list) : expr list option =
     match (t, l) with
     | Qunit, [] -> Some [Null]
     | Qunit, [Null] -> Some []
-    | _, [] -> Some [Var (fresh_string "_" fv)]
+    | Void, [] -> Some []
+    | _, [] -> Some [Var (fresh_string "$" fv)]
     | _, [Var x] -> if StringSet.mem x fv then None else Some []
     | SumType (t0, t1), _ -> begin
         match split_sum_list t0 t1 l with

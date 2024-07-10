@@ -126,14 +126,22 @@ let rec int_list_max (l : int list) : int =
   | [] -> Int.min_int
   | h :: t -> max h (int_list_max t)
 
-let string_of_list (f : 'a -> string) (l : 'a list) =
-  let rec string_of_int_list_helper l =
+let string_of_list_custom (delimiter : string) (brackets : bool)
+    (f : 'a -> string) (l : 'a list) =
+  let rec string_of_list_helper l =
     match l with
     | [] -> ""
     | [h] -> f h
-    | h :: t -> f h ^ ", " ^ string_of_int_list_helper t
+    | h :: t -> f h ^ delimiter ^ string_of_list_helper t
   in
-    "[" ^ string_of_int_list_helper l ^ "]"
+  let s = string_of_list_helper l in
+    if brackets then
+      "[" ^ s ^ "]"
+    else
+      s
+
+let string_of_list (f : 'a -> string) (l : 'a list) =
+  string_of_list_custom "; " true f l
 
 let list_index (cmp : 'a -> 'a -> bool) (l : 'a list) (x : 'a) : int =
   let rec iter (l : 'a list) (i : int) : int =
@@ -165,8 +173,7 @@ let range (i : int) : int list =
   let rec iter i = if i <= 0 then [] else (i - 1) :: iter (i - 1) in
     List.rev (iter i)
 
-let range_arr (i : int) : int array =
-  Array.of_list (range i)
+let range_arr (i : int) : int array = Array.of_list (range i)
 
 let float_approx_equal (a : float) (b : float) : bool =
   let eps = 1e-15 in

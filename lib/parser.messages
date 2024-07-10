@@ -1,0 +1,2165 @@
+qunityfile: TIMES
+##
+## Ends in an error in state: 0.
+##
+## qunityfile' -> . qunityfile [ # ]
+##
+## The known suffix of the stack is as follows:
+##
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: XVAR XVAR
+##
+## Ends in an error in state: 1.
+##
+## xexpr -> XVAR . [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> XVAR . LANGLE arglist [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## XVAR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: XVAR LANGLE TIMES
+##
+## Ends in an error in state: 2.
+##
+## xexpr -> XVAR LANGLE . arglist [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## XVAR LANGLE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: U3 XVAR
+##
+## Ends in an error in state: 5.
+##
+## xexpr -> U3 . LBRACE real COMMA real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## U3
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: U3 LBRACE VOID
+##
+## Ends in an error in state: 6.
+##
+## xexpr -> U3 LBRACE . real COMMA real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## U3 LBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET TAN XVAR
+##
+## Ends in an error in state: 8.
+##
+## real -> TAN . LPAREN real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## TAN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET TAN LPAREN VOID
+##
+## Ends in an error in state: 9.
+##
+## real -> TAN LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## TAN LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET SQRT XVAR
+##
+## Ends in an error in state: 10.
+##
+## real -> SQRT . LPAREN real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## SQRT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET SQRT LPAREN VOID
+##
+## Ends in an error in state: 11.
+##
+## real -> SQRT LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## SQRT LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET SIN XVAR
+##
+## Ends in an error in state: 12.
+##
+## real -> SIN . LPAREN real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## SIN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET SIN LPAREN VOID
+##
+## Ends in an error in state: 13.
+##
+## real -> SIN LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## SIN LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ROUND XVAR
+##
+## Ends in an error in state: 14.
+##
+## real -> ROUND . LPAREN real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ROUND
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ROUND LPAREN VOID
+##
+## Ends in an error in state: 15.
+##
+## real -> ROUND LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ROUND LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET MINUS VOID
+##
+## Ends in an error in state: 17.
+##
+## real -> MINUS . real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## MINUS
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET LPAREN VOID
+##
+## Ends in an error in state: 18.
+##
+## real -> LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET LN XVAR
+##
+## Ends in an error in state: 19.
+##
+## real -> LN . LPAREN real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET LN LPAREN VOID
+##
+## Ends in an error in state: 20.
+##
+## real -> LN LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LN LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET EXP XVAR
+##
+## Ends in an error in state: 21.
+##
+## real -> EXP . LPAREN real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## EXP
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET EXP LPAREN VOID
+##
+## Ends in an error in state: 22.
+##
+## real -> EXP LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## EXP LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET COS XVAR
+##
+## Ends in an error in state: 24.
+##
+## real -> COS . LPAREN real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## COS
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET COS LPAREN VOID
+##
+## Ends in an error in state: 25.
+##
+## real -> COS LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## COS LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ARCTAN XVAR
+##
+## Ends in an error in state: 27.
+##
+## real -> ARCTAN . LPAREN real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ARCTAN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ARCTAN LPAREN VOID
+##
+## Ends in an error in state: 28.
+##
+## real -> ARCTAN LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ARCTAN LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ARCSIN XVAR
+##
+## Ends in an error in state: 29.
+##
+## real -> ARCSIN . LPAREN real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ARCSIN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ARCSIN LPAREN VOID
+##
+## Ends in an error in state: 30.
+##
+## real -> ARCSIN LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ARCSIN LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ARCCOS XVAR
+##
+## Ends in an error in state: 31.
+##
+## real -> ARCCOS . LPAREN real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ARCCOS
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ARCCOS LPAREN VOID
+##
+## Ends in an error in state: 32.
+##
+## real -> ARCCOS LPAREN . real RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ARCCOS LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ARCCOS LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 33.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> ARCCOS LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ARCCOS LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST TIMES VOID
+##
+## Ends in an error in state: 34.
+##
+## real -> real TIMES . real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real TIMES
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST TIMES CONST XVAR
+##
+## Ends in an error in state: 35.
+##
+## real -> real . PLUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . TIMES real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real TIMES real . [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MINUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . DIV real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . POW real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MOD real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real TIMES real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST POW VOID
+##
+## Ends in an error in state: 36.
+##
+## real -> real POW . real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real POW
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST POW CONST XVAR
+##
+## Ends in an error in state: 37.
+##
+## real -> real . PLUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . TIMES real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MINUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . DIV real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . POW real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real POW real . [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MOD real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real POW real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST MOD VOID
+##
+## Ends in an error in state: 38.
+##
+## real -> real MOD . real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real MOD
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST MOD CONST XVAR
+##
+## Ends in an error in state: 39.
+##
+## real -> real . PLUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . TIMES real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MINUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . DIV real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . POW real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MOD real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real MOD real . [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real MOD real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST DIV VOID
+##
+## Ends in an error in state: 40.
+##
+## real -> real DIV . real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real DIV
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST DIV CONST XVAR
+##
+## Ends in an error in state: 41.
+##
+## real -> real . PLUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . TIMES real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MINUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . DIV real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real DIV real . [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . POW real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MOD real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real DIV real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST PLUS VOID
+##
+## Ends in an error in state: 43.
+##
+## real -> real PLUS . real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real PLUS
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST PLUS CONST XVAR
+##
+## Ends in an error in state: 44.
+##
+## real -> real . PLUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real PLUS real . [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . TIMES real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MINUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . DIV real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . POW real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MOD real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real PLUS real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST MINUS VOID
+##
+## Ends in an error in state: 45.
+##
+## real -> real MINUS . real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real MINUS
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST MINUS CONST XVAR
+##
+## Ends in an error in state: 46.
+##
+## real -> real . PLUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . TIMES real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MINUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real MINUS real . [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . DIV real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . POW real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MOD real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## real MINUS real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ARCSIN LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 47.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> ARCSIN LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ARCSIN LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ARCTAN LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 49.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> ARCTAN LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ARCTAN LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET COS LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 51.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> COS LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## COS LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET EXP LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 53.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> EXP LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## EXP LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET LN LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 55.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> LN LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LN LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 57.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET MINUS CONST XVAR
+##
+## Ends in an error in state: 59.
+##
+## real -> MINUS real . [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . PLUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . TIMES real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MINUS real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . DIV real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . POW real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MOD real [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## MINUS real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET ROUND LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 60.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> ROUND LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## ROUND LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET SIN LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 62.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> SIN LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## SIN LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET SQRT LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 64.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> SQRT LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## SQRT LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET TAN LPAREN CONST RBRACKET
+##
+## Ends in an error in state: 66.
+##
+## real -> real . PLUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RPAREN POW PLUS MOD MINUS DIV ]
+## real -> TAN LPAREN real . RPAREN [ TIMES RPAREN RBRACKET RBRACE POW PLUS MOD MINUS DIV COMMA ]
+##
+## The known suffix of the stack is as follows:
+## TAN LPAREN real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: U3 LBRACE CONST RPAREN
+##
+## Ends in an error in state: 68.
+##
+## real -> real . PLUS real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . TIMES real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MINUS real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . DIV real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . POW real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MOD real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## xexpr -> U3 LBRACE real . COMMA real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## U3 LBRACE real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: U3 LBRACE CONST COMMA VOID
+##
+## Ends in an error in state: 69.
+##
+## xexpr -> U3 LBRACE real COMMA . real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## U3 LBRACE real COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: U3 LBRACE CONST COMMA CONST RPAREN
+##
+## Ends in an error in state: 70.
+##
+## real -> real . PLUS real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . TIMES real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MINUS real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . DIV real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . POW real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MOD real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## xexpr -> U3 LBRACE real COMMA real . COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## U3 LBRACE real COMMA real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: U3 LBRACE CONST COMMA CONST COMMA VOID
+##
+## Ends in an error in state: 71.
+##
+## xexpr -> U3 LBRACE real COMMA real COMMA . real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## U3 LBRACE real COMMA real COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: U3 LBRACE CONST COMMA CONST COMMA CONST RPAREN
+##
+## Ends in an error in state: 72.
+##
+## real -> real . PLUS real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## xexpr -> U3 LBRACE real COMMA real COMMA real . RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## U3 LBRACE real COMMA real COMMA real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: TRY TIMES
+##
+## Ends in an error in state: 74.
+##
+## xexpr -> TRY . xexpr CATCH xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## TRY
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RPHASE XVAR
+##
+## Ends in an error in state: 75.
+##
+## xexpr -> RPHASE . LBRACE xexpr COMMA xexpr COMMA real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RPHASE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RPHASE LBRACE TIMES
+##
+## Ends in an error in state: 76.
+##
+## xexpr -> RPHASE LBRACE . xexpr COMMA xexpr COMMA real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RPHASE LBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RIGHT XVAR
+##
+## Ends in an error in state: 77.
+##
+## xexpr -> RIGHT . LBRACE xexpr COMMA xexpr RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RIGHT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RIGHT LBRACE TIMES
+##
+## Ends in an error in state: 78.
+##
+## xexpr -> RIGHT LBRACE . xexpr COMMA xexpr RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RIGHT LBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LPAREN TIMES
+##
+## Ends in an error in state: 81.
+##
+## xexpr -> LPAREN . xexpr COMMA xexpr RPAREN [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> LPAREN . xexpr RPAREN [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LET TIMES
+##
+## Ends in an error in state: 82.
+##
+## xexpr -> LET . xexpr LBRACE xexpr RBRACE EQUAL xexpr IN xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LET
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LEFT XVAR
+##
+## Ends in an error in state: 83.
+##
+## xexpr -> LEFT . LBRACE xexpr COMMA xexpr RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LEFT
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LEFT LBRACE TIMES
+##
+## Ends in an error in state: 84.
+##
+## xexpr -> LEFT LBRACE . xexpr COMMA xexpr RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LEFT LBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET VOID
+##
+## Ends in an error in state: 85.
+##
+## xexpr -> LBRACKET . real RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LBRACKET
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LBRACKET CONST RPAREN
+##
+## Ends in an error in state: 86.
+##
+## real -> real . PLUS real [ TIMES RBRACKET POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RBRACKET POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RBRACKET POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RBRACKET POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RBRACKET POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RBRACKET POW PLUS MOD MINUS DIV ]
+## xexpr -> LBRACKET real . RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LBRACKET real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LAMBDA TIMES
+##
+## Ends in an error in state: 88.
+##
+## xexpr -> LAMBDA . xexpr LBRACE xexpr RBRACE ARROW xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LAMBDA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: IF TIMES
+##
+## Ends in an error in state: 89.
+##
+## xexpr -> IF . xexpr cmp xexpr THEN xexpr ELSE xexpr ENDIF [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## IF
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: GPHASE XVAR
+##
+## Ends in an error in state: 90.
+##
+## xexpr -> GPHASE . LBRACE xexpr COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## GPHASE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: GPHASE LBRACE TIMES
+##
+## Ends in an error in state: 91.
+##
+## xexpr -> GPHASE LBRACE . xexpr COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## GPHASE LBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL XVAR
+##
+## Ends in an error in state: 93.
+##
+## xexpr -> CTRL . LBRACE xexpr COMMA xexpr RBRACE xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## CTRL
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE TIMES
+##
+## Ends in an error in state: 94.
+##
+## xexpr -> CTRL LBRACE . xexpr COMMA xexpr RBRACE xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## CTRL LBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL THEN
+##
+## Ends in an error in state: 95.
+##
+## xexpr -> CTRL LBRACE xexpr . COMMA xexpr RBRACE xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF COMMA ]
+##
+## The known suffix of the stack is as follows:
+## CTRL LBRACE xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: FAIL TIMES TIMES
+##
+## Ends in an error in state: 96.
+##
+## xexpr -> xexpr TIMES . xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr TIMES
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: FAIL PLUS TIMES
+##
+## Ends in an error in state: 98.
+##
+## xexpr -> xexpr PLUS . xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr PLUS
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: FAIL PLUS FAIL XVAR
+##
+## Ends in an error in state: 99.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr PLUS xexpr . [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr PLUS xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: FAIL PIPE TIMES
+##
+## Ends in an error in state: 100.
+##
+## xexpr -> xexpr PIPE . xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr PIPE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: FAIL PIPE FAIL XVAR
+##
+## Ends in an error in state: 101.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr PIPE xexpr . [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr PIPE xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: FAIL OF TIMES
+##
+## Ends in an error in state: 102.
+##
+## xexpr -> xexpr OF . xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr OF
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: FAIL OF FAIL OF
+##
+## Ends in an error in state: 103.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr OF xexpr . [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr OF xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA TIMES
+##
+## Ends in an error in state: 104.
+##
+## xexpr -> CTRL LBRACE xexpr COMMA . xexpr RBRACE xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## CTRL LBRACE xexpr COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL THEN
+##
+## Ends in an error in state: 105.
+##
+## xexpr -> CTRL LBRACE xexpr COMMA xexpr . RBRACE xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES RBRACE PLUS PIPE OF ]
+##
+## The known suffix of the stack is as follows:
+## CTRL LBRACE xexpr COMMA xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE TIMES
+##
+## Ends in an error in state: 106.
+##
+## xexpr -> CTRL LBRACE xexpr COMMA xexpr RBRACE . xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## CTRL LBRACE xexpr COMMA xexpr RBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL THEN
+##
+## Ends in an error in state: 107.
+##
+## xexpr -> CTRL LBRACE xexpr COMMA xexpr RBRACE xexpr . LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF LBRACKET ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF LBRACKET ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF LBRACKET ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF LBRACKET ]
+##
+## The known suffix of the stack is as follows:
+## CTRL LBRACE xexpr COMMA xexpr RBRACE xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET TIMES
+##
+## Ends in an error in state: 108.
+##
+## xexpr -> CTRL LBRACE xexpr COMMA xexpr RBRACE xexpr LBRACKET . ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## CTRL LBRACE xexpr COMMA xexpr RBRACE xexpr LBRACKET
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL THEN
+##
+## Ends in an error in state: 110.
+##
+## ctrlblock -> xexpr . ARROW xexpr SEMICOLON ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## ctrlblock -> xexpr . ARROW xexpr RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## ctrlblock -> xexpr . ARROW xexpr SEMICOLON ELSE ARROW xexpr RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF ARROW ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF ARROW ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF ARROW ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW TIMES
+##
+## Ends in an error in state: 111.
+##
+## ctrlblock -> xexpr ARROW . xexpr SEMICOLON ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## ctrlblock -> xexpr ARROW . xexpr RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## ctrlblock -> xexpr ARROW . xexpr SEMICOLON ELSE ARROW xexpr RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr ARROW
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL THEN
+##
+## Ends in an error in state: 112.
+##
+## ctrlblock -> xexpr ARROW xexpr . SEMICOLON ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## ctrlblock -> xexpr ARROW xexpr . RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## ctrlblock -> xexpr ARROW xexpr . SEMICOLON ELSE ARROW xexpr RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES SEMICOLON RBRACKET PLUS PIPE OF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES SEMICOLON RBRACKET PLUS PIPE OF ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES SEMICOLON RBRACKET PLUS PIPE OF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES SEMICOLON RBRACKET PLUS PIPE OF ]
+##
+## The known suffix of the stack is as follows:
+## xexpr ARROW xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEMICOLON TIMES
+##
+## Ends in an error in state: 113.
+##
+## ctrlblock -> xexpr ARROW xexpr SEMICOLON . ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## ctrlblock -> xexpr ARROW xexpr SEMICOLON . ELSE ARROW xexpr RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr ARROW xexpr SEMICOLON
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEMICOLON ELSE XVAR
+##
+## Ends in an error in state: 114.
+##
+## ctrlblock -> xexpr ARROW xexpr SEMICOLON ELSE . ARROW xexpr RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr ARROW xexpr SEMICOLON ELSE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEMICOLON ELSE ARROW TIMES
+##
+## Ends in an error in state: 115.
+##
+## ctrlblock -> xexpr ARROW xexpr SEMICOLON ELSE ARROW . xexpr RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr ARROW xexpr SEMICOLON ELSE ARROW
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEMICOLON ELSE ARROW FAIL THEN
+##
+## Ends in an error in state: 116.
+##
+## ctrlblock -> xexpr ARROW xexpr SEMICOLON ELSE ARROW xexpr . RBRACKET [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES RBRACKET PLUS PIPE OF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES RBRACKET PLUS PIPE OF ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES RBRACKET PLUS PIPE OF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES RBRACKET PLUS PIPE OF ]
+##
+## The known suffix of the stack is as follows:
+## xexpr ARROW xexpr SEMICOLON ELSE ARROW xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: GPHASE LBRACE FAIL THEN
+##
+## Ends in an error in state: 121.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> GPHASE LBRACE xexpr . COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## GPHASE LBRACE xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: GPHASE LBRACE FAIL COMMA VOID
+##
+## Ends in an error in state: 122.
+##
+## xexpr -> GPHASE LBRACE xexpr COMMA . real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## GPHASE LBRACE xexpr COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: GPHASE LBRACE FAIL COMMA CONST RPAREN
+##
+## Ends in an error in state: 123.
+##
+## real -> real . PLUS real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## xexpr -> GPHASE LBRACE xexpr COMMA real . RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## GPHASE LBRACE xexpr COMMA real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: IF FAIL THEN
+##
+## Ends in an error in state: 125.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF LT LEQ GT GEQ EQUAL ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF LT LEQ GT GEQ EQUAL ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF LT LEQ GT GEQ EQUAL ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF LT LEQ GT GEQ EQUAL ]
+## xexpr -> IF xexpr . cmp xexpr THEN xexpr ELSE xexpr ENDIF [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## IF xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: IF FAIL EQUAL TIMES
+##
+## Ends in an error in state: 131.
+##
+## xexpr -> IF xexpr cmp . xexpr THEN xexpr ELSE xexpr ENDIF [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## IF xexpr cmp
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: IF FAIL EQUAL FAIL SEMICOLON
+##
+## Ends in an error in state: 132.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES THEN PLUS PIPE OF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES THEN PLUS PIPE OF ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES THEN PLUS PIPE OF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES THEN PLUS PIPE OF ]
+## xexpr -> IF xexpr cmp xexpr . THEN xexpr ELSE xexpr ENDIF [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## IF xexpr cmp xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: IF FAIL EQUAL FAIL THEN TIMES
+##
+## Ends in an error in state: 133.
+##
+## xexpr -> IF xexpr cmp xexpr THEN . xexpr ELSE xexpr ENDIF [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## IF xexpr cmp xexpr THEN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: IF FAIL EQUAL FAIL THEN FAIL THEN
+##
+## Ends in an error in state: 134.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF ELSE ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF ELSE ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF ELSE ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF ELSE ]
+## xexpr -> IF xexpr cmp xexpr THEN xexpr . ELSE xexpr ENDIF [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## IF xexpr cmp xexpr THEN xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: IF FAIL EQUAL FAIL THEN FAIL ELSE TIMES
+##
+## Ends in an error in state: 135.
+##
+## xexpr -> IF xexpr cmp xexpr THEN xexpr ELSE . xexpr ENDIF [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## IF xexpr cmp xexpr THEN xexpr ELSE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: IF FAIL EQUAL FAIL THEN FAIL ELSE FAIL THEN
+##
+## Ends in an error in state: 136.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF ENDIF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF ENDIF ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF ENDIF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF ENDIF ]
+## xexpr -> IF xexpr cmp xexpr THEN xexpr ELSE xexpr . ENDIF [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## IF xexpr cmp xexpr THEN xexpr ELSE xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LAMBDA FAIL THEN
+##
+## Ends in an error in state: 138.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF LBRACE ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF LBRACE ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF LBRACE ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF LBRACE ]
+## xexpr -> LAMBDA xexpr . LBRACE xexpr RBRACE ARROW xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LAMBDA xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LAMBDA FAIL LBRACE TIMES
+##
+## Ends in an error in state: 139.
+##
+## xexpr -> LAMBDA xexpr LBRACE . xexpr RBRACE ARROW xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LAMBDA xexpr LBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LAMBDA FAIL LBRACE FAIL THEN
+##
+## Ends in an error in state: 140.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> LAMBDA xexpr LBRACE xexpr . RBRACE ARROW xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LAMBDA xexpr LBRACE xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LAMBDA FAIL LBRACE FAIL RBRACE XVAR
+##
+## Ends in an error in state: 141.
+##
+## xexpr -> LAMBDA xexpr LBRACE xexpr RBRACE . ARROW xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LAMBDA xexpr LBRACE xexpr RBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LAMBDA FAIL LBRACE FAIL RBRACE ARROW TIMES
+##
+## Ends in an error in state: 142.
+##
+## xexpr -> LAMBDA xexpr LBRACE xexpr RBRACE ARROW . xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LAMBDA xexpr LBRACE xexpr RBRACE ARROW
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LAMBDA FAIL LBRACE FAIL RBRACE ARROW FAIL XVAR
+##
+## Ends in an error in state: 143.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> LAMBDA xexpr LBRACE xexpr RBRACE ARROW xexpr . [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LAMBDA xexpr LBRACE xexpr RBRACE ARROW xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LEFT LBRACE FAIL THEN
+##
+## Ends in an error in state: 144.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> LEFT LBRACE xexpr . COMMA xexpr RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LEFT LBRACE xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LEFT LBRACE FAIL COMMA TIMES
+##
+## Ends in an error in state: 145.
+##
+## xexpr -> LEFT LBRACE xexpr COMMA . xexpr RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LEFT LBRACE xexpr COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LEFT LBRACE FAIL COMMA FAIL THEN
+##
+## Ends in an error in state: 146.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> LEFT LBRACE xexpr COMMA xexpr . RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LEFT LBRACE xexpr COMMA xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LET FAIL THEN
+##
+## Ends in an error in state: 148.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF LBRACE ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF LBRACE ]
+## xexpr -> LET xexpr . LBRACE xexpr RBRACE EQUAL xexpr IN xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF LBRACE ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF LBRACE ]
+##
+## The known suffix of the stack is as follows:
+## LET xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LET FAIL LBRACE TIMES
+##
+## Ends in an error in state: 149.
+##
+## xexpr -> LET xexpr LBRACE . xexpr RBRACE EQUAL xexpr IN xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LET xexpr LBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LET FAIL LBRACE FAIL THEN
+##
+## Ends in an error in state: 150.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> LET xexpr LBRACE xexpr . RBRACE EQUAL xexpr IN xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES RBRACE PLUS PIPE OF ]
+##
+## The known suffix of the stack is as follows:
+## LET xexpr LBRACE xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LET FAIL LBRACE FAIL RBRACE XVAR
+##
+## Ends in an error in state: 151.
+##
+## xexpr -> LET xexpr LBRACE xexpr RBRACE . EQUAL xexpr IN xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LET xexpr LBRACE xexpr RBRACE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LET FAIL LBRACE FAIL RBRACE EQUAL TIMES
+##
+## Ends in an error in state: 152.
+##
+## xexpr -> LET xexpr LBRACE xexpr RBRACE EQUAL . xexpr IN xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LET xexpr LBRACE xexpr RBRACE EQUAL
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LET FAIL LBRACE FAIL RBRACE EQUAL FAIL THEN
+##
+## Ends in an error in state: 153.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF IN ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF IN ]
+## xexpr -> LET xexpr LBRACE xexpr RBRACE EQUAL xexpr . IN xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF IN ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF IN ]
+##
+## The known suffix of the stack is as follows:
+## LET xexpr LBRACE xexpr RBRACE EQUAL xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LET FAIL LBRACE FAIL RBRACE EQUAL FAIL IN TIMES
+##
+## Ends in an error in state: 154.
+##
+## xexpr -> LET xexpr LBRACE xexpr RBRACE EQUAL xexpr IN . xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LET xexpr LBRACE xexpr RBRACE EQUAL xexpr IN
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LET FAIL LBRACE FAIL RBRACE EQUAL FAIL IN FAIL XVAR
+##
+## Ends in an error in state: 155.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> LET xexpr LBRACE xexpr RBRACE EQUAL xexpr IN xexpr . [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LET xexpr LBRACE xexpr RBRACE EQUAL xexpr IN xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LPAREN FAIL THEN
+##
+## Ends in an error in state: 156.
+##
+## xexpr -> LPAREN xexpr . COMMA xexpr RPAREN [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES RPAREN PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES RPAREN PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES RPAREN PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES RPAREN PLUS PIPE OF COMMA ]
+## xexpr -> LPAREN xexpr . RPAREN [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LPAREN FAIL COMMA TIMES
+##
+## Ends in an error in state: 158.
+##
+## xexpr -> LPAREN xexpr COMMA . xexpr RPAREN [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN xexpr COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: LPAREN FAIL COMMA FAIL THEN
+##
+## Ends in an error in state: 159.
+##
+## xexpr -> LPAREN xexpr COMMA xexpr . RPAREN [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES RPAREN PLUS PIPE OF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES RPAREN PLUS PIPE OF ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES RPAREN PLUS PIPE OF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES RPAREN PLUS PIPE OF ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN xexpr COMMA xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RIGHT LBRACE FAIL THEN
+##
+## Ends in an error in state: 161.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> RIGHT LBRACE xexpr . COMMA xexpr RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RIGHT LBRACE xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RIGHT LBRACE FAIL COMMA TIMES
+##
+## Ends in an error in state: 162.
+##
+## xexpr -> RIGHT LBRACE xexpr COMMA . xexpr RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RIGHT LBRACE xexpr COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RIGHT LBRACE FAIL COMMA FAIL THEN
+##
+## Ends in an error in state: 163.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES RBRACE PLUS PIPE OF ]
+## xexpr -> RIGHT LBRACE xexpr COMMA xexpr . RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RIGHT LBRACE xexpr COMMA xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RPHASE LBRACE FAIL THEN
+##
+## Ends in an error in state: 165.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> RPHASE LBRACE xexpr . COMMA xexpr COMMA real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RPHASE LBRACE xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RPHASE LBRACE FAIL COMMA TIMES
+##
+## Ends in an error in state: 166.
+##
+## xexpr -> RPHASE LBRACE xexpr COMMA . xexpr COMMA real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RPHASE LBRACE xexpr COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RPHASE LBRACE FAIL COMMA FAIL THEN
+##
+## Ends in an error in state: 167.
+##
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF COMMA ]
+## xexpr -> RPHASE LBRACE xexpr COMMA xexpr . COMMA real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RPHASE LBRACE xexpr COMMA xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA VOID
+##
+## Ends in an error in state: 168.
+##
+## xexpr -> RPHASE LBRACE xexpr COMMA xexpr COMMA . real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RPHASE LBRACE xexpr COMMA xexpr COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA CONST RPAREN
+##
+## Ends in an error in state: 169.
+##
+## real -> real . PLUS real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . TIMES real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MINUS real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . DIV real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . POW real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## real -> real . MOD real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
+## xexpr -> RPHASE LBRACE xexpr COMMA xexpr COMMA real . COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RPHASE LBRACE xexpr COMMA xexpr COMMA real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA CONST COMMA VOID
+##
+## Ends in an error in state: 170.
+##
+## xexpr -> RPHASE LBRACE xexpr COMMA xexpr COMMA real COMMA . real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RPHASE LBRACE xexpr COMMA xexpr COMMA real COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA CONST COMMA CONST RPAREN
+##
+## Ends in an error in state: 171.
+##
+## real -> real . PLUS real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . TIMES real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . MINUS real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . DIV real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . POW real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## real -> real . MOD real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
+## xexpr -> RPHASE LBRACE xexpr COMMA xexpr COMMA real COMMA real . RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## RPHASE LBRACE xexpr COMMA xexpr COMMA real COMMA real
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: TRY FAIL THEN
+##
+## Ends in an error in state: 173.
+##
+## xexpr -> TRY xexpr . CATCH xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF CATCH ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF CATCH ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF CATCH ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF CATCH ]
+##
+## The known suffix of the stack is as follows:
+## TRY xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: TRY FAIL CATCH TIMES
+##
+## Ends in an error in state: 174.
+##
+## xexpr -> TRY xexpr CATCH . xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## TRY xexpr CATCH
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: TRY FAIL CATCH FAIL XVAR
+##
+## Ends in an error in state: 175.
+##
+## xexpr -> TRY xexpr CATCH xexpr . [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## TRY xexpr CATCH xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: XVAR LANGLE FAIL THEN
+##
+## Ends in an error in state: 176.
+##
+## arglist -> xexpr . RANGLE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## arglist -> xexpr . COMMA arglist [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> xexpr . OF xexpr [ TIMES RANGLE PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES RANGLE PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES RANGLE PLUS PIPE OF COMMA ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES RANGLE PLUS PIPE OF COMMA ]
+##
+## The known suffix of the stack is as follows:
+## xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: XVAR LANGLE FAIL COMMA TIMES
+##
+## Ends in an error in state: 178.
+##
+## arglist -> xexpr COMMA . arglist [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+##
+## The known suffix of the stack is as follows:
+## xexpr COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: SEMICOLON XVAR
+##
+## Ends in an error in state: 181.
+##
+## qunityfile -> SEMICOLON . SEMICOLON EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## SEMICOLON
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: SEMICOLON SEMICOLON XVAR
+##
+## Ends in an error in state: 182.
+##
+## qunityfile -> SEMICOLON SEMICOLON . EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## SEMICOLON SEMICOLON
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF VOID
+##
+## Ends in an error in state: 185.
+##
+## qunityfile -> DEF . XVAR LANGLE argnames DEFSTART xexpr END qunityfile [ # ]
+## qunityfile -> DEF . XVAR DEFSTART xexpr END qunityfile [ # ]
+##
+## The known suffix of the stack is as follows:
+## DEF
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR XVAR
+##
+## Ends in an error in state: 186.
+##
+## qunityfile -> DEF XVAR . LANGLE argnames DEFSTART xexpr END qunityfile [ # ]
+## qunityfile -> DEF XVAR . DEFSTART xexpr END qunityfile [ # ]
+##
+## The known suffix of the stack is as follows:
+## DEF XVAR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR LANGLE VOID
+##
+## Ends in an error in state: 187.
+##
+## qunityfile -> DEF XVAR LANGLE . argnames DEFSTART xexpr END qunityfile [ # ]
+##
+## The known suffix of the stack is as follows:
+## DEF XVAR LANGLE
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR LANGLE XVAR XVAR
+##
+## Ends in an error in state: 188.
+##
+## argnames -> XVAR . RANGLE [ DEFSTART ]
+## argnames -> XVAR . COMMA argnames [ DEFSTART ]
+##
+## The known suffix of the stack is as follows:
+## XVAR
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR LANGLE XVAR COMMA VOID
+##
+## Ends in an error in state: 190.
+##
+## argnames -> XVAR COMMA . argnames [ DEFSTART ]
+##
+## The known suffix of the stack is as follows:
+## XVAR COMMA
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR LANGLE XVAR RANGLE XVAR
+##
+## Ends in an error in state: 192.
+##
+## qunityfile -> DEF XVAR LANGLE argnames . DEFSTART xexpr END qunityfile [ # ]
+##
+## The known suffix of the stack is as follows:
+## DEF XVAR LANGLE argnames
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR LANGLE XVAR RANGLE DEFSTART TIMES
+##
+## Ends in an error in state: 193.
+##
+## qunityfile -> DEF XVAR LANGLE argnames DEFSTART . xexpr END qunityfile [ # ]
+##
+## The known suffix of the stack is as follows:
+## DEF XVAR LANGLE argnames DEFSTART
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR LANGLE XVAR RANGLE DEFSTART FAIL THEN
+##
+## Ends in an error in state: 194.
+##
+## qunityfile -> DEF XVAR LANGLE argnames DEFSTART xexpr . END qunityfile [ # ]
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF END ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF END ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF END ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF END ]
+##
+## The known suffix of the stack is as follows:
+## DEF XVAR LANGLE argnames DEFSTART xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR LANGLE XVAR RANGLE DEFSTART FAIL END TIMES
+##
+## Ends in an error in state: 195.
+##
+## qunityfile -> DEF XVAR LANGLE argnames DEFSTART xexpr END . qunityfile [ # ]
+##
+## The known suffix of the stack is as follows:
+## DEF XVAR LANGLE argnames DEFSTART xexpr END
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: FAIL THEN
+##
+## Ends in an error in state: 196.
+##
+## qunityfile -> xexpr . EOF [ # ]
+## qunityfile -> xexpr . SEMICOLON SEMICOLON EOF [ # ]
+## xexpr -> xexpr . OF xexpr [ TIMES SEMICOLON PLUS PIPE OF EOF ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES SEMICOLON PLUS PIPE OF EOF ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES SEMICOLON PLUS PIPE OF EOF ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES SEMICOLON PLUS PIPE OF EOF ]
+##
+## The known suffix of the stack is as follows:
+## xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: FAIL SEMICOLON XVAR
+##
+## Ends in an error in state: 197.
+##
+## qunityfile -> xexpr SEMICOLON . SEMICOLON EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## xexpr SEMICOLON
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: FAIL SEMICOLON SEMICOLON XVAR
+##
+## Ends in an error in state: 198.
+##
+## qunityfile -> xexpr SEMICOLON SEMICOLON . EOF [ # ]
+##
+## The known suffix of the stack is as follows:
+## xexpr SEMICOLON SEMICOLON
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR DEFSTART TIMES
+##
+## Ends in an error in state: 202.
+##
+## qunityfile -> DEF XVAR DEFSTART . xexpr END qunityfile [ # ]
+##
+## The known suffix of the stack is as follows:
+## DEF XVAR DEFSTART
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR DEFSTART FAIL THEN
+##
+## Ends in an error in state: 203.
+##
+## qunityfile -> DEF XVAR DEFSTART xexpr . END qunityfile [ # ]
+## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF END ]
+## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF END ]
+## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF END ]
+## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF END ]
+##
+## The known suffix of the stack is as follows:
+## DEF XVAR DEFSTART xexpr
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+
+qunityfile: DEF XVAR DEFSTART FAIL END TIMES
+##
+## Ends in an error in state: 204.
+##
+## qunityfile -> DEF XVAR DEFSTART xexpr END . qunityfile [ # ]
+##
+## The known suffix of the stack is as follows:
+## DEF XVAR DEFSTART xexpr END
+##
+
+<YOUR SYNTAX ERROR MESSAGE HERE>
+

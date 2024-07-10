@@ -5,7 +5,7 @@ single-qubit gates and the CNOT gate.
 */
 
 def Gate1Q <N, I, F> :=
-    if I << [0] then
+    if I lt [0] then
         fail
     else
         if I = [0] then
@@ -18,14 +18,14 @@ def Gate1Q <N, I, F> :=
 end
 
 def Cnot <N, I, J> :=
-    if I >> J then
+    if I gt J then
         lambda x {NTensorT <[N], Bit>} -> x
         |> Reverse <[N], Bit>
         |> Cnot <[N], [N - 1 - I], [N - 1 - J]>
         |> Reverse <[N], Bit>
     else
         if I = [0] then
-            if J <= [0] then
+            if J leq [0] then
                 fail
             else
                 lambda (x, y) {NTensorT <[N], Bit>} ->

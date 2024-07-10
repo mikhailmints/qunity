@@ -25,6 +25,14 @@ let gate_had (i : int) : gate = U3Gate (i, Div (Pi, Const 2), Const 0, Pi)
 let gate_cnot (b0 : int) (b1 : int) : gate =
   Controlled ([b0], [true], gate_paulix b1)
 
+let gate_equal (u0 : gate) (u1 : gate) =
+  match (u0, u1) with
+  | U3Gate (i0, theta0, phi0, lambda0), U3Gate (i1, theta1, phi1, lambda1) ->
+      i0 = i1 && real_equal theta0 theta1 && real_equal phi0 phi1
+      && real_equal lambda0 lambda1
+  | GphaseGate theta0, GphaseGate theta1 -> real_equal theta0 theta1
+  | _ -> u0 = u1
+
 (*
 Take the adjoint of a unitary gate.
 *)

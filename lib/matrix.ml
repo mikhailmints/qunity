@@ -44,6 +44,9 @@ let mat_entry (m : matrix) (i : int) (j : int) : Complex.t =
 let mat_from_fun (r : int) (c : int) (f : int -> int -> Complex.t) : matrix =
   { r; c; ent = Dense f }
 
+let mat_from_map (r : int) (c : int) (s : Complex.t Int2Map.t) : matrix =
+  { r; c; ent = Sparse s }
+
 let mat_evaluate_dense (m : matrix) : matrix =
   let r_range = range m.r in
   let c_range = range m.c in
@@ -397,17 +400,51 @@ let mat_from_list (l : Complex.t list list) : matrix =
 let string_of_complex (z : Complex.t) =
   Printf.sprintf "%.3f%s%.3fi" z.re (if z.im >= 0. then "+" else "") z.im
 
-let print_mat (m : matrix) =
-  let dim_limit = 8 in
-    if m.r > dim_limit || m.c > dim_limit then
-      Printf.printf "Too large to print: %dx%d matrix\n" m.r m.c
-    else
-      for i = 0 to m.r - 1 do
-        for j = 0 to m.c - 1 do
-          Printf.printf "%13s " (string_of_complex (mat_entry m i j))
-        done;
-        Printf.printf "\n"
-      done
+let print_mat (m : matrix) : unit =
+  if m.r = 0 || m.c = 0 then
+    Printf.printf "Degenerate matrix: %dx%d\n" m.r m.c
+  else if m.r = 1 && m.c = 1 then
+    Printf.printf "%s\n" (string_of_complex (mat_entry m 0 0))
+  else
+    match m.ent with
+    | Dense f -> begin
+        let dim_limit = 8 in
+          if m.r > dim_limit || m.c > dim_limit then
+            Printf.printf "Too large to print: %dx%d matrix\n" m.r m.c
+          else
+            for i = 0 to m.r - 1 do
+              for j = 0 to m.c - 1 do
+                Printf.printf "%13s " (string_of_complex (f i j))
+              done;
+              Printf.printf "\n"
+            done
+      end
+    | Sparse s -> begin
+        Printf.printf "%s\n"
+          begin
+            string_of_list_custom " + " false
+              begin
+                fun ((i, j), z) ->
+                  begin
+                    let coeffstring =
+                      if z = Complex.one then
+                        ""
+                      else if z = Complex.neg Complex.one then
+                        "-"
+                      else
+                        Printf.sprintf "(%s)" (string_of_complex z)
+                    in
+                      if m.c = 1 then
+                        Printf.sprintf "%s|%d>" coeffstring i
+                      else if m.r = 1 then
+                        Printf.sprintf "%s<%d|" coeffstring j
+                      else
+                        Printf.sprintf "%s|%d><%d|" coeffstring i j
+                  end
+              end
+              (Int2Map.bindings s)
+          end
+      end
 
 let mat_approx_equal (m1 : matrix) (m2 : matrix) : bool =
   m1.r = m2.r && m1.c = m2.c
@@ -594,7 +631,7 @@ let superop_on_basis (super : superoperator) (k : int) (l : int) : matrix =
                      (Int4Map.bindings s))));
       }
 
-let print_superop (super : superoperator) =
+let print_superop (super : superoperator) : unit =
   let dim_limit = 4 in
     if super.dim_from > dim_limit || super.dim_to > dim_limit then
       Printf.printf "Too large to print: %dx%d -> %dx%d superoperator\n"

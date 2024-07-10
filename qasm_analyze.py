@@ -1,3 +1,6 @@
+print("Starting analysis script")
+print("Importing libraries")
+
 import sys
 import os
 from qiskit import qasm3, transpile

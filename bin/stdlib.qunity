@@ -64,7 +64,7 @@ end
 Tensor product of type T, N times
 */
 def NTensorT <N, T> :=
-    if N << [0] then
+    if N lt [0] then
         fail
     else
         if N = [0] then
@@ -79,7 +79,7 @@ end
 Tensor product of expression E, N times
 */
 def NTensorE <N, E> :=
-    if N << [0] then
+    if N lt [0] then
         fail
     else
         if N = [0] then
@@ -94,7 +94,7 @@ end
 Tensor product of program F, acting on type T, N times
 */
 def NTensorF <N, F, T> :=
-    if N << [0] then
+    if N lt [0] then
         fail
     else
         if N = [0] then
@@ -107,7 +107,7 @@ def NTensorF <N, F, T> :=
 end
 
 def Append <N, T> :=
-    if N << [0] then
+    if N lt [0] then
         fail
     else
         if N = [0] then
@@ -120,7 +120,7 @@ def Append <N, T> :=
 end
 
 def Reverse <N, T> :=
-    if N << [0] then
+    if N lt [0] then
         fail
     else
         if N = [0] then
@@ -164,7 +164,7 @@ end
 Little-endian encoding of number N as a quantum state
 */
 def NumToState <N> :=
-    if N << [0] then
+    if N lt [0] then
         fail
     else
         if N = [0] then
@@ -183,7 +183,7 @@ end
 Retries an evaluation of E N times, amplifying the probability of success
 */
 def Retry <N, E> :=
-    if N << [0] then
+    if N lt [0] then
         fail
     else
         if N = [0] then

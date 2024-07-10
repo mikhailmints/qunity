@@ -62,8 +62,7 @@ and definition = string list * xexpr
 and defmap = definition StringMap.t
 and xvaluation = xresult StringMap.t
 
-type qunityfile = { dm : defmap; main : xexpr }
-type qunityinteract = { dm : defmap; main : xexpr option }
+type qunityfile = { dm : defmap; main : xexpr option }
 
 let rec realexpr_eval (r : xexpr) (dm : defmap) (xv : xvaluation) : real =
   match r with
@@ -306,16 +305,3 @@ let add_def (name : string) (d : definition) (qf : qunityfile) : qunityfile =
     qf
   else
     { dm = StringMap.add name d qf.dm; main = qf.main }
-
-let add_def_interact (name : string) (d : definition) (qi : qunityinteract) :
-    qunityinteract =
-  if StringMap.find_opt name qi.dm <> None then
-    qi
-  else
-    { dm = StringMap.add name d qi.dm; main = qi.main }
-
-let preprocess ({ dm; main } : qunityfile) : expr optionE =
-  match xexpr_eval main dm StringMap.empty with
-  | RExpr e -> SomeE e
-  | RNone err -> NoneE err
-  | _ -> NoneE "Expected expression"

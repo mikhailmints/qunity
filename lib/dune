@@ -11,13 +11,23 @@
   gate
   compilation
   parser
-  lexer)
- (libraries num))
+  lexer
+  parser_messages)
+ (libraries num menhirLib))
 
 (menhir
- (modules parser))
+ (modules parser)
+ (flags --table))
 
 (ocamllex lexer)
+
+(rule
+ (targets parser_messages.ml)
+ (deps parser.messages parser.mly)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run menhir --compile-errors %{deps}))))
 
 (env
  (dev

@@ -83,26 +83,19 @@ open Extended_syntax
 
 
 %start <qunityfile> qunityfile
-%start <qunityinteract> qunityinteract
 
 %%
 
 qunityfile:
-    | e = xexpr; EOF {{dm = StringMap.empty; main = e}}
-    | DEF; name = XVAR; LANGLE; l = argnames; DEFSTART; body = xexpr; END;
-        qf = qunityfile {add_def name (l, body) qf}
-    | DEF; name = XVAR; DEFSTART; body = xexpr; END;
-        qf = qunityfile {add_def name ([], body) qf}
-    ;
-
-qunityinteract:
+    | EOF {{dm = StringMap.empty; main = None}}
     | SEMICOLON; SEMICOLON; EOF {{dm = StringMap.empty; main = None}}
+    | e = xexpr; EOF
     | e = xexpr; SEMICOLON; SEMICOLON; EOF
         {{dm = StringMap.empty; main = Some e}}
     | DEF; name = XVAR; LANGLE; l = argnames; DEFSTART; body = xexpr; END;
-        qi = qunityinteract {add_def_interact name (l, body) qi}
+        qi = qunityfile {add_def name (l, body) qi}
     | DEF; name = XVAR; DEFSTART; body = xexpr; END;
-        qi = qunityinteract {add_def_interact name ([], body) qi}
+        qi = qunityfile {add_def name ([], body) qi}
     ;
 
 xexpr:
@@ -152,7 +145,7 @@ real:
     | EULER {XEuler}
     | x = CONST {XConst x}
     | x = XVAR; {XVar x}
-    | MINUS; LPAREN; r = real; RPAREN {XNegate r}
+    | MINUS; r = real {XNegate r}
     | r0 = real; PLUS; r1 = real {XPlus (r0, r1)}
     | r0 = real; TIMES; r1 = real {XTimes (r0, r1)}
     | r0 = real; MINUS; r1 = real {XPlus (r0, XNegate r1)}

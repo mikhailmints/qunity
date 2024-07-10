@@ -117,4 +117,6 @@ let () =
 
     if !all_passed then
       Printf.printf "\nALL COMPILATION TESTS PASSED\n\n"
+    else
+      Printf.printf "\nSOME COMPILATION TESTS FAILED\n\n"
   end

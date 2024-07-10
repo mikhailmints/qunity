@@ -4,19 +4,7 @@ open Matrix
 open Syntax
 open Typechecking
 
-type valuation = expr StringMap.t
-
-let memo_size = 100
-
-let string_of_context (d : context) =
-  string_of_list
-    (fun (x, e) -> Printf.sprintf "%s = %s" x (string_of_type e))
-    (StringMap.bindings d)
-
-let string_of_valuation (sigma : valuation) =
-  string_of_list
-    (fun (x, e) -> Printf.sprintf "%s = %s" x (string_of_expr e))
-    (StringMap.bindings sigma)
+let memo_size = 1000
 
 let rec type_dimension (t : exprtype) : int =
   match t with
@@ -210,17 +198,34 @@ that are not in the specified set fv.
 let context_partial_trace (d : context) (fv : StringSet.t) (m : matrix) :
     matrix =
   let d', d0 = map_partition d fv in
-    mat_from_fun (context_dimension d') (context_dimension d')
-      begin
-        fun i j ->
-          complex_sum
-            (List.map
-               (fun tau ->
-                 let i0 = basis_index_extension d0 tau d' i in
-                 let j0 = basis_index_extension d0 tau d' j in
-                   mat_entry m i0 j0)
-               (Array.to_list (all_context_basis_valuations d0)))
-      end
+  let fv0 = map_dom d0 in
+  let d'_dim = context_dimension d' in
+    match m.ent with
+    | Dense f ->
+        let d0_val = Array.to_list (all_context_basis_valuations d0) in
+          mat_from_fun d'_dim d'_dim
+            begin
+              fun i j ->
+                complex_sum
+                  (List.map
+                     (fun tau ->
+                       let i0 = basis_index_extension d0 tau d' i in
+                       let j0 = basis_index_extension d0 tau d' j in
+                         f i0 j0)
+                     d0_val)
+            end
+    | Sparse s ->
+        mat_sum d'_dim d'_dim
+          ((List.map (fun ((i, j), z) ->
+                let i' = basis_index_restriction d fv i in
+                let j' = basis_index_restriction d fv j in
+                let i0 = basis_index_restriction d fv0 i in
+                let j0 = basis_index_restriction d fv0 j in
+                  if i0 = j0 then
+                    mat_from_map d'_dim d'_dim (Int2Map.singleton (i', j') z)
+                  else
+                    mat_zero d'_dim d'_dim))
+             (Int2Map.bindings s))
 
 let pure_expr_sem_memo :
     (context * context * expr * valuation, matrix) Hashtbl.t =

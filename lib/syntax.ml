@@ -1,4 +1,5 @@
 open Reals
+open Util
 
 type exprtype =
   | Void
@@ -24,6 +25,9 @@ and prog =
   | Right of (exprtype * exprtype)
   | Lambda of (expr * exprtype * expr)
   | Rphase of (exprtype * expr * real * real)
+
+type context = exprtype StringMap.t
+type valuation = expr StringMap.t
 
 let bit = SumType (Qunit, Qunit)
 let had = U3 (Div (Pi, Const 2), Const 0, Pi)
@@ -95,3 +99,73 @@ let string_of_progtype (ft : progtype) : string =
       Printf.sprintf "%s ~> %s" (string_of_type t0) (string_of_type t1)
   | Channel (t0, t1) ->
       Printf.sprintf "%s ==> %s" (string_of_type t0) (string_of_type t1)
+
+let rec ocaml_string_of_expr (e : expr) : string =
+  match e with
+  | _ when e = bit0 -> "bit0"
+  | _ when e = bit1 -> "bit1"
+  | Null -> "Null"
+  | Var x -> Printf.sprintf "Var \"%s\"" x
+  | Qpair (e0, e1) ->
+      Printf.sprintf "Qpair (%s, %s)" (ocaml_string_of_expr e0)
+        (ocaml_string_of_expr e1)
+  | Ctrl (e0, t0, l, t1) ->
+      Printf.sprintf "Ctrl (%s, %s, %s, %s)" (ocaml_string_of_expr e0)
+        (ocaml_string_of_type t0)
+        (string_of_list
+           (fun (ej, ej') ->
+             Printf.sprintf "(%s, %s)" (ocaml_string_of_expr ej)
+               (ocaml_string_of_expr ej'))
+           l)
+        (ocaml_string_of_type t1)
+  | Try (e0, e1) ->
+      Printf.sprintf "Try (%s, %s)" (ocaml_string_of_expr e0)
+        (ocaml_string_of_expr e1)
+  | Apply (f, e') ->
+      Printf.sprintf "Apply (%s, %s)" (ocaml_string_of_prog f)
+        (ocaml_string_of_expr e')
+
+and ocaml_string_of_type (t : exprtype) : string =
+  match t with
+  | _ when t = bit -> "bit"
+  | Void -> "Void"
+  | Qunit -> "Qunit"
+  | SumType (t0, t1) ->
+      Printf.sprintf "SumType (%s, %s)" (ocaml_string_of_type t0)
+        (ocaml_string_of_type t1)
+  | ProdType (t0, t1) ->
+      Printf.sprintf "ProdType (%s, %s)" (ocaml_string_of_type t0)
+        (ocaml_string_of_type t1)
+
+and ocaml_string_of_prog (f : prog) : string =
+  match f with
+  | _ when f = had -> "had"
+  | _ when f = qnot -> "qnot"
+  | U3 (theta, phi, lambda) ->
+      Printf.sprintf "U3 (%s, %s, %s)"
+        (ocaml_string_of_real theta)
+        (ocaml_string_of_real phi)
+        (ocaml_string_of_real lambda)
+  | Left (t0, t1) ->
+      Printf.sprintf "Left (%s, %s)" (ocaml_string_of_type t0)
+        (ocaml_string_of_type t1)
+  | Right (t0, t1) ->
+      Printf.sprintf "Right (%s, %s)" (ocaml_string_of_type t0)
+        (ocaml_string_of_type t1)
+  | Lambda (e, t, e') ->
+      Printf.sprintf "Lambda (%s, %s, %s)" (ocaml_string_of_expr e)
+        (ocaml_string_of_type t) (ocaml_string_of_expr e')
+  | Rphase (t, e, r0, r1) ->
+      Printf.sprintf "Rphase (%s, %s, %s, %s)" (ocaml_string_of_type t)
+        (ocaml_string_of_expr e) (ocaml_string_of_real r0)
+        (ocaml_string_of_real r1)
+
+let string_of_context (d : context) =
+  string_of_list
+    (fun (x, e) -> Printf.sprintf "%s : %s" x (string_of_type e))
+    (StringMap.bindings d)
+
+let string_of_valuation (sigma : valuation) =
+  string_of_list
+    (fun (x, e) -> Printf.sprintf "%s = %s" x (string_of_expr e))
+    (StringMap.bindings sigma)

@@ -81,6 +81,38 @@ let rec python_string_of_real (r : real) : string =
   | Sqrt r0 -> Printf.sprintf "np.sqrt(%s)" (python_string_of_real r0)
   | Round r0 -> Printf.sprintf "np.round(%s)" (string_of_real r0)
 
+let rec ocaml_string_of_real (r : real) : string =
+  match r with
+  | Pi -> "Pi"
+  | Euler -> "Euler"
+  | Const x -> Printf.sprintf "Const %s" (string_of_int x)
+  | Negate r0 -> Printf.sprintf "Negate (%s)" (ocaml_string_of_real r0)
+  | Plus (r0, r1) ->
+      Printf.sprintf "Plus (%s, %s)" (ocaml_string_of_real r0)
+        (ocaml_string_of_real r1)
+  | Times (r0, r1) ->
+      Printf.sprintf "Times (%s, %s)" (ocaml_string_of_real r0)
+        (ocaml_string_of_real r1)
+  | Div (r0, r1) ->
+      Printf.sprintf "Div (%s, %s)" (ocaml_string_of_real r0)
+        (ocaml_string_of_real r1)
+  | Pow (r0, r1) ->
+      Printf.sprintf "Pow (%s, %s)" (ocaml_string_of_real r0)
+        (ocaml_string_of_real r1)
+  | Mod (r0, r1) ->
+      Printf.sprintf "Mod (%s, %s)" (ocaml_string_of_real r0)
+        (ocaml_string_of_real r1)
+  | Sin r0 -> Printf.sprintf "Sin (%s)" (ocaml_string_of_real r0)
+  | Cos r0 -> Printf.sprintf "Cos (%s)" (ocaml_string_of_real r0)
+  | Tan r0 -> Printf.sprintf "Tan (%s)" (ocaml_string_of_real r0)
+  | Arcsin r0 -> Printf.sprintf "Arcsin (%s)" (ocaml_string_of_real r0)
+  | Arccos r0 -> Printf.sprintf "Arccos (%s)" (ocaml_string_of_real r0)
+  | Arctan r0 -> Printf.sprintf "Arctan (%s)" (ocaml_string_of_real r0)
+  | Exp r0 -> Printf.sprintf "Exp (%s)" (ocaml_string_of_real r0)
+  | Ln r0 -> Printf.sprintf "Ln (%s)" (ocaml_string_of_real r0)
+  | Sqrt r0 -> Printf.sprintf "Sqrt (%s)" (ocaml_string_of_real r0)
+  | Round r0 -> Printf.sprintf "Round (%s)" (ocaml_string_of_real r0)
+
 let rec float_of_real (r : real) : float =
   match r with
   | Pi -> Float.pi
