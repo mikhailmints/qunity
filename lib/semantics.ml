@@ -168,15 +168,9 @@ let basis_index_extension (g : context) (sigma : valuation) (d : context)
   else
     let res =
       begin
-        let gd =
-          match map_merge false g d with
-          | NoneE err -> failwith err
-          | SomeE gd -> gd
-        in
+        let gd = map_merge_noopt false g d in
         let tau =
-          match map_merge false sigma (all_context_basis_valuations d).(i) with
-          | NoneE err -> failwith err
-          | SomeE tau -> tau
+          map_merge_noopt false sigma (all_context_basis_valuations d).(i)
         in
           list_index (StringMap.equal ( = ))
             (Array.to_list (all_context_basis_valuations gd))
@@ -271,12 +265,10 @@ let rec pure_expr_semantics (tp : pure_expr_typing_proof) (sigma : valuation) :
 
 and ctrl_semantics (tp : pure_expr_typing_proof) (sigma : valuation) : matrix =
   match tp with
-  | TCtrl (t0, t1, g, g', d, d', e, l) -> begin
-      let gg' = map_merge_noopt false g g' in
+  | TCtrl (t0, t1, g, _, d, d', e, l) -> begin
       let dd' = map_merge_noopt false d d' in
-      let gg'dd' = map_merge_noopt false gg' dd' in
-      let fve = map_dom gg'dd' in
       let gd = map_merge_noopt false g d in
+      let fve = map_dom gd in
       let tdim = type_dimension t1 in
       let ddim = context_dimension dd' in
       let super0 = mixed_expr_semantics e in

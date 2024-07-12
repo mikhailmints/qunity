@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
 
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+NC="\033[0m"
+
 dune build
-time ./_build/default/bin/qunity_simulate.exe $1
+./_build/default/bin/qunity_simulate.exe $1
+status=$?
+if [ $status -eq 1 ]; then
+    echo -e "${YELLOW}Invalid program${NC}"
+elif [ $status -ne 0 ]; then
+    echo -e "${RED}Simulator error${NC}"
+fi
