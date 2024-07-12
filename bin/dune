@@ -2,7 +2,7 @@
  (names qunity_simulate qunity_interact qunity_compile_qasm)
  (public_names qunity_simulate qunity_interact qunity_compile_qasm)
  (modules qunity_simulate qunity_interact qunity_compile_qasm driver_util)
- (libraries qunity_prototypes))
+ (libraries qunity))
 
 (env
  (dev

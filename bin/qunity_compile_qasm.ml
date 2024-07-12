@@ -1,5 +1,5 @@
 open Driver_util
-open Qunity_prototypes
+open Qunity
 open Util
 open Reals
 open Gate

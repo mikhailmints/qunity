@@ -1,4 +1,4 @@
-open Qunity_prototypes
+open Qunity
 open Matrix
 open Syntax
 open Semantics

@@ -1,4 +1,4 @@
-open Qunity_prototypes
+open Qunity
 open Util
 open Matrix
 open Syntax

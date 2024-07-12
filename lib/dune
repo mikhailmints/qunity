@@ -1,5 +1,5 @@
 (library
- (name qunity_prototypes)
+ (name qunity)
  (modules
   util
   reals

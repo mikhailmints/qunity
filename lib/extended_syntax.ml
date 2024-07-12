@@ -3,12 +3,7 @@ open Reals
 open Syntax
 open Typechecking
 
-type comparison =
-  | Equal
-  | Leq
-  | Lt
-  | Geq
-  | Gt
+type comparison = Equal | Leq | Lt | Geq | Gt
 
 type xexpr =
   | Null
@@ -268,16 +263,11 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
     | Ifcmp (v0, cmp, v1, vtrue, vfalse) -> begin
         let branch =
           match (xexpr_eval v0 dm xv, cmp, xexpr_eval v1 dm xv) with
-          | RReal r0, Equal, RReal r1 ->
-              SomeE (real_equal r0 r1)
-          | RReal r0, Leq, RReal r1 ->
-              SomeE (real_le r0 r1)
-          | RReal r0, Lt, RReal r1 ->
-              SomeE (real_lt r0 r1)
-          | RReal r0, Geq, RReal r1 ->
-              SomeE (real_ge r0 r1)
-          | RReal r0, Gt, RReal r1 ->
-              SomeE (real_gt r0 r1)
+          | RReal r0, Equal, RReal r1 -> SomeE (real_equal r0 r1)
+          | RReal r0, Leq, RReal r1 -> SomeE (real_le r0 r1)
+          | RReal r0, Lt, RReal r1 -> SomeE (real_lt r0 r1)
+          | RReal r0, Geq, RReal r1 -> SomeE (real_ge r0 r1)
+          | RReal r0, Gt, RReal r1 -> SomeE (real_gt r0 r1)
           | RType t0, Equal, RType t1 -> SomeE (t0 = t1)
           | RProg f0, Equal, RProg f1 -> SomeE (f0 = f1)
           | RExpr e0, Equal, RExpr e1 -> SomeE (e0 = e1)

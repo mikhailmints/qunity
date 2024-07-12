@@ -1,6 +1,6 @@
 (lang dune 3.14)
 
-(name qunity_prototypes)
+(name qunity)
 
 (generate_opam_files true)
 
@@ -18,7 +18,7 @@
 (using menhir 3.0)
 
 (package
- (name qunity_prototypes)
+ (name qunity)
  (synopsis "A short synopsis")
  (description "A longer description")
  (depends ocaml dune lacaml)
