@@ -48,7 +48,7 @@ let expect_mixed_expr_sem (testname : string) (e : expr)
 let expect_pure_prog_sem (testname : string) (f : prog)
     (l : Complex.t list list) : unit =
   test_mat_equality testname
-    (fun () -> pure_prog_semantics f)
+    (fun () -> top_pure_prog_semantics f)
     (mat_from_list l)
 
 let deutsch (f : prog) : expr =

@@ -1,5 +1,4 @@
 open Qunity_prototypes
-open Util
 open Syntax
 open Typechecking
 open Semantics
@@ -10,11 +9,7 @@ open Gate
 let all_passed = ref true
 
 let rec expr_to_encoded_basis_state (e : expr) : matrix =
-  let t =
-    match pure_type_check StringMap.empty StringMap.empty e with
-    | SomeE t -> t
-    | NoneE err -> failwith err
-  in
+  let t = type_of_pure_expr_proof (pure_type_check_noopt e) in
     match (e, t) with
     | Null, Qunit -> mat_identity 1
     | Apply (Left (t0, t1), e0), SumType (t0', t1') when t0 = t0' && t1 = t1'
@@ -40,14 +35,14 @@ let rec expr_to_encoded_basis_state (e : expr) : matrix =
 let test_compilation_correctness (testname : string) (e : expr) =
   Printf.printf "%s: " testname;
   try
-    let t = expr_typecheck_noopt e in
+    let t = type_of_mixed_expr_proof (mixed_type_check_noopt e) in
     let gate, nqubits, out_reg, _ = expr_compile false e in
     let gate_sem = gate_semantics gate nqubits out_reg in
     let sem = top_mixed_expr_semantics e in
       if
         List.for_all
           (fun be ->
-            let bs = expr_to_basis_state be in
+            let bs = expr_to_basis_state t be in
             let enc_bs = expr_to_encoded_basis_state be in
               mat_approx_equal
                 (mat_adjoint bs *@ sem *@ bs)

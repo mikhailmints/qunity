@@ -311,7 +311,7 @@ def QuantumWalkAlgorithm <Tbits, N, F> :=
     |> Snd <NTensorT <[Tbits - 1], Bit>, Bit>
 end
 
-def Tbits := [4] end
+def Tbits := [2] end
 
 def N := [1] end
 

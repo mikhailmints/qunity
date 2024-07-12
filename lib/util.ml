@@ -91,6 +91,12 @@ let map_merge (allow_dup : bool) (d0 : 'a StringMap.t) (d1 : 'a StringMap.t) :
          else
            "Expected disjoint contexts")
 
+let map_merge_noopt (allow_dup : bool) (d0 : 'a StringMap.t)
+    (d1 : 'a StringMap.t) : 'a StringMap.t =
+  match map_merge allow_dup d0 d1 with
+  | SomeE res -> res
+  | NoneE err -> failwith err
+
 (* Whether a map is included in another map *)
 let map_inclusion (d0 : 'a StringMap.t) (d1 : 'a StringMap.t) : bool =
   StringMap.for_all (fun x t -> StringMap.find_opt x d1 = Some t) d0

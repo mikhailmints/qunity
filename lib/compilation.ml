@@ -1205,92 +1205,78 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
           end
     end
 
+let remove_g_from_pure_op (dsize : int) (tsize : int) (op : inter_op) =
+  inter_lambda
+    [("d", dsize)]
+    [
+      inter_letapp ["g"] IEmpty [];
+      inter_letapp ["g"; "res"] op ["g"; "d"];
+      inter_letapp [] (IAdjoint IEmpty) ["g"];
+    ]
+    [("res", tsize)]
+
 (*
 Compilation of a pure expression into the intermediate representation.
 This creates a circuit that takes in two registers, corresponding to the
 classical and quantum contexts.
 *)
-let rec compile_pure_expr_to_inter_op (g : context) (d : context) (e : expr) :
-    inter_op =
-  let t =
-    match pure_type_check g d e with
-    | SomeE t -> t
-    | NoneE err -> failwith err
-  in
-  let gsize = context_size g in
-  let dsize = context_size d in
+let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
+    =
+  let t = type_of_pure_expr_proof tp in
+  let g_whole, d_whole = context_of_pure_expr_proof tp in
+  let gsize = context_size g_whole in
+  let dsize = context_size d_whole in
   let tsize = type_size t in
-    match e with
-    | Null -> begin
+    match tp with
+    | TUnit _ -> begin
         inter_lambda
           [("g", gsize); ("d", dsize)]
           []
           [("g", gsize); ("d", tsize)]
       end
-    | Var x -> begin
-        match StringMap.bindings d with
-        | [] -> begin
-            let xreg, grest = map_partition g (StringSet.singleton x) in
-              inter_lambda
-                [("g", gsize); ("d", dsize)]
-                [
-                  inter_letapp ["x"; "rest"]
-                    (IContextPartition (g, StringSet.singleton x))
-                    ["g"];
-                  inter_letapp ["x"; "res"] (IShare t) ["x"];
-                  inter_letapp ["g"]
-                    (IContextMerge (xreg, grest))
-                    ["x"; "rest"];
-                ]
-                [("g", gsize); ("res", tsize)]
-          end
-        | [(x', _)] when x' = x -> begin
-            inter_lambda
-              [("g", gsize); ("d", dsize)]
-              []
-              [("g", gsize); ("d", tsize)]
-          end
-        | _ ->
-            failwith
-              "Variable not found or irrelevant variables in quantum context"
-      end
-    | Qpair (e0, e1) -> begin
-        let t0, t1 =
-          match t with
-          | ProdType (t0, t1) -> (t0, t1)
-          | _ -> failwith "Expected product type"
-        in
-        let fv0 = free_vars e0 in
-        let fv1 = free_vars e1 in
-        let fv01 = StringSet.inter fv0 fv1 in
-        let d01, d_xor = map_partition d fv01 in
-        let d0 = map_restriction d fv0 in
-        let d1 = map_restriction d fv1 in
-        let d0', d1' = map_partition d_xor fv0 in
-        let op0 = compile_pure_expr_to_inter_op g d0 e0 in
-        let op1 = compile_pure_expr_to_inter_op g d1 e1 in
+    | TCvar (t, g, x) -> begin
+        let xreg, grest = map_partition g (StringSet.singleton x) in
           inter_lambda
             [("g", gsize); ("d", dsize)]
             [
-              inter_letapp ["d01"; "d_xor"] (IContextPartition (d, fv01)) ["d"];
-              inter_letapp ["d0*"; "d1*"]
-                (IContextPartition (d_xor, fv0))
-                ["d_xor"];
-              inter_letapp ["d01"; "d01*"] (IContextShare d01) ["d01"];
-              inter_letapp ["d01_0"] (IContextMerge (d01, d0')) ["d01"; "d0*"];
-              inter_letapp ["d01*_1"]
-                (IContextMerge (d01, d1'))
-                ["d01*"; "d1*"];
-              inter_letapp ["g"; "t0"] op0 ["g"; "d01_0"];
-              inter_letapp ["g"; "t1"] op1 ["g"; "d01*_1"];
+              inter_letapp ["x"; "rest"]
+                (IContextPartition (g, StringSet.singleton x))
+                ["g"];
+              inter_letapp ["x"; "res"] (IShare t) ["x"];
+              inter_letapp ["g"] (IContextMerge (xreg, grest)) ["x"; "rest"];
+            ]
+            [("g", gsize); ("res", tsize)]
+      end
+    | TQvar _ -> begin
+        inter_lambda
+          [("g", gsize); ("d", dsize)]
+          []
+          [("g", gsize); ("d", tsize)]
+      end
+    | TPurePair (t0, t1, _, d, d0, d1, e0, e1) -> begin
+        let op0 = compile_pure_expr_to_inter_op e0 in
+        let op1 = compile_pure_expr_to_inter_op e1 in
+          inter_lambda
+            [("g", gsize); ("dd0d1", dsize)]
+            [
+              inter_letapp ["d"; "d0d1"]
+                (IContextPartition (d_whole, map_dom d))
+                ["dd0d1"];
+              inter_letapp ["d0"; "d1"]
+                (IContextPartition (map_merge_noopt false d0 d1, map_dom d0))
+                ["d0d1"];
+              inter_letapp ["d"; "d*"] (IContextShare d) ["d"];
+              inter_letapp ["dd0"] (IContextMerge (d, d0)) ["d"; "d0"];
+              inter_letapp ["d*d1"] (IContextMerge (d, d1)) ["d*"; "d1"];
+              inter_letapp ["g"; "t0"] op0 ["g"; "dd0"];
+              inter_letapp ["g"; "t1"] op1 ["g"; "d*d1"];
               inter_letapp ["res"] (IPair (t0, t1)) ["t0"; "t1"];
             ]
             [("g", gsize); ("res", tsize)]
       end
-    | Ctrl _ -> failwith "TODO"
-    | Try _ -> failwith "Try is not a pure expression"
-    | Apply (f, e') -> begin
-        let e'_op = compile_pure_expr_to_inter_op g d e' in
+    | TCtrl _ -> failwith "TODO"
+    | TPureApp (_, _, _, _, f, e') -> begin
+        let e'_op = compile_pure_expr_to_inter_op e' in
         let f_op = compile_pure_prog_to_inter_op f in
           inter_lambda
             [("g", gsize); ("d", dsize)]
@@ -1306,190 +1292,137 @@ Compilation of a mixed expression into the intermediate representation.
 This creates a circuit that takes in one register, corresponding to the
 quantum context.
 *)
-and compile_mixed_expr_to_inter_op (d : context) (e : expr) : inter_op =
-  let t =
-    match mixed_type_check d e with
-    | SomeE t -> t
-    | NoneE err -> failwith err
-  in
-  let dsize = context_size d in
+and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
+  let t = type_of_mixed_expr_proof tp in
+  let d_whole = context_of_mixed_expr_proof tp in
+  let dsize = context_size d_whole in
   let tsize = type_size t in
-    match pure_type_check StringMap.empty d e with
-    | SomeE _ -> begin
-        let e_op = compile_pure_expr_to_inter_op StringMap.empty d e in
+    match tp with
+    | TMix tp' -> begin
+        let tp'_op = compile_pure_expr_to_inter_op tp' in
           inter_lambda
             [("d", dsize)]
             [
               inter_letapp ["g"] IEmpty [];
-              inter_letapp ["g"; "res"] e_op ["g"; "d"];
+              inter_letapp ["g"; "res"] tp'_op ["g"; "d"];
               inter_letapp [] (IAdjoint IEmpty) ["g"];
             ]
             [("res", tsize)]
       end
-    | _ -> begin
-        match e with
-        | Qpair (e0, e1) -> begin
-            let t0, t1 =
-              match t with
-              | ProdType (t0, t1) -> (t0, t1)
-              | _ -> failwith "Expected product type"
-            in
-            let fv0 = free_vars e0 in
-            let fv1 = free_vars e1 in
-            let fv01 = StringSet.inter fv0 fv1 in
-            let d01, d_xor = map_partition d fv01 in
-            let d0 = map_restriction d fv0 in
-            let d1 = map_restriction d fv1 in
-            let d0' = map_restriction d_xor fv0 in
-            let d1' = map_restriction d_xor fv1 in
-            let op0 = compile_mixed_expr_to_inter_op d0 e0 in
-            let op1 = compile_mixed_expr_to_inter_op d1 e1 in
-              inter_lambda
-                [("d", dsize)]
-                [
-                  inter_letapp ["d01"; "d_xor"]
-                    (IContextPartition (d, fv01))
-                    ["d"];
-                  inter_letapp ["d0*"; "d1*"]
-                    (IContextPartition (d_xor, fv0))
-                    ["d_xor"];
-                  inter_letapp ["d01"; "d01*"] (IContextShare d01) ["d01"];
-                  inter_letapp ["d01_0"]
-                    (IContextMerge (d01, d0'))
-                    ["d01"; "d0*"];
-                  inter_letapp ["d01*_1"]
-                    (IContextMerge (d01, d1'))
-                    ["d01*"; "d1*"];
-                  inter_letapp ["t0"] op0 ["d01_0"];
-                  inter_letapp ["t1"] op1 ["d01*_1"];
-                  inter_letapp ["res"] (IPair (t0, t1)) ["t0"; "t1"];
-                ]
-                [("res", tsize)]
-          end
-        | Try (e0, e1) -> begin
-            let fv0 = free_vars e0 in
-            let fv1 = free_vars e1 in
-            let d0 = map_restriction d fv0 in
-            let d1 = map_restriction d fv1 in
-            let op0 = compile_mixed_expr_to_inter_op d0 e0 in
-            let op1 = compile_mixed_expr_to_inter_op d1 e1 in
-              inter_lambda
-                [("d", dsize)]
-                [
-                  inter_letapp ["d0"; "d1"] (IContextPartition (d, fv0)) ["d"];
-                  inter_letapp ["t+c0"] (IMixedErr op0) ["d0"];
-                  inter_letapp ["t+c1"] (IMixedErr op1) ["d1"];
-                  inter_letapp ["t*(t+c)+(t+c)"]
-                    (IDistrRight (t, Qunit, SumType (t, Qunit)))
-                    ["t+c0"; "t+c1"];
-                  inter_letapp ["(t*(t+c)+t)+c"]
-                    (IAdjoint
-                       (IAssoc (ProdType (t, SumType (t, Qunit)), t, Qunit)))
-                    ["t*(t+c)+(t+c)"];
-                  inter_letapp ["t*(t+c)+t"]
-                    (IAdjoint
-                       (ILeft
-                          (SumType (ProdType (t, SumType (t, Qunit)), t), Qunit)))
-                    ["(t*(t+c)+t)+c"];
-                  inter_letapp ["t"; "(t+c)+c"]
-                    (IAdjoint (IDistrLeft (t, SumType (t, Qunit), Qunit)))
-                    ["t*(t+c)+t"];
-                  inter_letapp []
-                    (IDiscard (SumType (SumType (t, Qunit), Qunit)))
-                    ["(t+c)+c"];
-                ]
-                [("t", tsize)]
-          end
-        | Apply (f, e') -> begin
-            let e'_op = compile_mixed_expr_to_inter_op d e' in
-            let f_op = compile_mixed_prog_to_inter_op f in
-              inter_lambda
-                [("d", dsize)]
-                [
-                  inter_letapp ["t*"] e'_op ["d"];
-                  inter_letapp ["res"] f_op ["t*"];
-                ]
-                [("res", tsize)]
-          end
-        | _ -> failwith "Error in mixed expression compilation"
+    | TMixedPair (t0, t1, d, d0, d1, e0, e1) -> begin
+        let op0 = compile_mixed_expr_to_inter_op e0 in
+        let op1 = compile_mixed_expr_to_inter_op e1 in
+          inter_lambda
+            [("dd0d1", dsize)]
+            [
+              inter_letapp ["d"; "d0d1"]
+                (IContextPartition (d_whole, map_dom d))
+                ["dd0d1"];
+              inter_letapp ["d0"; "d1"]
+                (IContextPartition (map_merge_noopt false d0 d1, map_dom d0))
+                ["d0d1"];
+              inter_letapp ["d"; "d*"] (IContextShare d) ["d"];
+              inter_letapp ["dd0"] (IContextMerge (d, d0)) ["d"; "d0"];
+              inter_letapp ["d*d1"] (IContextMerge (d, d1)) ["d*"; "d1"];
+              inter_letapp ["t0"] op0 ["dd0"];
+              inter_letapp ["t1"] op1 ["d*d1"];
+              inter_letapp ["res"] (IPair (t0, t1)) ["t0"; "t1"];
+            ]
+            [("res", tsize)]
+      end
+    | TTry (t, d0, _, e0, e1) -> begin
+        let op0 = compile_mixed_expr_to_inter_op e0 in
+        let op1 = compile_mixed_expr_to_inter_op e1 in
+          inter_lambda
+            [("d", dsize)]
+            [
+              inter_letapp ["d0"; "d1"]
+                (IContextPartition (d_whole, map_dom d0))
+                ["d"];
+              inter_letapp ["t+c0"] (IMixedErr op0) ["d0"];
+              inter_letapp ["t+c1"] (IMixedErr op1) ["d1"];
+              inter_letapp ["t*(t+c)+(t+c)"]
+                (IDistrRight (t, Qunit, SumType (t, Qunit)))
+                ["t+c0"; "t+c1"];
+              inter_letapp ["(t*(t+c)+t)+c"]
+                (IAdjoint (IAssoc (ProdType (t, SumType (t, Qunit)), t, Qunit)))
+                ["t*(t+c)+(t+c)"];
+              inter_letapp ["t*(t+c)+t"]
+                (IAdjoint
+                   (ILeft (SumType (ProdType (t, SumType (t, Qunit)), t), Qunit)))
+                ["(t*(t+c)+t)+c"];
+              inter_letapp ["t"; "(t+c)+c"]
+                (IAdjoint (IDistrLeft (t, SumType (t, Qunit), Qunit)))
+                ["t*(t+c)+t"];
+              inter_letapp []
+                (IDiscard (SumType (SumType (t, Qunit), Qunit)))
+                ["(t+c)+c"];
+            ]
+            [("t", tsize)]
+      end
+    | TMixedApp (_, _, _, f, e) -> begin
+        let e_op = compile_mixed_expr_to_inter_op e in
+        let f_op = compile_mixed_prog_to_inter_op f in
+          inter_lambda
+            [("d", dsize)]
+            [inter_letapp ["t*"] e_op ["d"]; inter_letapp ["res"] f_op ["t*"]]
+            [("res", tsize)]
       end
 
 (*
 Compilation of a pure program into the intermediate representation.
 *)
-and compile_pure_prog_to_inter_op (f : prog) : inter_op =
-  match f with
-  | U3 (theta, phi, lambda) -> IU3 (theta, phi, lambda)
-  | Left (t0, t1) -> ILeft (t0, t1)
-  | Right (t0, t1) -> IRight (t0, t1)
-  | Lambda (e, t, e') -> begin
-      let t' =
-        match prog_type_check f with
-        | SomeE (Coherent (_, t')) -> t'
-        | SomeE (Channel _) ->
-            failwith "Attempted pure compilation for mixed program"
-        | NoneE err -> failwith err
-      in
-        match context_check StringMap.empty t e with
-        | NoneE err -> failwith err
-        | SomeE d -> begin
-            let e_op = compile_pure_expr_to_inter_op StringMap.empty d e in
-            let e'_op = compile_pure_expr_to_inter_op StringMap.empty d e' in
-              inter_lambda
-                [("t", type_size t)]
-                [
-                  inter_letapp ["g"] IEmpty [];
-                  inter_letapp ["g"; "d"] (IAdjoint e_op) ["g"; "t"];
-                  inter_letapp ["g"; "res"] e'_op ["g"; "d"];
-                  inter_letapp [] (IAdjoint IEmpty) ["g"];
-                ]
-                [("res", type_size t')]
-          end
+and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
+  match tp with
+  | TGate (theta, phi, lambda) -> IU3 (theta, phi, lambda)
+  | TLeft (t0, t1) -> ILeft (t0, t1)
+  | TRight (t0, t1) -> IRight (t0, t1)
+  | TPureAbs (t, t', _, e, e') -> begin
+      let e_op = compile_pure_expr_to_inter_op e in
+      let e'_op = compile_pure_expr_to_inter_op e' in
+        inter_lambda
+          [("t", type_size t)]
+          [
+            inter_letapp ["g"] IEmpty [];
+            inter_letapp ["g"; "d"] (IAdjoint e_op) ["g"; "t"];
+            inter_letapp ["g"; "res"] e'_op ["g"; "d"];
+            inter_letapp [] (IAdjoint IEmpty) ["g"];
+          ]
+          [("res", type_size t')]
     end
-  | Rphase (t, e, r0, r1) -> (
-      match context_check StringMap.empty t e with
-      | NoneE err -> failwith err
-      | SomeE d -> begin
-          let e_op = compile_pure_expr_to_inter_op StringMap.empty d e in
-          let e_op_no_g =
-            inter_lambda
-              [("d", context_size d)]
-              [
-                inter_letapp ["g"] IEmpty [];
-                inter_letapp ["g"; "res"] e_op ["g"; "d"];
-                inter_letapp [] (IAdjoint IEmpty) ["g"];
-              ]
-              [("res", type_size t)]
-          in
-            IRphase (t, e_op_no_g, r0, r1)
-        end)
+  | TRphase (t, e, r0, r1) -> begin
+      let _, d = context_of_pure_expr_proof e in
+      let e_op = compile_pure_expr_to_inter_op e in
+      let e_op_no_g =
+        remove_g_from_pure_op (context_size d) (type_size t) e_op
+      in
+        IRphase (t, e_op_no_g, r0, r1)
+    end
 
 (*
 Compilation of a mixed program into the intermediate representation.
 *)
-and compile_mixed_prog_to_inter_op (f : prog) : inter_op =
-  match (f, prog_type_check f) with
-  | _, NoneE err -> failwith err
-  | _, SomeE (Coherent _) -> compile_pure_prog_to_inter_op f
-  | Lambda (e, t, e'), SomeE (Channel (_, t')) -> begin
-      match context_check StringMap.empty t e with
-      | NoneE err -> failwith err
-      | SomeE d ->
-          let fve' = free_vars e' in
-          let d', d0 = map_partition d fve' in
-          let e_op = compile_mixed_expr_to_inter_op d e in
-          let e'_op = compile_mixed_expr_to_inter_op d' e' in
-            inter_lambda
-              [("t", type_size t)]
-              [
-                inter_letapp ["d"] (IAdjoint e_op) ["t"];
-                inter_letapp ["d*"; "d0"] (IContextPartition (d, fve')) ["d"];
-                inter_letapp ["res"] e'_op ["d*"];
-                inter_letapp [] (IContextDiscard d0) ["d0"];
-              ]
-              [("res", type_size t')]
+and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
+  match tp with
+  | TChannel tp' -> compile_pure_prog_to_inter_op tp'
+  | TMixedAbs (t, t', d, d0, e, e') -> begin
+      let dd0 = map_merge_noopt false d d0 in
+      let fve' = map_dom d in
+      let e_op = compile_pure_expr_to_inter_op e in
+      let e_op_no_g =
+        remove_g_from_pure_op (context_size dd0) (type_size t) e_op
+      in
+      let e'_op = compile_mixed_expr_to_inter_op e' in
+        inter_lambda
+          [("t", type_size t)]
+          [
+            inter_letapp ["d"] (IAdjoint e_op_no_g) ["t"];
+            inter_letapp ["d*"; "d0"] (IContextPartition (dd0, fve')) ["d"];
+            inter_letapp ["res"] e'_op ["d*"];
+            inter_letapp [] (IContextDiscard d0) ["d0"];
+          ]
+          [("res", type_size t')]
     end
-  | _ -> failwith "Error in mixed program compilation"
 
 (*
 Main procedure for compiling a Qunity expression into a low-level quantum
@@ -1500,7 +1433,8 @@ outputting the circuit's gate and additional relevant information.
 let expr_compile (annotate : bool) (e : expr) :
     gate * int * int list * int list =
   annotation_mode := annotate;
-  let op = compile_mixed_expr_to_inter_op StringMap.empty e in
+  let tp = mixed_type_check_noopt e in
+  let op = compile_mixed_expr_to_inter_op tp in
   let cs = compile_inter_op_to_circuit op in
   let circ, _ = build_circuit cs [[]] IntSet.empty true in
   let nqubits = List.length circ.prep_reg in

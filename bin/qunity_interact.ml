@@ -50,18 +50,21 @@ let () =
                             if show_ocaml_string then
                               Printf.printf "%s\n" (ocaml_string_of_prog f);
                             match prog_type_check f with
-                            | SomeE ft ->
+                            | SomeE tp ->
                                 Printf.printf "Program type: %s\n\n"
-                                  (string_of_progtype ft);
+                                  (string_of_progtype
+                                     (progtype_of_prog_proof tp));
                                 Printf.printf "Pure semantics:\n%!";
                                 begin
-                                  try print_mat (pure_prog_semantics f) with
+                                  try
+                                    print_mat (top_pure_prog_semantics f)
+                                  with
                                   | Failure _
                                   | Invalid_argument _ ->
                                       Printf.printf "None\n"
                                 end;
                                 Printf.printf "\nMixed semantics:\n%!";
-                                print_superop (mixed_prog_semantics f);
+                                print_superop (top_mixed_prog_semantics f);
                                 Printf.printf "\n"
                             | NoneE err ->
                                 Printf.printf "Typechecking error: %s\n\n" err

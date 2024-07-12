@@ -68,8 +68,7 @@ let parse_with_err parse_fun s : qunityfile optionE =
         Printf.sprintf "Syntax error: %s\n%s" err
           begin
             match loc with
-            | Some (line, pos) ->
-                Printf.sprintf "At line %d, col %d" line pos
+            | Some (line, pos) -> Printf.sprintf "At line %d, col %d" line pos
             | _ -> ""
           end
       in
@@ -80,8 +79,9 @@ let parse_with_err parse_fun s : qunityfile optionE =
 let execute_expr (e : expr) : unit =
   match mixed_type_check StringMap.empty e with
   | NoneE err -> Printf.printf "Typechecking error: %s\n\n" err
-  | SomeE t -> begin
-      Printf.printf "Expression type: %s\n\n%!" (string_of_type t);
+  | SomeE tp -> begin
+      Printf.printf "Expression type: %s\n\n%!"
+        (string_of_type (type_of_mixed_expr_proof tp));
       Printf.printf "Pure semantics:\n%!";
       begin
         try print_mat (top_pure_expr_semantics e) with
@@ -133,10 +133,14 @@ let compile_file (prog_filename : string) (out_filename : string)
     (annotate : bool) : unit =
   let e_opt = get_expr_from_file prog_filename in
     match e_opt with
-    | NoneE err -> Printf.printf "%s\n\n" err
+    | NoneE err ->
+        Printf.printf "%s\n" err;
+        exit 1
     | SomeE e -> begin
         match mixed_type_check StringMap.empty e with
-        | NoneE err -> Printf.printf "Typechecking error: %s\n\n" err
+        | NoneE err ->
+            Printf.printf "Typechecking error: %s\n" err;
+            exit 1
         | SomeE _ -> begin
             let gate, nqubits, out_reg, flag_reg = expr_compile annotate e in
             let qasm_str = gate_compiler gate nqubits out_reg flag_reg in

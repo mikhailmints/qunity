@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+NC="\033[0m"
+
 dobuild=true
 analyze=false
 annotate=false
@@ -37,12 +42,15 @@ fi
 
 echo "Compiling to QASM"
 ./_build/default/bin/qunity_compile_qasm.exe $in_filename $out_filename $annotate
-if [ $? -ne 0 ]; then
-    echo "Compiler error"
-    exit
-fi
-echo "Compilation done"
+status=$?
+if [ $status -eq 1 ]; then
+    echo -e "${YELLOW}Invalid program${NC}"
+elif [ $status -eq 0 ]; then
+    echo -e "${GREEN}Compilation done${NC}"
 
-if $analyze; then
-    python3 qasm_analyze.py $out_filename
+    if $analyze; then
+        python3 qasm_analyze.py $out_filename
+    fi
+else
+    echo -e "${RED}Compiler error${NC}"
 fi

@@ -55,32 +55,64 @@ let expect_noneE (testname : string) (a : unit -> 'a optionE)
 
 let expect_expr_puretype (testname : string) (e : expr) (t : exprtype) : unit =
   test_equality_optionE testname
-    (fun () -> pure_type_check StringMap.empty StringMap.empty e)
+    begin
+      fun () ->
+        match pure_type_check StringMap.empty StringMap.empty e with
+        | SomeE tp -> SomeE (type_of_pure_expr_proof tp)
+        | NoneE err -> NoneE err
+    end
     t string_of_type
 
 let expect_expr_puretype_err (testname : string) (e : expr) : unit =
   expect_noneE testname
-    (fun () -> pure_type_check StringMap.empty StringMap.empty e)
+    begin
+      fun () ->
+        match pure_type_check StringMap.empty StringMap.empty e with
+        | SomeE tp -> SomeE (type_of_pure_expr_proof tp)
+        | NoneE err -> NoneE err
+    end
     string_of_type
 
 let expect_expr_mixedtype (testname : string) (e : expr) (t : exprtype) : unit
     =
   test_equality_optionE testname
-    (fun () -> mixed_type_check StringMap.empty e)
+    begin
+      fun () ->
+        match mixed_type_check StringMap.empty e with
+        | SomeE tp -> SomeE (type_of_mixed_expr_proof tp)
+        | NoneE err -> NoneE err
+    end
     t string_of_type
 
 (* let expect_expr_mixedtype_err (testname : string) (e : expr) : unit =
    expect_noneE testname
-     (fun () -> mixed_type_check StringMap.empty e)
+     begin
+       fun () ->
+         match mixed_type_check StringMap.empty e with
+         | SomeE tp -> SomeE (type_of_mixed_expr_proof tp)
+         | NoneE err -> NoneE err
+     end
      string_of_type *)
 
 let expect_prog_type (testname : string) (f : prog) (ft : progtype) : unit =
   test_equality_optionE testname
-    (fun () -> prog_type_check f)
+    begin
+      fun () ->
+        match prog_type_check f with
+        | SomeE tp -> SomeE (progtype_of_prog_proof tp)
+        | NoneE err -> NoneE err
+    end
     ft string_of_progtype
 
 (* let expect_prog_type_err (testname : string) (f : prog) : unit =
-   expect_noneE testname (fun () -> prog_type_check f) string_of_progtype *)
+   expect_noneE testname
+     begin
+       fun () ->
+         match prog_type_check f with
+         | SomeE tp -> SomeE (progtype_of_prog_proof tp)
+         | NoneE err -> NoneE err
+     end
+     string_of_progtype *)
 
 let deutsch (f : prog) : expr =
   Apply
@@ -165,6 +197,14 @@ let () =
     test_equality "span_list_2bit"
       (span_list (ProdType (bit, bit)) [Qpair (bit0, bit0)])
       (Some [Qpair (bit0, bit0); Qpair (bit1, Var "$0"); Qpair (bit0, bit1)]);
+
+    expect_expr_puretype "bell_type"
+      (Ctrl
+         ( Apply (had, bit0),
+           bit,
+           [(bit0, Qpair (bit0, bit0)); (bit1, Qpair (bit1, bit1))],
+           ProdType (bit, bit) ))
+      (ProdType (bit, bit));
 
     expect_expr_puretype "deutsch_type" (deutsch (qid bit)) bit;
 

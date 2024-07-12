@@ -24,7 +24,13 @@ circuit.draw(
 
 print("Simulating circuit")
 simulator = Aer.get_backend("qasm_simulator")
-counts = simulator.run(transpile(circuit, simulator), shots=10000).result().get_counts()
+counts = (
+    simulator.run(
+        transpile(circuit, simulator, seed_transpiler=0), seed_simulator=0, shots=10000
+    )
+    .result()
+    .get_counts()
+)
 counts = {x[::-1]: y for x, y in counts.items()}
 plot_histogram(
     counts, filename=("diagrams/sim_results/" + basename + "_sim_results.png")
