@@ -52,7 +52,8 @@ open Extended_syntax
 %token EXP
 %token LN
 %token SQRT
-%token ROUND
+%token CEIL
+%token FLOOR
 %token MOD
 %token LEQ
 %token GEQ
@@ -161,7 +162,8 @@ real:
     | EXP; LPAREN; r = real; RPAREN {XExp r}
     | LN; LPAREN; r = real; RPAREN {XLn r}
     | SQRT; LPAREN; r = real; RPAREN {XSqrt r}
-    | ROUND; LPAREN; r = real; RPAREN {XRound r}
+    | CEIL; LPAREN; r = real; RPAREN {XCeil r}
+    | FLOOR; LPAREN; r = real; RPAREN {XFloor r}
     | LPAREN; r = real; RPAREN {r}
     ;
 

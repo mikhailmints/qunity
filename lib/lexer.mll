@@ -74,7 +74,8 @@ and read = parse
     | "exp" {EXP}
     | "ln" {LN}
     | "sqrt" {SQRT}
-    | "round" {ROUND}
+    | "ceil" {CEIL}
+    | "floor" {FLOOR}
     | "%" {MOD}
     | "def" {DEF}
     | ":=" {DEFSTART}

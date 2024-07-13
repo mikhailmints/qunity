@@ -43,7 +43,8 @@ type xexpr =
   | XExp of xexpr
   | XLn of xexpr
   | XSqrt of xexpr
-  | XRound of xexpr
+  | XCeil of xexpr
+  | XFloor of xexpr
   | Fail
 
 and xresult =
@@ -78,22 +79,23 @@ let rec realexpr_eval (r : xexpr) (dm : defmap) (xv : xvaluation) : real =
           | _ -> failwith (Printf.sprintf "Value %s not found" x)
         end
     end
-  | XNegate r1 -> Negate (realexpr_eval r1 dm xv)
-  | XPlus (r1, r2) -> Plus (realexpr_eval r1 dm xv, realexpr_eval r2 dm xv)
-  | XTimes (r1, r2) -> Times (realexpr_eval r1 dm xv, realexpr_eval r2 dm xv)
-  | XDiv (r1, r2) -> Div (realexpr_eval r1 dm xv, realexpr_eval r2 dm xv)
-  | XPow (r1, r2) -> Pow (realexpr_eval r1 dm xv, realexpr_eval r2 dm xv)
-  | XMod (r1, r2) -> Mod (realexpr_eval r1 dm xv, realexpr_eval r2 dm xv)
-  | XSin r1 -> Sin (realexpr_eval r1 dm xv)
-  | XCos r1 -> Cos (realexpr_eval r1 dm xv)
-  | XTan r1 -> Tan (realexpr_eval r1 dm xv)
-  | XArcsin r1 -> Arcsin (realexpr_eval r1 dm xv)
-  | XArccos r1 -> Arccos (realexpr_eval r1 dm xv)
-  | XArctan r1 -> Arctan (realexpr_eval r1 dm xv)
-  | XExp r1 -> Exp (realexpr_eval r1 dm xv)
-  | XLn r1 -> Ln (realexpr_eval r1 dm xv)
-  | XSqrt r1 -> Sqrt (realexpr_eval r1 dm xv)
-  | XRound r1 -> Round (realexpr_eval r1 dm xv)
+  | XNegate r0 -> Negate (realexpr_eval r0 dm xv)
+  | XPlus (r0, r1) -> Plus (realexpr_eval r0 dm xv, realexpr_eval r1 dm xv)
+  | XTimes (r0, r1) -> Times (realexpr_eval r0 dm xv, realexpr_eval r1 dm xv)
+  | XDiv (r0, r1) -> Div (realexpr_eval r0 dm xv, realexpr_eval r1 dm xv)
+  | XPow (r0, r1) -> Pow (realexpr_eval r0 dm xv, realexpr_eval r1 dm xv)
+  | XMod (r0, r1) -> Mod (realexpr_eval r0 dm xv, realexpr_eval r1 dm xv)
+  | XSin r0 -> Sin (realexpr_eval r0 dm xv)
+  | XCos r0 -> Cos (realexpr_eval r0 dm xv)
+  | XTan r0 -> Tan (realexpr_eval r0 dm xv)
+  | XArcsin r0 -> Arcsin (realexpr_eval r0 dm xv)
+  | XArccos r0 -> Arccos (realexpr_eval r0 dm xv)
+  | XArctan r0 -> Arctan (realexpr_eval r0 dm xv)
+  | XExp r0 -> Exp (realexpr_eval r0 dm xv)
+  | XLn r0 -> Ln (realexpr_eval r0 dm xv)
+  | XSqrt r0 -> Sqrt (realexpr_eval r0 dm xv)
+  | XCeil r0 -> Ceil (realexpr_eval r0 dm xv)
+  | XFloor r0 -> Floor (realexpr_eval r0 dm xv)
   | _ -> failwith "Not a realexpr"
 
 and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =

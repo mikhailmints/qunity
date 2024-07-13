@@ -18,10 +18,13 @@ let simple_gate_to_qasm_str (u : gate) : string * int list =
       then
         ("h", [i])
       else
-        ( Printf.sprintf "U(%f, %f, %f)" (float_of_real theta)
-            (float_of_real phi) (float_of_real lambda),
+        ( Printf.sprintf "U(%s, %s, %s)"
+            (qasm_string_of_real_temp theta)
+            (qasm_string_of_real_temp phi)
+            (qasm_string_of_real_temp lambda),
           [i] )
-  | GphaseGate theta -> (Printf.sprintf "gphase(%f)" (float_of_real theta), [])
+  | GphaseGate theta ->
+      (Printf.sprintf "gphase(%s)" (qasm_string_of_real_temp theta), [])
   | Reset i -> ("reset", [i])
   | Swap (i, j) -> ("swap", [i; j])
   | _ -> failwith "Expected simple gate"

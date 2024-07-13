@@ -1,11 +1,11 @@
-This is a prototype simulator and compiler for the Qunity quantum programming language, based on https://arxiv.org/abs/2204.12384.
+This is a prototype simulator and compiler for the Qunity quantum programming language, based on the paper by Voichick et al. (https://arxiv.org/abs/2204.12384), and the typechecker implementation in Coq (https://gitlab.umiacs.umd.edu/finn/qunity). This project is done as part of Caltech's SURF program, supervised by Robert Rand at UChicago.
 
 To run the tests:
 ```bash
 dune test
 ```
 
-To run a single program using the simulator, for example:
+To run a single program using the simulator:
 ```bash
 ./qunity-run <filename>
 ```
@@ -15,21 +15,13 @@ To run all the example Qunity programs located in the examples folder:
 ./run-all-examples
 ```
 
-To start an interactive Qunity REPL:
+To start an interactive Qunity REPL[^1]:
 ```bash
 ./qunity-interact
 ```
 
-To avoid some input/prompt issues, it is recommended to add the following to your `~/.inputrc`:
-```inputrc
-$include /etc/inputrc
-# To prevent prompt from disappearing:
-set enable-bracketed-paste off
-# Optional - to prevent parentheses blinking:
-set blink-matching-paren off
-```
 
-To compile a single Qunity file into Qiskit and OpenQASM 3, for example:
+To compile a single Qunity file into OpenQASM 3:
 ```bash
 ./qunity-compile <in_filename> [-o <out_filename>] [--nobuild] [--annotate] [--analyze]
 ```
@@ -39,3 +31,13 @@ To compile all the example Qunity programs:
 ```bash
 ./compile-all-examples [--annotate] [--analyze]
 ```
+
+[^1]:
+    To avoid some input/prompt issues, it is recommended to add the following to your `~/.inputrc`:
+    ```inputrc
+    $include /etc/inputrc
+    # To prevent prompt from disappearing:
+    set enable-bracketed-paste off
+    # Optional - to prevent parentheses blinking:
+    set blink-matching-paren off
+    ```
