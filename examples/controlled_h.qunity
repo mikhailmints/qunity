@@ -1,5 +1,5 @@
-let x {Bit} = (Bit0 |> Had) in
+let x {Bit} = BitPlus in
 ctrl {Bit, Bit * Bit} x [
     Bit0 -> (x, Bit0);
-    (Bit1) -> (x, Bit0 |> Had)
+    Bit1 -> (x, BitPlus)
 ]

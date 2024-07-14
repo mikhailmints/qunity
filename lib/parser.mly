@@ -51,6 +51,7 @@ open Extended_syntax
 %token ARCTAN
 %token EXP
 %token LN
+%token LOG2
 %token SQRT
 %token CEIL
 %token FLOOR
@@ -161,6 +162,7 @@ real:
     | ARCTAN; LPAREN; r = real; RPAREN {XArctan r}
     | EXP; LPAREN; r = real; RPAREN {XExp r}
     | LN; LPAREN; r = real; RPAREN {XLn r}
+    | LOG2; LPAREN; r = real; RPAREN {XLog2 r}
     | SQRT; LPAREN; r = real; RPAREN {XSqrt r}
     | CEIL; LPAREN; r = real; RPAREN {XCeil r}
     | FLOOR; LPAREN; r = real; RPAREN {XFloor r}

@@ -73,6 +73,7 @@ and read = parse
     | "arctan" {ARCTAN}
     | "exp" {EXP}
     | "ln" {LN}
+    | "log2" {LOG2}
     | "sqrt" {SQRT}
     | "ceil" {CEIL}
     | "floor" {FLOOR}

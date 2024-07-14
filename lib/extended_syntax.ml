@@ -42,6 +42,7 @@ type xexpr =
   | XArctan of xexpr
   | XExp of xexpr
   | XLn of xexpr
+  | XLog2 of xexpr
   | XSqrt of xexpr
   | XCeil of xexpr
   | XFloor of xexpr
@@ -93,6 +94,7 @@ let rec realexpr_eval (r : xexpr) (dm : defmap) (xv : xvaluation) : real =
   | XArctan r0 -> Arctan (realexpr_eval r0 dm xv)
   | XExp r0 -> Exp (realexpr_eval r0 dm xv)
   | XLn r0 -> Ln (realexpr_eval r0 dm xv)
+  | XLog2 r0 -> Log2 (realexpr_eval r0 dm xv)
   | XSqrt r0 -> Sqrt (realexpr_eval r0 dm xv)
   | XCeil r0 -> Ceil (realexpr_eval r0 dm xv)
   | XFloor r0 -> Floor (realexpr_eval r0 dm xv)
@@ -106,7 +108,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
     | Some xelse -> begin
         match missing_span t0 (List.map fst l) with
         | None -> NoneE "Ortho check failed when preprocessing else expression"
-        | Some mspan -> begin
+        | Some (mspan, _) -> begin
             match xexpr_eval xelse dm xv with
             | RNone err -> NoneE (err ^ "\nin Ctrl")
             | RExpr eelse -> SomeE (l @ List.map (fun e -> (e, eelse)) mspan)

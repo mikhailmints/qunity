@@ -398,7 +398,7 @@ let mat_from_list (l : Complex.t list list) : matrix =
       { r; c; ent = Dense (fun i j -> List.nth (List.nth l i) j) }
 
 let string_of_complex (z : Complex.t) =
-  Printf.sprintf "%.3f%s%.3fi" z.re (if z.im >= 0. then "+" else "") z.im
+  Printf.sprintf "%.3f%+.3fi" z.re z.im
 
 let print_mat (m : matrix) : unit =
   if m.r = 0 || m.c = 0 then

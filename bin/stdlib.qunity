@@ -163,7 +163,7 @@ end
 /*
 Little-endian encoding of number N as a quantum state
 */
-def NumToState <N> :=
+def NumToStateLE <N> :=
     if N lt [0] then
         fail
     else
@@ -171,10 +171,25 @@ def NumToState <N> :=
             ()
         else
             if [N % 2] = [0] then
-                (Bit0, NumToState <[N / 2]>)
+                (Bit0, NumToStateLE <[N / 2]>)
             else
-                (Bit1, NumToState <[(N - 1) / 2]>)
+                (Bit1, NumToStateLE <[(N - 1) / 2]>)
             endif
+        endif
+    endif
+end
+
+/*
+Big-endian encoding of number N as a quantum state
+*/
+def NumToStateBE <N> :=
+    if N lt [0] then
+        fail
+    else
+        if N = [0] then
+            ()
+        else
+            NumToStateLE <[N]> |> Reverse <[floor(log2(N)) + 1], Bit>
         endif
     endif
 end

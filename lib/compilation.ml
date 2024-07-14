@@ -1215,6 +1215,13 @@ let remove_g_from_pure_op (dsize : int) (tsize : int) (op : inter_op) =
     ]
     [("res", tsize)]
 
+let rec compile_ortho_to_inter_op (orp : ortho_proof) : inter_op =
+  failwith "TODO"
+
+let rec compile_erasure_to_inter_op (erp_map : erasure_proof StringMap.t) :
+    inter_op =
+  failwith "TODO"
+
 (*
 Compilation of a pure expression into the intermediate representation.
 This creates a circuit that takes in two registers, corresponding to the
@@ -1274,7 +1281,39 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             ]
             [("g", gsize); ("res", tsize)]
       end
-    | TCtrl _ -> failwith "TODO"
+    | TCtrl (t0, t1, g, g', d, d', e, l, orp, erp_map) -> begin
+        let e_op = compile_mixed_expr_to_inter_op e in
+        let gjs = List.map (fun (x, _, _) -> x) l in
+        let ejs = List.map (fun (_, x, _) -> x) l in
+        let ej's = List.map (fun (_, _, x) -> x) l in
+        let ej_ops =
+          List.map
+            (fun x ->
+              remove_g_from_pure_op dsize tsize
+                (compile_pure_expr_to_inter_op x))
+            ejs
+        in
+        let ej'_ops = List.map compile_pure_expr_to_inter_op ej's in
+        let ortho_op = compile_ortho_to_inter_op orp in
+        let erase_op = compile_erasure_to_inter_op erp_map in
+        let ej_sum_op =
+          List.fold_left (fun cur x -> IDirsum (cur, x)) (IIdentity t) ej_ops
+        in
+          inter_lambda
+            [("gg*", gsize); ("dd*", dsize)]
+            [
+              inter_letapp ["g"; "g*"]
+                (IContextPartition (g_whole, map_dom g))
+                ["gg*"];
+              inter_letapp ["g0"] (IContextShare g) ["g"];
+              inter_letapp ["d0"] (IContextShare d) ["d"];
+              inter_letapp ["t"; "garb"] (IPurify e_op) ["g0"; "d0"];
+              inter_letapp ["t+"] ortho_op ["t"];
+              inter_letapp ["gj+"] ej_sum_op ["t+"];
+              (* ... TODO ... *)
+            ]
+            [("gg*", gsize); ("res", dsize)]
+      end
     | TPureApp (_, _, _, _, f, e') -> begin
         let e'_op = compile_pure_expr_to_inter_op e' in
         let f_op = compile_pure_prog_to_inter_op f in

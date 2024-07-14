@@ -19,6 +19,7 @@ type real =
   | Arctan of real
   | Exp of real
   | Ln of real
+  | Log2 of real
   | Sqrt of real
   | Ceil of real
   | Floor of real
@@ -42,6 +43,7 @@ let rec float_of_real (r : real) : float =
   | Arctan r0 -> Float.atan (float_of_real r0)
   | Exp r0 -> Float.exp (float_of_real r0)
   | Ln r0 -> Float.log (float_of_real r0)
+  | Log2 r0 -> Float.log2 (float_of_real r0)
   | Sqrt r0 -> Float.sqrt (float_of_real r0)
   | Ceil r0 -> Float.ceil (float_of_real r0)
   | Floor r0 -> Float.floor (float_of_real r0)
@@ -199,6 +201,7 @@ let rec string_of_real (r : real) : string =
   | Arctan r0 -> Printf.sprintf "arctan(%s)" (string_of_real r0)
   | Exp r0 -> Printf.sprintf "exp(%s)" (string_of_real r0)
   | Ln r0 -> Printf.sprintf "ln(%s)" (string_of_real r0)
+  | Log2 r0 -> Printf.sprintf "log2(%s)" (string_of_real r0)
   | Sqrt r0 -> Printf.sprintf "sqrt(%s)" (string_of_real r0)
   | Ceil r0 -> Printf.sprintf "ceil(%s)" (string_of_real r0)
   | Floor r0 -> Printf.sprintf "floor(%s)" (string_of_real r0)
@@ -236,6 +239,7 @@ let rec qasm_string_of_real (r : real) : string =
   | Arctan r0 -> Printf.sprintf "arctan(%s)" (qasm_string_of_real r0)
   | Exp r0 -> Printf.sprintf "exp(%s)" (qasm_string_of_real r0)
   | Ln r0 -> Printf.sprintf "log(%s)" (qasm_string_of_real r0)
+  | Log2 r0 -> Printf.sprintf "log(%s)/log(2)" (qasm_string_of_real r0)
   | Sqrt r0 -> Printf.sprintf "sqrt(%s)" (qasm_string_of_real r0)
   | Ceil r0 -> Printf.sprintf "ceiling(%s)" (qasm_string_of_real r0)
   | Floor r0 -> Printf.sprintf "floor(%s)" (qasm_string_of_real r0)
@@ -292,6 +296,7 @@ let rec ocaml_string_of_real (r : real) : string =
   | Arctan r0 -> Printf.sprintf "Arctan (%s)" (ocaml_string_of_real r0)
   | Exp r0 -> Printf.sprintf "Exp (%s)" (ocaml_string_of_real r0)
   | Ln r0 -> Printf.sprintf "Ln (%s)" (ocaml_string_of_real r0)
+  | Log2 r0 -> Printf.sprintf "Log2 (%s)" (ocaml_string_of_real r0)
   | Sqrt r0 -> Printf.sprintf "Sqrt (%s)" (ocaml_string_of_real r0)
   | Ceil r0 -> Printf.sprintf "Ceil (%s)" (ocaml_string_of_real r0)
   | Floor r0 -> Printf.sprintf "Floor (%s)" (ocaml_string_of_real r0)

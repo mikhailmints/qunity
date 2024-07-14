@@ -22,6 +22,12 @@ let all_or_nothing (l : 'a option list) : 'a list option =
   else
     None
 
+let map_all_or_nothing (d : 'a option StringMap.t) : 'a StringMap.t option =
+  let keys, vals = List.split (StringMap.bindings d) in
+    match all_or_nothing vals with
+    | Some l -> Some (StringMap.of_seq (List.to_seq (List.combine keys l)))
+    | _ -> None
+
 let fresh_string (prefix : string) (s : StringSet.t) : string =
   let rec fresh_string_helper (i : int) =
     let candidate = prefix ^ string_of_int i in

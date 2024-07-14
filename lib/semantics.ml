@@ -265,7 +265,7 @@ let rec pure_expr_semantics (tp : pure_expr_typing_proof) (sigma : valuation) :
 
 and ctrl_semantics (tp : pure_expr_typing_proof) (sigma : valuation) : matrix =
   match tp with
-  | TCtrl (t0, t1, g, _, d, d', e, l) -> begin
+  | TCtrl (t0, t1, g, _, d, d', e, l, _, _) -> begin
       let dd' = map_merge_noopt false d d' in
       let gd = map_merge_noopt false g d in
       let fve = map_dom gd in

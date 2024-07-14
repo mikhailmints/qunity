@@ -24,7 +24,9 @@ type pure_expr_typing_proof =
       * context (* Δ' *)
       * mixed_expr_typing_proof (* e : T *)
       * (context * pure_expr_typing_proof * pure_expr_typing_proof) list
-  (* Γj, ej : T, ej' : T' *)
+      (* Γj, ej : T, ej' : T' *)
+      * ortho_proof
+      * erasure_proof StringMap.t
   | TPureApp of
       exprtype (* T *)
       * exprtype (* T' *)
@@ -86,13 +88,30 @@ and prog_typing_proof =
   | PureProg of pure_prog_typing_proof
   | MixedProg of mixed_prog_typing_proof
 
+and erasure_proof =
+  | EVar of exprtype
+  | EPair0 of exprtype * exprtype * erasure_proof
+  | EPair1 of exprtype * exprtype * erasure_proof
+
+and spanning_proof =
+  | SVoid
+  | SUnit
+  | SVar of exprtype
+  | SSum of exprtype * exprtype * spanning_proof * spanning_proof
+  | SPair of exprtype * exprtype * spanning_proof * spanning_proof list
+
+and ortho_proof =
+  spanning_proof
+  * expr list (* spanning list *)
+  * expr list (* ortho list, subsequence of spanning list *)
+
 let type_of_pure_expr_proof (tp : pure_expr_typing_proof) : exprtype =
   match tp with
   | TUnit _ -> Qunit
   | TCvar (t, _, _) -> t
   | TQvar (t, _, _) -> t
   | TPurePair (t0, t1, _, _, _, _, _, _) -> ProdType (t0, t1)
-  | TCtrl (_, t, _, _, _, _, _, _) -> t
+  | TCtrl (_, t, _, _, _, _, _, _, _, _) -> t
   | TPureApp (_, t, _, _, _, _) -> t
 
 let type_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : exprtype =
@@ -126,7 +145,7 @@ let context_of_pure_expr_proof (tp : pure_expr_typing_proof) :
   | TQvar (_, d, _) -> (StringMap.empty, d)
   | TPurePair (_, _, g, d, d0, d1, _, _) ->
       (g, map_merge_noopt false d (map_merge_noopt false d0 d1))
-  | TCtrl (_, _, g, g', d, d', _, _) ->
+  | TCtrl (_, _, g, g', d, d', _, _, _, _) ->
       (map_merge_noopt false g g', map_merge_noopt false d d')
   | TPureApp (_, _, g, d, _, _) -> (g, d)
 
@@ -177,14 +196,20 @@ let rec split_qpair_list (l : expr list) : (expr list * expr list) option =
     end
   | _ -> None
 
-let rec erases_check (x : string) (l : expr list) : bool =
+let rec erases_check (x : string) (l : expr list) (t : exprtype) :
+    erasure_proof option =
   let l' = List.flatten (List.map dephase l) in
     if List.for_all (fun e' -> e' = Var x) l' then
-      true
+      Some (EVar t)
     else
-      match split_qpair_list l' with
-      | Some (l0, l1) -> erases_check x l0 || erases_check x l1
-      | None -> false
+      match (split_qpair_list l', t) with
+      | Some (l0, l1), ProdType (t0, t1) -> begin
+          match (erases_check x l0 t0, erases_check x l1 t1) with
+          | Some ep, _ -> Some (EPair0 (t0, t1, ep))
+          | _, Some ep -> Some (EPair1 (t0, t1, ep))
+          | _ -> None
+        end
+      | _ -> None
 
 (*
 Given a list l of expressionsexpected to be of type SumType (t0, t1),
@@ -238,15 +263,16 @@ let rec spread_qpair_list (l : expr list) : (expr * expr list) list option =
     end
   | _ -> None
 
-let missing_span (t : exprtype) (l : expr list) : expr list option =
+let missing_span (t : exprtype) (l : expr list) :
+    (expr list * spanning_proof) option =
   let rec missing_span_helper (t : exprtype) (l : expr list) (fv : StringSet.t)
-      : expr list option =
+      : (expr list * spanning_proof) option =
     match (t, l) with
-    | Qunit, [] -> Some [Null]
-    | Qunit, [Null] -> Some []
-    | Void, [] -> Some []
-    | _, [] -> Some [Var (fresh_string "$" fv)]
-    | _, [Var x] -> if StringSet.mem x fv then None else Some []
+    | Void, [] -> Some ([], SVoid)
+    | Qunit, [] -> Some ([Null], SUnit)
+    | Qunit, [Null] -> Some ([], SUnit)
+    | _, [] -> Some ([Var (fresh_string "$" fv)], SVar t)
+    | _, [Var x] -> if StringSet.mem x fv then None else Some ([], SVar t)
     | SumType (t0, t1), _ -> begin
         match split_sum_list t0 t1 l with
         | None -> None
@@ -254,10 +280,11 @@ let missing_span (t : exprtype) (l : expr list) : expr list option =
             match
               (missing_span_helper t0 l0 fv, missing_span_helper t1 l1 fv)
             with
-            | Some l0', Some l1' ->
+            | Some (l0', sp0), Some (l1', sp1) ->
                 Some
-                  (List.map (fun x -> Apply (Left (t0, t1), x)) l0'
-                  @ List.map (fun x -> Apply (Right (t0, t1), x)) l1')
+                  ( List.map (fun x -> Apply (Left (t0, t1), x)) l0'
+                    @ List.map (fun x -> Apply (Right (t0, t1), x)) l1',
+                    SSum (t0, t1, sp0, sp1) )
             | _, _ -> None
           end
       end
@@ -272,7 +299,7 @@ let missing_span (t : exprtype) (l : expr list) : expr list option =
             in
               match missing_span_helper t0 (List.map fst l') next_fv with
               | None -> None
-              | Some l0 -> begin
+              | Some (l0, sp0) -> begin
                   let l'' = List.map (fun e0 -> (e0, [])) l0 @ l' in
                   let result =
                     all_or_nothing
@@ -282,13 +309,17 @@ let missing_span (t : exprtype) (l : expr list) : expr list option =
                              missing_span_helper t1 l1
                                (StringSet.union fv (free_vars e0))
                            with
-                           | Some l1' ->
-                               Some (List.map (fun e1 -> Qpair (e0, e1)) l1')
+                           | Some (l1', tp1) ->
+                               Some
+                                 (List.map (fun e1 -> Qpair (e0, e1)) l1', tp1)
                            | None -> None)
                          l'')
                   in
                     match result with
-                    | Some r -> Some (List.flatten r)
+                    | Some r ->
+                        Some
+                          ( List.flatten (List.map fst r),
+                            SPair (t0, t1, sp0, List.map snd r) )
                     | None -> None
                 end
           end
@@ -303,13 +334,13 @@ type t, extends the list to one "spanning" t.
 *)
 let span_list (t : exprtype) (l : expr list) : expr list option =
   match missing_span t l with
+  | Some (l', _) -> Some (l @ l')
   | None -> None
-  | Some l' -> Some (l @ l')
 
-let ortho_check (t : exprtype) (l : expr list) : bool =
-  match span_list t l with
-  | Some _ -> true
-  | None -> false
+let ortho_check (t : exprtype) (l : expr list) : ortho_proof option =
+  match missing_span t l with
+  | Some (l', sp) -> Some (sp, l @ l', l)
+  | None -> None
 
 (*
 In T-CTRL, given a classical context g and a pair ej, ej', the quantum
@@ -503,23 +534,32 @@ and pure_type_check (g : context) (d : context) (e : expr) :
       let ej, ej' = List.split l in
         match map_merge false g0 d0 with
         | NoneE err -> NoneE (err ^ "\nin Ctrl")
-        | SomeE g0d0 -> (
+        | SomeE g0d0 -> begin
             match mixed_type_check g0d0 e' with
             | SomeE tpe' when type_of_mixed_expr_proof tpe' = t0 -> begin
-                if not (ortho_check t0 ej) then
-                  NoneE "Ortho check failed in Ctrl"
-                else if
-                  not (StringMap.for_all (fun x _ -> erases_check x ej') d0)
-                then
-                  NoneE "Erasure check failed in Ctrl"
-                else
-                  match
-                    all_or_nothing (List.map (pattern_type_check g d t0 t1) l)
-                  with
-                  | Some l' -> SomeE (TCtrl (t0, t1, g0, g', d0, d', tpe', l'))
-                  | _ -> NoneE "Type mismatch in Ctrl"
+                match ortho_check t0 ej with
+                | None -> NoneE "Ortho check failed in Ctrl"
+                | Some orp -> begin
+                    match
+                      map_all_or_nothing
+                        (StringMap.mapi (fun x _ -> erases_check x ej' t1) d0)
+                    with
+                    | None -> NoneE "Erasure check failed in Ctrl"
+                    | Some erp -> begin
+                        match
+                          all_or_nothing
+                            (List.map (pattern_type_check g d t0 t1) l)
+                        with
+                        | Some l' ->
+                            SomeE
+                              (TCtrl
+                                 (t0, t1, g0, g', d0, d', tpe', l', orp, erp))
+                        | _ -> NoneE "Type mismatch in Ctrl"
+                      end
+                  end
               end
-            | _ -> NoneE "Type mismatch in Ctrl")
+            | _ -> NoneE "Type mismatch in Ctrl"
+          end
     end
   | Try _ -> NoneE "Try is not a pure expression"
   (* T-PUREAPP *)
@@ -610,7 +650,7 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
   | Ctrl (e', t0, l, t1), _ -> begin
       match (mixed_context_check t0 e', l) with
       | NoneE err, _ -> NoneE (err ^ "\nin Ctrl")
-      | _, [] -> NoneE "Control block cannot be empty"
+      | SomeE d, [] -> SomeE d
       | SomeE d, (e0, e0') :: _ -> begin
           match first_pattern_context_check g t0 t1 e0 e0' with
           | NoneE err -> NoneE (err ^ "\nin Ctrl")
@@ -624,7 +664,7 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
                   let ej, ej' = List.split l in
                     if not (map_inclusion d gd0) then
                       NoneE "Context inclusion failed in Ctrl"
-                    else if not (ortho_check t0 ej) then
+                    else if ortho_check t0 ej = None then
                       NoneE "Ortho check failed in Ctrl"
                     else if
                       not
@@ -634,7 +674,10 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
                     then
                       NoneE "Type mismatch in Ctrl"
                     else if
-                      not (StringMap.for_all (fun x _ -> erases_check x ej') d)
+                      not
+                        (StringMap.for_all
+                           (fun x _ -> erases_check x ej' t1 <> None)
+                           d)
                     then
                       NoneE "Erasure check failed in Ctrl"
                     else
