@@ -43,4 +43,4 @@ def Qft <N> :=
     endif
 end
 
-Qft <[4]> of (Bit0, (Bit1, ((BitPlus, (BitMinus, ())))))
+Qft <[1]> of (Bit0, ())

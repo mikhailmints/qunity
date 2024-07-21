@@ -97,8 +97,14 @@ and spanning_proof =
   | SVoid
   | SUnit
   | SVar of exprtype
-  | SSum of exprtype * exprtype * spanning_proof * spanning_proof
-  | SPair of exprtype * exprtype * spanning_proof * spanning_proof list
+  | SSum of exprtype * exprtype * spanning_proof * spanning_proof * int * int
+  | SPair of
+      exprtype
+      * exprtype
+      * spanning_proof
+      * spanning_proof list
+      * int
+      * int list
 
 and ortho_proof =
   spanning_proof
@@ -284,7 +290,13 @@ let missing_span (t : exprtype) (l : expr list) :
                 Some
                   ( List.map (fun x -> Apply (Left (t0, t1), x)) l0'
                     @ List.map (fun x -> Apply (Right (t0, t1), x)) l1',
-                    SSum (t0, t1, sp0, sp1) )
+                    SSum
+                      ( t0,
+                        t1,
+                        sp0,
+                        sp1,
+                        List.length (l0 @ l0'),
+                        List.length (l1 @ l1') ) )
             | _, _ -> None
           end
       end
@@ -317,9 +329,22 @@ let missing_span (t : exprtype) (l : expr list) :
                   in
                     match result with
                     | Some r ->
-                        Some
-                          ( List.flatten (List.map fst r),
-                            SPair (t0, t1, sp0, List.map snd r) )
+                        let njs =
+                          List.map
+                            (fun (a, b) -> a + b)
+                            (List.combine
+                               (List.map List.length (List.map fst r))
+                               (List.map List.length (List.map snd l'')))
+                        in
+                          Some
+                            ( List.flatten (List.map fst r),
+                              SPair
+                                ( t0,
+                                  t1,
+                                  sp0,
+                                  List.map snd r,
+                                  List.length l'',
+                                  njs ) )
                     | None -> None
                 end
           end

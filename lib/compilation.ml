@@ -5,7 +5,7 @@ open Typechecking
 open Gate
 
 let debug_mode = false
-let annotation_mode = ref true
+let annotation_mode = ref false
 
 (*
 A circuit is a wrapper around a gate that labels the qubits by their roles as
@@ -54,6 +54,7 @@ registers, storing them as variables in its body.
 *)
 type inter_op =
   | IEmpty
+  | ITestReg of int (* create empty test register for debugging purposes *)
   | IIdentity of exprtype (* a {T} -> a *)
   | IU3 of real * real * real
   | IRphase of exprtype * inter_op * real * real
@@ -72,14 +73,16 @@ type inter_op =
       exprtype * exprtype * exprtype (* (T0 + T1) * T -> T0 * T + T1 * T *)
   | IMixedErr of inter_op
   | IPureErr of inter_op
+  | IAlwaysErr of exprtype
   | IDiscard of exprtype
   | IContextDiscard of context
   | IPurify of inter_op
   | IContextPartition of
       context * StringSet.t (* context -> [things in set; things not in set] *)
-  | IContextMerge of (context * context)
+  | IContextMerge of context * context
     (* merge contexts assumed to be disjoint *)
-  | ILambda of ((string * int) list * inter_com list * (string * int) list)
+  | ILambda of
+      string * (string * int) list * inter_com list * (string * int) list
 (* Output sizes, arg names with sizes, body, return vars. *)
 
 (*
@@ -92,9 +95,9 @@ an arbitrary way in the reassignment.
 and inter_com = string list * inter_op * string list
 
 (* Alias for ILambda. *)
-let inter_lambda (arglist : (string * int) list) (body : inter_com list)
-    (ret : (string * int) list) : inter_op =
-  ILambda (arglist, body, ret)
+let inter_lambda (name : string) (arglist : (string * int) list)
+    (body : inter_com list) (ret : (string * int) list) : inter_op =
+  ILambda (name, arglist, body, ret)
 
 (* Alias for construcing an inter_com for clarity. *)
 let inter_letapp (target : string list) (op : inter_op) (args : string list) :
@@ -131,6 +134,12 @@ Wrapper around calling a circuit_spec's circ_fun
 *)
 let build_circuit (cs : circuit_spec) (in_regs : int list list)
     (used_wires : IntSet.t) (reset_garb : bool) : circuit * IntSet.t =
+  if
+    debug_mode
+    && IntSet.diff (IntSet.of_list (List.flatten in_regs)) used_wires
+       <> IntSet.empty
+  then
+    failwith "Input regs contain unused wires";
   let circ, used_wires = cs.circ_fun in_regs used_wires reset_garb in
     if !annotation_mode then
       (annotate_circuit circ, used_wires)
@@ -144,7 +153,7 @@ let circuit_spec_find_unknown_sizes (in_sizes : int list)
   let prep_size, flag_size =
     begin
       let in_regs, used_wires = fresh_int_lists IntSet.empty in_sizes in
-      let temp_circ, _ = circ_fun in_regs used_wires true in
+      let temp_circ, _ = circ_fun in_regs used_wires false in
         (List.length temp_circ.prep_reg, List.length temp_circ.flag_reg)
     end
   in
@@ -227,6 +236,34 @@ let circuit_empty =
               gate = Identity;
             },
             used_wires )
+      end;
+  }
+
+(*
+A circuit that takes in nothing and outputs an zeroed register corresponding
+to a given type (used for debugging purposes).
+*)
+let circuit_testreg (size : int) =
+  {
+    in_sizes = [];
+    out_sizes = [size];
+    prep_size = size;
+    flag_size = 0;
+    circ_fun =
+      begin
+        fun in_regs used_wires _ ->
+          expect_sizes "circuit_testreg" [] in_regs;
+          let prep, used_wires = fresh_int_list used_wires size in
+            ( {
+                name = "testreg";
+                in_regs;
+                prep_reg = prep;
+                out_regs = [prep];
+                flag_reg = [];
+                garb_reg = [];
+                gate = Identity;
+              },
+              used_wires )
       end;
   }
 
@@ -413,6 +450,7 @@ let circuit_pair (t0 : exprtype) (t1 : exprtype) : circuit_spec =
     circ_fun =
       begin
         fun in_regs used_wires _ ->
+          expect_sizes "circuit_pair" [type_size t0; type_size t1] in_regs;
           let in_reg0, in_reg1 =
             match in_regs with
             | [in_reg0; in_reg1]
@@ -452,8 +490,7 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
           let temp_regs, temp_used_wires =
             fresh_int_lists used_wires cs.in_sizes
           in
-          let temp_used_wires = IntSet.union used_wires temp_used_wires in
-          let circ, circ_used_wires =
+          let circ, used_wires =
             build_circuit cs temp_regs temp_used_wires reset_garb
           in
             if circ.garb_reg <> [] then
@@ -467,14 +504,14 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
                       (List.flatten in_regs)))
             in
             let used_wires =
-              IntSet.diff circ_used_wires
+              IntSet.diff used_wires
                 (IntSet.of_list (List.flatten circ.out_regs))
             in
             let rewire_list =
               List.map (fun i -> int_map_find_or_keep i rewiring)
             in
               ( {
-                  name = "adjoint";
+                  name = "adjoint " ^ circ.name;
                   in_regs;
                   prep_reg = rewire_list circ.flag_reg;
                   out_regs = List.map rewire_list temp_regs;
@@ -499,12 +536,12 @@ let circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
   let in_size = 1 + max in_size0 in_size1 in
   let out_size = 1 + max out_size0 out_size1 in
   let min_in_size = min in_size0 in_size1 in
-  let diff_in_size = max in_size0 in_size1 - min_in_size in
+  let min_out_size = min out_size0 out_size1 in
     {
       in_sizes = [in_size];
       out_sizes = [out_size];
-      prep_size = failwith "TODO";
-      flag_size = failwith "TODO";
+      prep_size = min_in_size + cs0.prep_size + cs1.prep_size;
+      flag_size = min_out_size + cs0.flag_size + cs1.flag_size;
       circ_fun =
         begin
           fun in_regs used_wires reset_garb ->
@@ -513,12 +550,8 @@ let circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
             in
             let ctrlbit = List.hd in_reg in
             let in_reg = List.tl in_reg in
-
             let in_reg_min, in_reg_diff = list_split_at_i in_reg min_in_size in
-            let prep_min, used_wires = fresh_int_list used_wires in_size0 in
-            let prep_diff, used_wires =
-              fresh_int_list used_wires diff_in_size
-            in
+            let prep_min, used_wires = fresh_int_list used_wires min_in_size in
             let circ0, circ1, used_wires =
               if in_size0 <= in_size1 then
                 let circ0, used_wires =
@@ -565,26 +598,19 @@ let circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
                     (out_reg_min_in_min, out_reg_min_in_max, out_reg_diff)
               in
                 ( {
-                    name = "dirsum";
+                    name =
+                      Printf.sprintf "dirsum (%s, %s)" circ0.name circ1.name;
                     in_regs;
-                    prep_reg =
-                      int_list_union prep_min
-                        (int_list_union circ0.prep_reg
-                           (int_list_union circ1.prep_reg prep_diff));
+                    prep_reg = prep_min @ circ0.prep_reg @ circ1.prep_reg;
                     out_regs = [(ctrlbit :: out_reg_min_in_max) @ out_reg_diff];
                     flag_reg =
-                      out_reg_min_in_min @ circ0.flag_reg @ circ1.flag_reg
-                      @ prep_diff;
+                      out_reg_min_in_min @ circ0.flag_reg @ circ1.flag_reg;
                     garb_reg = [];
                     gate =
                       Controlled
                         ( [ctrlbit],
-                          [not (in_size0 <= in_size1)],
-                          gate_swap_regs in_reg_diff prep_diff )
-                      @& Controlled
-                           ( [ctrlbit],
-                             [in_size0 <= in_size1],
-                             gate_swap_regs in_reg_min prep_min )
+                          [in_size0 <= in_size1],
+                          gate_swap_regs in_reg_min prep_min )
                       @& controlled_circ [ctrlbit] [false] circ0
                       @& controlled_circ [ctrlbit] [true] circ1
                       @& Controlled
@@ -789,7 +815,7 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
               end
             in
               ( {
-                  name = "mixed_err";
+                  name = "mixed_err " ^ circ.name;
                   in_regs;
                   prep_reg =
                     int_list_union (signal_bit :: circ.prep_reg) fresh_prep;
@@ -849,7 +875,7 @@ let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
                 failwith
                   "Expected empty garbage register for pure error handling";
               ( {
-                  name = "pure_err";
+                  name = "pure_err " ^ circ.name;
                   in_regs;
                   prep_reg = signal_bit :: circ.prep_reg;
                   out_regs =
@@ -896,7 +922,7 @@ let circuit_rphase (t : exprtype) (cs : circuit_spec) (r0 : real) (r1 : real) :
               build_circuit cs_ef_adj [ef_out] used_wires reset_garb
             in
               ( {
-                  name = "rphase";
+                  name = "rphase " ^ circ_ef.name;
                   in_regs;
                   prep_reg = circ_ef.prep_reg;
                   out_regs = circ_ef_adj.out_regs;
@@ -907,6 +933,37 @@ let circuit_rphase (t : exprtype) (cs : circuit_spec) (r0 : real) (r1 : real) :
                     @& Controlled ([signal_bit], [false], GphaseGate r0)
                     @& Controlled ([signal_bit], [true], GphaseGate r1)
                     @& circ_ef_adj.gate;
+                },
+                used_wires )
+        end;
+    }
+
+(*
+Circuit that always causes an error by creating a nonzero value in the
+flag register.
+*)
+let circuit_always_error (t : exprtype) =
+  let size = type_size t in
+    {
+      in_sizes = [size];
+      out_sizes = [];
+      prep_size = 1;
+      flag_size = 1;
+      circ_fun =
+        begin
+          fun in_regs used_wires _ ->
+            let in_reg =
+              expect_single_in_reg "circuit_always_error" in_regs size
+            in
+            let flag, used_wires = fresh_int used_wires in
+              ( {
+                  name = "always_err";
+                  in_regs;
+                  prep_reg = [flag];
+                  out_regs = in_regs;
+                  flag_reg = in_reg;
+                  garb_reg = [flag];
+                  gate = gate_paulix flag;
                 },
                 used_wires )
         end;
@@ -957,7 +1014,7 @@ let circuit_purify (cs : circuit_spec) : circuit_spec =
   let garb_size =
     begin
       let in_regs, used_wires = fresh_int_lists IntSet.empty cs.in_sizes in
-      let temp_circ, _ = build_circuit cs in_regs used_wires true in
+      let temp_circ, _ = build_circuit cs in_regs used_wires false in
         List.length temp_circ.garb_reg
     end
   in
@@ -968,7 +1025,18 @@ let circuit_purify (cs : circuit_spec) : circuit_spec =
       flag_size = cs.flag_size;
       circ_fun =
         begin
-          fun in_regs used_wires _ -> build_circuit cs in_regs used_wires false
+          fun in_regs used_wires _ ->
+            let circ, used_wires = build_circuit cs in_regs used_wires false in
+              ( {
+                  name = "purified " ^ circ.name;
+                  in_regs;
+                  out_regs = circ.out_regs @ [circ.garb_reg];
+                  prep_reg = circ.prep_reg;
+                  flag_reg = circ.flag_reg;
+                  garb_reg = [];
+                  gate = circ.gate;
+                },
+                used_wires )
         end;
     }
 
@@ -1061,7 +1129,7 @@ registers of the circuit. Returns an updated circuit and valuation (which
 has the new variables corresponding to the output registers of the circuit).
 *)
 let rec compile_inter_com_to_circuit (circ : circuit) (used_wires : IntSet.t)
-    (iv : inter_valuation) (ic : inter_com) :
+    (iv : inter_valuation) (ic : inter_com) (reset_garb : bool) :
     circuit * IntSet.t * inter_valuation =
   let target, op, args = ic in
   let argset = StringSet.of_list args in
@@ -1081,15 +1149,25 @@ let rec compile_inter_com_to_circuit (circ : circuit) (used_wires : IntSet.t)
           args
       in
       let op_cs = compile_inter_op_to_circuit op in
-      let op_circ, used_wires = build_circuit op_cs ev_regs used_wires true in
+      let op_circ, used_wires =
+        build_circuit op_cs ev_regs used_wires reset_garb
+      in
       let res_circ =
         {
-          name = circ.name;
+          name = op_circ.name ^ " (" ^ circ.name ^ ")";
           in_regs = circ.in_regs;
-          prep_reg = int_list_union circ.prep_reg op_circ.prep_reg;
+          prep_reg =
+            int_list_union circ.prep_reg
+              (int_list_diff op_circ.prep_reg (List.flatten circ.in_regs));
           out_regs = op_circ.out_regs;
           flag_reg = int_list_union circ.flag_reg op_circ.flag_reg;
-          garb_reg = int_list_union circ.garb_reg op_circ.garb_reg;
+          garb_reg =
+            begin
+              if reset_garb then
+                op_circ.garb_reg
+              else
+                int_list_union circ.garb_reg op_circ.garb_reg
+            end;
           gate = circ.gate @& op_circ.gate;
         }
       in
@@ -1118,15 +1196,15 @@ Applies a list of intermediate representation commands, in series, to a circuit,
 updating the valuation each time.
 *)
 and compile_inter_com_list_to_circuit (circ : circuit) (used_wires : IntSet.t)
-    (iv : inter_valuation) (iel : inter_com list) :
+    (iv : inter_valuation) (icl : inter_com list) (reset_garb : bool) :
     circuit * IntSet.t * inter_valuation =
-  match iel with
+  match icl with
   | [] -> (circ, used_wires, iv)
-  | ielh :: ielt -> begin
-      let circ', used_wires, iv' =
-        compile_inter_com_to_circuit circ used_wires iv ielh
+  | iclh :: iclt -> begin
+      let circ', used_wires', iv' =
+        compile_inter_com_to_circuit circ used_wires iv iclh reset_garb
       in
-        compile_inter_com_list_to_circuit circ' used_wires iv' ielt
+        compile_inter_com_list_to_circuit circ' used_wires' iv' iclt reset_garb
     end
 
 (*
@@ -1137,6 +1215,7 @@ for the user-defined ILambda case.
 and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   match op with
   | IEmpty -> circuit_empty
+  | ITestReg size -> circuit_testreg size
   | IIdentity t -> circuit_identity t
   | IU3 (theta, phi, lambda) -> circuit_u3 theta phi lambda
   | IRphase (t, op, r0, r1) ->
@@ -1160,23 +1239,25 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | IMixedErr op ->
       circuit_mixed_error_handling (compile_inter_op_to_circuit op)
   | IPureErr op -> circuit_pure_error_handling (compile_inter_op_to_circuit op)
+  | IAlwaysErr t -> circuit_always_error t
   | IDiscard t -> circuit_discard (type_size t)
   | IContextDiscard d -> circuit_discard (context_size d)
   | IPurify op' -> circuit_purify (compile_inter_op_to_circuit op')
   | IContextPartition (d, fv) -> circuit_context_partition d fv
   | IContextMerge (d0, d1) -> circuit_context_merge d0 d1
-  | ILambda (args, iel, ret) -> begin
+  | ILambda (name, args, iel, ret) -> begin
       let arg_names = List.map fst args in
       let arg_sizes = List.map snd args in
       let ret_names = List.map fst ret in
       let ret_sizes = List.map snd ret in
         circuit_spec_find_unknown_sizes arg_sizes ret_sizes
           begin
-            fun in_regs used_wires _ ->
+            fun in_regs used_wires reset_garb ->
               if debug_mode then
                 Printf.printf
-                  "ILambda: arg_names = %s, in_regs = %s, arg_sizes = %s, \
+                  "ILambda %s: arg_names = %s, in_regs = %s, arg_sizes = %s, \
                    ret_sizes = %s\n"
+                  name
                   (string_of_list (fun s -> s) arg_names)
                   (string_of_list (string_of_list string_of_int) in_regs)
                   (string_of_list string_of_int arg_sizes)
@@ -1197,16 +1278,49 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
               in
               let circ, used_wires, iv =
                 compile_inter_com_list_to_circuit init_circ used_wires iv iel
+                  reset_garb
               in
-              let ret_regs =
-                List.map (fun x -> StringMap.find x iv) ret_names
-              in
-                ({ circ with out_regs = ret_regs }, used_wires)
+                if
+                  not
+                    (StringSet.equal (map_dom iv)
+                       (StringSet.of_list ret_names))
+                then
+                  failwith
+                    (Printf.sprintf
+                       "ILambda %s: Returned variables do not correspond to \
+                        final valuation - remaining unused variables are %s"
+                       name
+                       (string_of_list
+                          (fun x -> x)
+                          (StringSet.elements
+                             (StringSet.diff (map_dom iv)
+                                (StringSet.of_list ret_names)))));
+                let ret_regs =
+                  List.map (fun x -> StringMap.find x iv) ret_names
+                in
+                  if
+                    debug_mode
+                    && (int_list_intersection (List.flatten ret_regs)
+                          circ.flag_reg
+                        <> []
+                       || int_list_intersection (List.flatten ret_regs)
+                            circ.garb_reg
+                          <> [])
+                  then begin
+                    Printf.printf
+                      "ILambda %s:\nret_regs: %s\nflag_reg: %s\ngarb_reg: %s\n"
+                      name
+                      (string_of_list (string_of_list string_of_int) ret_regs)
+                      (string_of_list string_of_int circ.flag_reg)
+                      (string_of_list string_of_int circ.garb_reg);
+                    failwith "ret_regs overlap with flag or garb regs"
+                  end;
+                  ({ circ with out_regs = ret_regs }, used_wires)
           end
     end
 
 let remove_g_from_pure_op (dsize : int) (tsize : int) (op : inter_op) =
-  inter_lambda
+  inter_lambda "remove_g"
     [("d", dsize)]
     [
       inter_letapp ["g"] IEmpty [];
@@ -1215,12 +1329,311 @@ let remove_g_from_pure_op (dsize : int) (tsize : int) (op : inter_op) =
     ]
     [("res", tsize)]
 
-let rec compile_ortho_to_inter_op (orp : ortho_proof) : inter_op =
-  failwith "TODO"
+let rec dirsum_op_n_times (n : int) (op : inter_op) =
+  if n < 1 then
+    failwith "Expected n >= 1"
+  else if n = 1 then
+    op
+  else
+    IDirsum (op, dirsum_op_n_times (n - 1) op)
 
-let rec compile_erasure_to_inter_op (erp_map : erasure_proof StringMap.t) :
+let rec dirsum_op_list (l : inter_op list) : inter_op =
+  match l with
+  | [] -> failwith "Expected nonempty list"
+  | [op] -> op
+  | op :: l' -> IDirsum (op, dirsum_op_list l')
+
+let rec dirsum_type_n_times (n : int) (t : exprtype) =
+  if n < 1 then
+    failwith "Expected n >= 1"
+  else if n = 1 then
+    t
+  else
+    SumType (t, dirsum_type_n_times (n - 1) t)
+
+let rec dirsum_type_list (l : exprtype list) : exprtype =
+  match l with
+  | [] -> failwith "Expected nonempty list"
+  | [t] -> t
+  | t :: l' -> SumType (t, dirsum_type_list l')
+
+let rec big_assoc_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
+    exprtype =
+  match t0 with
+  | _ when t0 = stop -> SumType (t0, t1)
+  | SumType (t00, t01) -> SumType (t00, big_assoc_type stop t01 t1)
+  | _ -> SumType (t0, t1)
+
+(*
+(a0 + (a1 + (a2 + (... + an)))) + b -> (a0 + (a1 + (a2 + (... + (an + b)))))
+Specifically, b can be (b0 + (b1 + (b2 + (... + bm))))
+*)
+let rec big_assoc_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
     inter_op =
-  failwith "TODO"
+  match t0 with
+  | _ when t0 = stop -> IIdentity (SumType (t0, t1))
+  | SumType (t00, t01) -> begin
+      inter_lambda "big_assoc"
+        [("(t00+t01)+t1", type_size (SumType (t0, t1)))]
+        [
+          inter_letapp ["t00+(t01+t1)"] (IAssoc (t00, t01, t1)) ["(t00+t01)+t1"];
+          inter_letapp ["res"]
+            (IDirsum (IIdentity t0, big_assoc_op stop t01 t1))
+            ["t00+(t01+t1)"];
+        ]
+        [("res", type_size (big_assoc_type stop t0 t1))]
+    end
+  | _ -> IIdentity (SumType (t0, t1))
+
+let rec double_big_assoc_type (stop : exprtype) (t : exprtype) : exprtype =
+  match t with
+  | _ when t = stop -> t
+  | SumType (t0, t1) -> big_assoc_type stop t0 (double_big_assoc_type stop t1)
+  | _ -> t
+
+let rec double_big_assoc_op (stop : exprtype) (t : exprtype) : inter_op =
+  match t with
+  | _ when t = stop -> IIdentity t
+  | SumType (t0, t1) ->
+      inter_lambda "double_big_assoc"
+        [("t0+t1", type_size t)]
+        [
+          inter_letapp ["t0+dba(t1)"]
+            (IDirsum (IIdentity t0, double_big_assoc_op stop t1))
+            ["t0+t1"];
+          inter_letapp ["res"]
+            (big_assoc_op stop t0 (double_big_assoc_type stop t1))
+            ["t0+dba(t1)"];
+        ]
+        [("res", type_size (double_big_assoc_type stop t))]
+  | _ -> IIdentity t
+
+let rec big_distr_right_type (t0 : exprtype) (t1 : exprtype) =
+  match t0 with
+  | SumType (t00, t01) ->
+      SumType (ProdType (t00, t1), big_distr_right_type t01 t1)
+  | _ -> ProdType (t0, t1)
+
+(*
+(a0 + (a1 + (a2 + (... + an)))) * b ->
+(a0 * b + (a1 * b + (a2 * b + (... + an * b))))
+*)
+let rec big_distr_right_op (t0 : exprtype) (t1 : exprtype) =
+  match t0 with
+  | SumType (t00, t01) -> begin
+      inter_lambda "big_distr_right"
+        [("(t00+t01)*t1", type_size (ProdType (t0, t1)))]
+        [
+          inter_letapp ["t00+t01"; "t1"]
+            (IAdjoint (IPair (t0, t1)))
+            ["(t00+t01)*t1"];
+          inter_letapp ["(t00*t1)+(t01*t1)"]
+            (IDistrRight (t00, t01, t1))
+            ["t00+t01"; "t1"];
+          inter_letapp ["res"]
+            (IDirsum (IIdentity (ProdType (t00, t1)), big_distr_right_op t01 t1))
+            ["(t00*t1)+(t01*t1)"];
+        ]
+        [("res", type_size (big_distr_right_type t0 t1))]
+    end
+  | _ -> IIdentity (ProdType (t0, t1))
+
+let rec big_distr_left_type (t0 : exprtype) (t1 : exprtype) =
+  match t1 with
+  | SumType (t10, t11) ->
+      SumType (ProdType (t0, t10), big_distr_left_type t0 t11)
+  | _ -> ProdType (t0, t1)
+
+(*
+b * (a0 + (a1 + (a2 + (... + an)))) ->
+(b * a0 + (b * a1 + (b * a2 + (... + b * an))))
+*)
+let rec big_distr_left_op (t0 : exprtype) (t1 : exprtype) =
+  match t1 with
+  | SumType (t10, t11) -> begin
+      inter_lambda "big_distr_left"
+        [("t0*(t10+t11)", type_size (ProdType (t0, t1)))]
+        [
+          inter_letapp ["t0"; "t10+t11"]
+            (IAdjoint (IPair (t0, t1)))
+            ["t0*(t10+t11)"];
+          inter_letapp ["(t0*t10)+(t0*t11)"]
+            (IDistrLeft (t0, t10, t11))
+            ["t0"; "t10+t11"];
+          inter_letapp ["res"]
+            (IDirsum (IIdentity (ProdType (t0, t10)), big_distr_left_op t0 t11))
+            ["(t0*t10)+(t0*t11)"];
+        ]
+        [("res", type_size (big_distr_left_type t0 t1))]
+    end
+  | _ -> IIdentity (ProdType (t0, t1))
+
+let rec compile_spanning_to_inter_op (sp : spanning_proof) =
+  match sp with
+  | SVoid
+  | SUnit ->
+      IIdentity Qunit
+  | SVar t -> IIdentity t
+  | SSum (t0, t1, sp0, sp1, n0, n1) -> begin
+      let sp0_op = compile_spanning_to_inter_op sp0 in
+      let sp1_op = compile_spanning_to_inter_op sp1 in
+        inter_lambda "SSum"
+          [("t0+t1", type_size (SumType (t0, t1)))]
+          [
+            inter_letapp ["t0^(+n0)+t1^(+n1)"]
+              (IDirsum (sp0_op, sp1_op))
+              ["t0+t1"];
+            inter_letapp
+              ["(t0+t1)^(+n0)+(t0+t1)^(+n1)"]
+              (IDirsum
+                 ( dirsum_op_n_times n0 (ILeft (t0, t1)),
+                   dirsum_op_n_times n1 (IRight (t0, t1)) ))
+              ["t0^(+n0)+t1^(+n1)"];
+            inter_letapp ["res"]
+              (big_assoc_op
+                 (SumType (t0, t1))
+                 (dirsum_type_n_times n0 (SumType (t0, t1)))
+                 (dirsum_type_n_times n1 (SumType (t0, t1))))
+              ["(t0+t1)^(+n0)+(t0+t1)^(+n1)"];
+          ]
+          [
+            ( "res",
+              type_size (dirsum_type_n_times (n0 + n1) (SumType (t0, t1))) );
+          ]
+    end
+  | SPair (t0, t1, sp0, l, m, njs) -> begin
+      let op0 = compile_spanning_to_inter_op sp0 in
+      let l_op = List.map compile_spanning_to_inter_op l in
+      let tensor_with_id_t0 (op, nj) =
+        inter_lambda "tensor_with_id_t0"
+          [("t0*t1", type_size (ProdType (t0, t1)))]
+          [
+            inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t0*t1"];
+            inter_letapp ["t1^(+nj)"] op ["t1"];
+            inter_letapp ["res"]
+              (IPair (t0, dirsum_type_n_times nj t1))
+              ["t0"; "t1^(+nj)"];
+          ]
+          [("res", type_size (ProdType (t0, dirsum_type_n_times nj t1)))]
+      in
+      let l_op_sum =
+        dirsum_op_list (List.map tensor_with_id_t0 (List.combine l_op njs))
+      in
+      let sum_nj = List.fold_left ( + ) 0 njs in
+      let mt0 = dirsum_type_n_times m t0 in
+        inter_lambda "SPair"
+          [("t0*t1", type_size (ProdType (t0, t1)))]
+          [
+            inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t0*t1"];
+            inter_letapp ["t0^(+m)"] op0 ["t0"];
+            inter_letapp ["t0^(+m)*t1"]
+              (IPair (dirsum_type_n_times m t0, t1))
+              ["t0^(+m)"; "t1"];
+            inter_letapp ["(t0*t1)^(+m)"]
+              (big_distr_right_op mt0 t1)
+              ["t0^(+m)*t1"];
+            inter_letapp ["sum(t0*t1^(+nj))"] l_op_sum ["(t0*t1)^(+m)"];
+            inter_letapp ["sum((t0*t1)^(+nj))"]
+              (dirsum_op_list
+                 (List.map
+                    (fun nj ->
+                      big_distr_left_op t0 (dirsum_type_n_times nj t1))
+                    njs))
+              ["sum(t0*t1^(+nj))"];
+            inter_letapp ["res"]
+              (double_big_assoc_op
+                 (ProdType (t0, t1))
+                 (dirsum_type_list
+                    (List.map
+                       (fun nj -> dirsum_type_n_times nj (ProdType (t0, t1)))
+                       njs)))
+              ["sum((t0*t1)^(+nj))"];
+          ]
+          [("res", type_size (dirsum_type_n_times sum_nj (ProdType (t0, t1))))]
+    end
+
+let compile_ortho_to_inter_op (t : exprtype) (orp : ortho_proof) : inter_op =
+  let sp, span_list, ortho_list = orp in
+  let span_op = compile_spanning_to_inter_op sp in
+  let n = List.length ortho_list in
+  let select_op =
+    dirsum_op_list
+      (List.map
+         (fun e ->
+           if List.mem e ortho_list then IIdentity t else failwith "TODO")
+         span_list)
+  in
+    inter_lambda "ortho"
+      [("t", type_size t)]
+      [
+        inter_letapp ["t^(+n*)"] span_op ["t"];
+        inter_letapp ["res"] select_op ["t^(+n*)"];
+      ]
+      [("res", type_size (dirsum_type_n_times n t))]
+
+let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
+    (erp : erasure_proof) =
+  let xsize = type_size xtype in
+    match erp with
+    | EVar t -> begin
+        let tsize = type_size t in
+          inter_lambda "EVar"
+            [("x", xsize); ("t", tsize)]
+            [inter_letapp ["res"] (IAdjoint (IShare t)) ["t"; "x"]]
+            [("res", tsize)]
+      end
+    | EPair0 (t0, t1, erp') -> begin
+        let tsize = type_size (ProdType (t0, t1)) in
+        let op' = compile_single_erasure_to_inter_op x xtype erp' in
+          inter_lambda "EPair0"
+            [("x", xsize); ("t", tsize)]
+            [
+              inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t"];
+              inter_letapp ["t0"] op' ["x"; "t0"];
+              inter_letapp ["res"] (IPair (t0, t1)) ["t0"; "t1"];
+            ]
+            [("res", tsize)]
+      end
+    | EPair1 (t0, t1, erp') -> begin
+        let tsize = type_size (ProdType (t0, t1)) in
+        let op' = compile_single_erasure_to_inter_op x xtype erp' in
+          inter_lambda "EPair1"
+            [("x", xsize); ("t", tsize)]
+            [
+              inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t"];
+              inter_letapp ["t1"] op' ["x"; "t1"];
+              inter_letapp ["res"] (IPair (t0, t1)) ["t0"; "t1"];
+            ]
+            [("res", tsize)]
+      end
+
+let rec compile_erasure_to_inter_op (d : context) (t : exprtype)
+    (l : (string * erasure_proof) list) : inter_op =
+  let dsize = context_size d in
+  let tsize = type_size t in
+    match l with
+    | [] -> begin
+        inter_lambda "erasure_empty"
+          [("d", dsize); ("t", tsize)]
+          [inter_letapp [] (IAdjoint IEmpty) ["d"]]
+          [("t", tsize)]
+      end
+    | (x, erp) :: l' -> begin
+        let xtype = StringMap.find x d in
+        let rest_d = StringMap.remove x d in
+        let rest_op = compile_erasure_to_inter_op rest_d t l' in
+        let cur_op = compile_single_erasure_to_inter_op x xtype erp in
+          inter_lambda "erasure"
+            [("d", dsize); ("t", tsize)]
+            [
+              inter_letapp ["x"; "rest_d"]
+                (IContextPartition (d, StringSet.singleton x))
+                ["d"];
+              inter_letapp ["t"] rest_op ["rest_d"; "t"];
+              inter_letapp ["t"] cur_op ["x"; "t"];
+            ]
+            [("t", tsize)]
+      end
 
 (*
 Compilation of a pure expression into the intermediate representation.
@@ -1236,14 +1649,14 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
   let tsize = type_size t in
     match tp with
     | TUnit _ -> begin
-        inter_lambda
+        inter_lambda "TUnit"
           [("g", gsize); ("d", dsize)]
           []
           [("g", gsize); ("d", tsize)]
       end
     | TCvar (t, g, x) -> begin
         let xreg, grest = map_partition g (StringSet.singleton x) in
-          inter_lambda
+          inter_lambda "TCvar"
             [("g", gsize); ("d", dsize)]
             [
               inter_letapp ["x"; "rest"]
@@ -1255,7 +1668,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             [("g", gsize); ("res", tsize)]
       end
     | TQvar _ -> begin
-        inter_lambda
+        inter_lambda "TQvar"
           [("g", gsize); ("d", dsize)]
           []
           [("g", gsize); ("d", tsize)]
@@ -1263,7 +1676,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
     | TPurePair (t0, t1, _, d, d0, d1, e0, e1) -> begin
         let op0 = compile_pure_expr_to_inter_op e0 in
         let op1 = compile_pure_expr_to_inter_op e1 in
-          inter_lambda
+          inter_lambda "TPurePair"
             [("g", gsize); ("dd0d1", dsize)]
             [
               inter_letapp ["d"; "d0d1"]
@@ -1282,42 +1695,67 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             [("g", gsize); ("res", tsize)]
       end
     | TCtrl (t0, t1, g, g', d, d', e, l, orp, erp_map) -> begin
-        let e_op = compile_mixed_expr_to_inter_op e in
-        let gjs = List.map (fun (x, _, _) -> x) l in
-        let ejs = List.map (fun (_, x, _) -> x) l in
-        let ej's = List.map (fun (_, _, x) -> x) l in
-        let ej_ops =
-          List.map
-            (fun x ->
-              remove_g_from_pure_op dsize tsize
-                (compile_pure_expr_to_inter_op x))
-            ejs
-        in
-        let ej'_ops = List.map compile_pure_expr_to_inter_op ej's in
-        let ortho_op = compile_ortho_to_inter_op orp in
-        let erase_op = compile_erasure_to_inter_op erp_map in
-        let ej_sum_op =
-          List.fold_left (fun cur x -> IDirsum (cur, x)) (IIdentity t) ej_ops
-        in
-          inter_lambda
-            [("gg*", gsize); ("dd*", dsize)]
-            [
-              inter_letapp ["g"; "g*"]
-                (IContextPartition (g_whole, map_dom g))
-                ["gg*"];
-              inter_letapp ["g0"] (IContextShare g) ["g"];
-              inter_letapp ["d0"] (IContextShare d) ["d"];
-              inter_letapp ["t"; "garb"] (IPurify e_op) ["g0"; "d0"];
-              inter_letapp ["t+"] ortho_op ["t"];
-              inter_letapp ["gj+"] ej_sum_op ["t+"];
-              (* ... TODO ... *)
-            ]
-            [("gg*", gsize); ("res", dsize)]
+        let n = List.length l in
+          if n = 0 then
+            failwith "TODO"
+          else
+            let e_op = compile_mixed_expr_to_inter_op e in
+            let gjs = List.map (fun (x, _, _) -> x) l in
+            let ejs = List.map (fun (_, x, _) -> x) l in
+            let ej's = List.map (fun (_, _, x) -> x) l in
+            let ej_ops =
+              List.map
+                (fun (ej, gj) ->
+                  remove_g_from_pure_op (context_size gj) (type_size t0)
+                    (compile_pure_expr_to_inter_op ej))
+                (List.combine ejs gjs)
+            in
+            let ej'_ops = List.map compile_pure_expr_to_inter_op ej's in
+            let ortho_op = compile_ortho_to_inter_op t0 orp in
+            let erase_op =
+              compile_erasure_to_inter_op d t1 (StringMap.bindings erp_map)
+            in
+            let ej_sum_op = dirsum_op_list ej_ops in
+              inter_lambda "TCtrl"
+                [("gg*", gsize); ("dd*", dsize)]
+                [
+                  inter_letapp ["g"; "g*"]
+                    (IContextPartition (g_whole, map_dom g))
+                    ["gg*"];
+                  inter_letapp ["d"; "d*"]
+                    (IContextPartition (d_whole, map_dom d))
+                    ["dd*"];
+                  inter_letapp ["g"; "g0"] (IContextShare g) ["g"];
+                  inter_letapp ["d"; "d0"] (IContextShare d) ["d"];
+                  inter_letapp ["g0d0"] (IContextMerge (g, d)) ["g0"; "d0"];
+                  inter_letapp ["t0"; "garb"] (IPurify e_op) ["g0d0"];
+                  inter_letapp ["t0^(+n)"] ortho_op ["t0"];
+                  inter_letapp ["gj^(+n)"] (IAdjoint ej_sum_op) ["t0^(+n)"];
+                  inter_letapp ["dd*"] (IContextMerge (d, d')) ["d"; "d*"];
+                  (* ... TODO ... *)
+                  inter_letapp ["t0^(+n)"] ej_sum_op ["gj^(+n)"];
+                  inter_letapp ["t0"] (IAdjoint ortho_op) ["t0^(+n)"];
+                  inter_letapp ["g0d0"] (IAdjoint (IPurify e_op))
+                    ["t0"; "garb"];
+                  inter_letapp ["g0"; "d0"]
+                    (IAdjoint (IContextMerge (g, d)))
+                    ["g0d0"];
+                  inter_letapp ["g"] (IAdjoint (IContextShare g)) ["g"; "g0"];
+                  (* temp begin *)
+                  inter_letapp []
+                    (IAdjoint (ITestReg (context_size d + context_size d')))
+                    ["dd*"];
+                  inter_letapp ["t1"] (ITestReg (type_size t1)) [];
+                  (* temp end *)
+                  inter_letapp ["t1"] erase_op ["d0"; "t1"];
+                  inter_letapp ["gg*"] (IContextMerge (g, g')) ["g"; "g*"];
+                ]
+                [("gg*", gsize); ("t1", tsize)]
       end
     | TPureApp (_, _, _, _, f, e') -> begin
         let e'_op = compile_pure_expr_to_inter_op e' in
         let f_op = compile_pure_prog_to_inter_op f in
-          inter_lambda
+          inter_lambda "TPureApp"
             [("g", gsize); ("d", dsize)]
             [
               inter_letapp ["g"; "t*"] e'_op ["g"; "d"];
@@ -1339,7 +1777,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
     match tp with
     | TMix tp' -> begin
         let tp'_op = compile_pure_expr_to_inter_op tp' in
-          inter_lambda
+          inter_lambda "TMix"
             [("d", dsize)]
             [
               inter_letapp ["g"] IEmpty [];
@@ -1351,7 +1789,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
     | TMixedPair (t0, t1, d, d0, d1, e0, e1) -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
-          inter_lambda
+          inter_lambda "TMixedPair"
             [("dd0d1", dsize)]
             [
               inter_letapp ["d"; "d0d1"]
@@ -1372,7 +1810,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
     | TTry (t, d0, _, e0, e1) -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
-          inter_lambda
+          inter_lambda "TTry"
             [("d", dsize)]
             [
               inter_letapp ["d0"; "d1"]
@@ -1402,7 +1840,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
     | TMixedApp (_, _, _, f, e) -> begin
         let e_op = compile_mixed_expr_to_inter_op e in
         let f_op = compile_mixed_prog_to_inter_op f in
-          inter_lambda
+          inter_lambda "TMixedApp"
             [("d", dsize)]
             [inter_letapp ["t*"] e_op ["d"]; inter_letapp ["res"] f_op ["t*"]]
             [("res", tsize)]
@@ -1419,7 +1857,7 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
   | TPureAbs (t, t', _, e, e') -> begin
       let e_op = compile_pure_expr_to_inter_op e in
       let e'_op = compile_pure_expr_to_inter_op e' in
-        inter_lambda
+        inter_lambda "TPureAbs"
           [("t", type_size t)]
           [
             inter_letapp ["g"] IEmpty [];
@@ -1452,7 +1890,7 @@ and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
         remove_g_from_pure_op (context_size dd0) (type_size t) e_op
       in
       let e'_op = compile_mixed_expr_to_inter_op e' in
-        inter_lambda
+        inter_lambda "TMixedAbs"
           [("t", type_size t)]
           [
             inter_letapp ["d"] (IAdjoint e_op_no_g) ["t"];
@@ -1478,9 +1916,7 @@ let expr_compile (annotate : bool) (e : expr) :
   let circ, _ = build_circuit cs [[]] IntSet.empty true in
   let nqubits = List.length circ.prep_reg in
   let rewiring =
-    IntMap.of_seq
-      (List.to_seq
-         (List.combine circ.prep_reg (range (List.length circ.prep_reg))))
+    IntMap.of_seq (List.to_seq (List.combine circ.prep_reg (range nqubits)))
   in
   let gate =
     gate_combine_controls

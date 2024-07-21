@@ -397,8 +397,7 @@ let mat_from_list (l : Complex.t list list) : matrix =
     mat_evaluate_dense
       { r; c; ent = Dense (fun i j -> List.nth (List.nth l i) j) }
 
-let string_of_complex (z : Complex.t) =
-  Printf.sprintf "%.3f%+.3fi" z.re z.im
+let string_of_complex (z : Complex.t) = Printf.sprintf "%.3f%+.3fi" z.re z.im
 
 let print_mat (m : matrix) : unit =
   if m.r = 0 || m.c = 0 then
@@ -420,30 +419,33 @@ let print_mat (m : matrix) : unit =
             done
       end
     | Sparse s -> begin
-        Printf.printf "%s\n"
-          begin
-            string_of_list_custom " + " false
-              begin
-                fun ((i, j), z) ->
-                  begin
-                    let coeffstring =
-                      if z = Complex.one then
-                        ""
-                      else if z = Complex.neg Complex.one then
-                        "-"
-                      else
-                        Printf.sprintf "(%s)" (string_of_complex z)
-                    in
-                      if m.c = 1 then
-                        Printf.sprintf "%s|%d>" coeffstring i
-                      else if m.r = 1 then
-                        Printf.sprintf "%s<%d|" coeffstring j
-                      else
-                        Printf.sprintf "%s|%d><%d|" coeffstring i j
-                  end
-              end
-              (Int2Map.bindings s)
-          end
+        if s = Int2Map.empty then
+          Printf.printf "%s\n" (string_of_complex Complex.zero)
+        else
+          Printf.printf "%s\n"
+            begin
+              string_of_list_custom " + " false
+                begin
+                  fun ((i, j), z) ->
+                    begin
+                      let coeffstring =
+                        if z = Complex.one then
+                          ""
+                        else if z = Complex.neg Complex.one then
+                          "-"
+                        else
+                          Printf.sprintf "(%s)" (string_of_complex z)
+                      in
+                        if m.c = 1 then
+                          Printf.sprintf "%s|%d>" coeffstring i
+                        else if m.r = 1 then
+                          Printf.sprintf "%s<%d|" coeffstring j
+                        else
+                          Printf.sprintf "%s|%d><%d|" coeffstring i j
+                    end
+                end
+                (Int2Map.bindings s)
+            end
       end
 
 let mat_approx_equal (m1 : matrix) (m2 : matrix) : bool =

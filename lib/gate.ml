@@ -48,6 +48,19 @@ let rec gate_adjoint (u : gate) : gate =
   | Controlled (l, bl, u0) -> Controlled (l, bl, gate_adjoint u0)
   | Sequence (u0, u1) -> Sequence (gate_adjoint u1, gate_adjoint u0)
 
+let rec gate_qubits_used (u : gate) : IntSet.t =
+  match u with
+  | Identity -> IntSet.empty
+  | U3Gate (i, _, _, _) -> IntSet.singleton i
+  | GphaseGate _ -> IntSet.empty
+  | Reset i -> IntSet.singleton i
+  | Swap (i, j) -> IntSet.of_list [i; j]
+  | Annotation (l, _) -> IntSet.of_list l
+  | Controlled (l, _, u0) ->
+      IntSet.union (IntSet.of_list l) (gate_qubits_used u0)
+  | Sequence (u0, u1) ->
+      IntSet.union (gate_qubits_used u0) (gate_qubits_used u1)
+
 (*
 Rewire a gate by replacing all references to certain qubits with
 other qubits.
@@ -64,10 +77,25 @@ let rec gate_rewire (u : gate) (rewiring : int IntMap.t) : gate =
   | Annotation (l, s) ->
       Annotation (List.map (fun i -> int_map_find_or_keep i rewiring) l, s)
   | Controlled (l, bl, u0) ->
-      Controlled
-        ( List.map (fun i -> int_map_find_or_keep i rewiring) l,
-          bl,
-          gate_rewire u0 rewiring )
+      let _ =
+        begin
+          match u0 with
+          | U3Gate (i, _, _, _) ->
+              if List.mem i l then
+                failwith "OOOOOOOFFFFFFF"
+              else if
+                List.mem
+                  (int_map_find_or_keep i rewiring)
+                  (List.map (fun i -> int_map_find_or_keep i rewiring) l)
+              then
+                failwith "PKKLAWOFAWKMF"
+          | _ -> ()
+        end
+      in
+        Controlled
+          ( List.map (fun i -> int_map_find_or_keep i rewiring) l,
+            bl,
+            gate_rewire u0 rewiring )
   | Sequence (u0, u1) ->
       Sequence (gate_rewire u0 rewiring, gate_rewire u1 rewiring)
 
