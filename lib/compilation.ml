@@ -55,12 +55,14 @@ registers, storing them as variables in its body.
 type inter_op =
   | IEmpty
   | ITestReg of int (* create empty test register for debugging purposes *)
-  | IIdentity of exprtype (* a {T} -> a *)
+  | IIdentity of exprtype
+  | ISizeIdentity of int
   | IU3 of real * real * real
   | IRphase of exprtype * inter_op * real * real
   | ILeft of exprtype * exprtype (* a {T0} -> left{T0, T1} a *)
   | IRight of exprtype * exprtype (* a {T1} -> right{T0, T1} a *)
   | IPair of exprtype * exprtype (* a {T0}, b {T1} -> (a, b) {T0 * T1} *)
+  | ISizePair of int * int
   | IShare of exprtype (* a {T} -> [a; a] *)
   | IContextShare of context
   | IAdjoint of inter_op
@@ -81,6 +83,7 @@ type inter_op =
       context * StringSet.t (* context -> [things in set; things not in set] *)
   | IContextMerge of context * context
     (* merge contexts assumed to be disjoint *)
+  | IContextDistr of context * int * context
   | ILambda of
       string * (string * int) list * inter_com list * (string * int) list
 (* Output sizes, arg names with sizes, body, return vars. *)
@@ -270,10 +273,10 @@ let circuit_testreg (size : int) =
 (*
 The identity circuit operating on a given type.
 *)
-let circuit_identity (t : exprtype) : circuit_spec =
+let circuit_identity (size : int) : circuit_spec =
   {
-    in_sizes = [type_size t];
-    out_sizes = [type_size t];
+    in_sizes = [size];
+    out_sizes = [size];
     prep_size = 0;
     flag_size = 0;
     circ_fun =
@@ -441,22 +444,19 @@ let circuit_share (size : int) : circuit_spec =
 Circuit that takes in a value of type t0 and a value of type t1 and outputs
 a value of type t0 * t1 (functionally this is just the identity circuit).
 *)
-let circuit_pair (t0 : exprtype) (t1 : exprtype) : circuit_spec =
+let circuit_pair (size0 : int) (size1 : int) : circuit_spec =
   {
-    in_sizes = [type_size t0; type_size t1];
-    out_sizes = [type_size t0 + type_size t1];
+    in_sizes = [size0; size1];
+    out_sizes = [size0 + size1];
     prep_size = 0;
     flag_size = 0;
     circ_fun =
       begin
         fun in_regs used_wires _ ->
-          expect_sizes "circuit_pair" [type_size t0; type_size t1] in_regs;
+          expect_sizes "circuit_pair" [size0; size1] in_regs;
           let in_reg0, in_reg1 =
             match in_regs with
-            | [in_reg0; in_reg1]
-              when List.length in_reg0 = type_size t0
-                   && List.length in_reg1 = type_size t1 ->
-                (in_reg0, in_reg1)
+            | [in_reg0; in_reg1] -> (in_reg0, in_reg1)
             | _ -> failwith "Invalid input regs"
           in
             ( {
@@ -1123,6 +1123,75 @@ let circuit_context_merge (d0 : context) (d1 : context) : circuit_spec =
     circuit_adjoint (circuit_context_partition d fv0)
 
 (*
+Distributivity isomorphism
+(H(g) + H') * H(d) -> H(g,d) + (H' * H(d))
+*)
+let circuit_context_distr (g : context) (hsize : int) (d : context) :
+    circuit_spec =
+  let gsize = context_size g in
+  let dsize = context_size d in
+  let in_sizes = [1 + max gsize hsize; dsize] in
+    {
+      in_sizes;
+      out_sizes = [1 + max gsize hsize + dsize];
+      prep_size = 0;
+      flag_size = 0;
+      circ_fun =
+        begin
+          fun in_regs used_wires reset_garb ->
+            expect_sizes "circuit_context_distr" in_sizes in_regs;
+            let signal_bit, sum_reg, d_reg =
+              match in_regs with
+              | [signal_bit :: sum_reg; d_reg] -> (signal_bit, sum_reg, d_reg)
+              | _ -> failwith "Invalid input regs"
+            in
+            let g_reg, g_rest_reg = list_split_at_i sum_reg gsize in
+            let _, h_rest_reg = list_split_at_i sum_reg hsize in
+            let d_reg_shifted, _ =
+              list_split_at_i (g_rest_reg @ d_reg) dsize
+            in
+            let merge_cs = circuit_context_merge g d in
+            let merge_circ, used_wires =
+              build_circuit merge_cs [g_reg; d_reg_shifted] used_wires
+                reset_garb
+            in
+              ( {
+                  name = "context_distr";
+                  in_regs;
+                  prep_reg = [];
+                  out_regs = [List.flatten in_regs];
+                  flag_reg = [];
+                  garb_reg = [];
+                  gate =
+                    begin
+                      begin
+                        if g_rest_reg <> [] then
+                          Controlled
+                            ( [signal_bit],
+                              [false],
+                              gate_permute (g_rest_reg @ d_reg)
+                                (d_reg @ g_rest_reg) )
+                        else
+                          Identity
+                      end
+                      @& controlled_circ [signal_bit] [false] merge_circ
+                      @& begin
+                           if h_rest_reg <> [] then
+                             Controlled
+                               ( [signal_bit],
+                                 [true],
+                                 gate_permute (h_rest_reg @ d_reg)
+                                   (d_reg @ h_rest_reg) )
+                           else
+                             Identity
+                         end
+                    end;
+                },
+                used_wires )
+        end;
+    }
+
+(*
 Given a circuit and an intermediate representation command, as well as an
 intermediate representation valuation, applies the command's operator to the
 registers of the circuit. Returns an updated circuit and valuation (which
@@ -1216,7 +1285,8 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   match op with
   | IEmpty -> circuit_empty
   | ITestReg size -> circuit_testreg size
-  | IIdentity t -> circuit_identity t
+  | ISizeIdentity size -> circuit_identity size
+  | IIdentity t -> circuit_identity (type_size t)
   | IU3 (theta, phi, lambda) -> circuit_u3 theta phi lambda
   | IRphase (t, op, r0, r1) ->
       if r0 = r1 then
@@ -1225,7 +1295,8 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
         circuit_rphase t (compile_inter_op_to_circuit op) r0 r1
   | ILeft (t0, t1) -> circuit_left t0 t1
   | IRight (t0, t1) -> circuit_right t0 t1
-  | IPair (t0, t1) -> circuit_pair t0 t1
+  | IPair (t0, t1) -> circuit_pair (type_size t0) (type_size t1)
+  | ISizePair (s0, s1) -> circuit_pair s0 s1
   | IShare t -> circuit_share (type_size t)
   | IContextShare d -> circuit_share (context_size d)
   | IAdjoint op' -> circuit_adjoint (compile_inter_op_to_circuit op')
@@ -1245,6 +1316,7 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | IPurify op' -> circuit_purify (compile_inter_op_to_circuit op')
   | IContextPartition (d, fv) -> circuit_context_partition d fv
   | IContextMerge (d0, d1) -> circuit_context_merge d0 d1
+  | IContextDistr (g, s, d) -> circuit_context_distr g s d
   | ILambda (name, args, iel, ret) -> begin
       let arg_names = List.map fst args in
       let arg_sizes = List.map snd args in
@@ -1319,15 +1391,19 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
           end
     end
 
-let remove_g_from_pure_op (dsize : int) (tsize : int) (op : inter_op) =
-  inter_lambda "remove_g"
-    [("d", dsize)]
-    [
-      inter_letapp ["g"] IEmpty [];
-      inter_letapp ["g"; "res"] op ["g"; "d"];
-      inter_letapp [] (IAdjoint IEmpty) ["g"];
-    ]
-    [("res", tsize)]
+let make_pure_op_take_one_reg (g : context) (d : context) (t : exprtype)
+    (op : inter_op) =
+  let gsize = context_size g in
+  let dsize = context_size d in
+  let tsize = type_size t in
+    inter_lambda "make_pure_op_take_one_reg"
+      [("gd", gsize + dsize)]
+      [
+        inter_letapp ["g"; "d"] (IAdjoint (IContextMerge (g, d))) ["gd"];
+        inter_letapp ["g"; "t"] op ["g"; "d"];
+        inter_letapp ["res"] (ISizePair (gsize, tsize)) ["g"; "t"];
+      ]
+      [("res", gsize + tsize)]
 
 let rec dirsum_op_n_times (n : int) (op : inter_op) =
   if n < 1 then
@@ -1468,7 +1544,59 @@ let rec big_distr_left_op (t0 : exprtype) (t1 : exprtype) =
     end
   | _ -> IIdentity (ProdType (t0, t1))
 
-let rec compile_spanning_to_inter_op (sp : spanning_proof) =
+let rec context_sum_size (l : context list) : int =
+  match l with
+  | [] -> 0
+  | [d] -> context_size d
+  | d :: l' -> 1 + max (context_size d) (context_sum_size l')
+
+let fake_type_of_context (d : context) : exprtype =
+  let types = List.map snd (StringMap.bindings d) in
+    List.fold_right (fun x cur -> ProdType (x, cur)) types Qunit
+
+let rec fake_type_of_context_list (l : context list) : exprtype =
+  match l with
+  | [] -> failwith "Expected nonempty list"
+  | [d] -> fake_type_of_context d
+  | d :: l' -> SumType (fake_type_of_context d, fake_type_of_context_list l')
+
+let rec big_context_distr_op (l : context list) (d : context) : inter_op =
+  match l with
+  | [] -> failwith "Expected nonempty list"
+  | [g] -> IContextMerge (g, d)
+  | g :: rest -> begin
+      let gsize = context_size g in
+      let dsize = context_size d in
+      let lsize = context_sum_size l in
+      let rest_size = context_sum_size rest in
+        inter_lambda "big_context_distr"
+          [("g+rest", lsize); ("d", dsize)]
+          [
+            inter_letapp ["gd+(rest*d)"]
+              (IContextDistr (g, rest_size, d))
+              ["g+rest"; "d"];
+            inter_letapp ["res"]
+              (IDirsum
+                 ( ISizeIdentity (gsize + dsize),
+                   begin
+                     inter_lambda "big_context_distr_rest"
+                       [("rest*d", rest_size + dsize)]
+                       [
+                         inter_letapp ["rest"; "d"]
+                           (IAdjoint (ISizePair (rest_size, dsize)))
+                           ["rest*d"];
+                         inter_letapp ["rest_distr"]
+                           (big_context_distr_op rest d)
+                           ["rest"; "d"];
+                       ]
+                       [("rest_distr", rest_size + dsize)]
+                   end ))
+              ["gd+(rest*d)"];
+          ]
+          [("res", lsize + dsize)]
+    end
+
+let rec compile_spanning_to_inter_op (sp : spanning_proof) : inter_op =
   match sp with
   | SVoid
   | SUnit ->
@@ -1696,6 +1824,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
       end
     | TCtrl (t0, t1, g, g', d, d', e, l, orp, erp_map) -> begin
         let n = List.length l in
+        let gg'dd' = map_merge_noopt false g_whole d_whole in
           if n = 0 then
             failwith "TODO"
           else
@@ -1703,19 +1832,32 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             let gjs = List.map (fun (x, _, _) -> x) l in
             let ejs = List.map (fun (_, x, _) -> x) l in
             let ej's = List.map (fun (_, _, x) -> x) l in
-            let ej_ops =
-              List.map
-                (fun (ej, gj) ->
-                  remove_g_from_pure_op (context_size gj) (type_size t0)
-                    (compile_pure_expr_to_inter_op ej))
-                (List.combine ejs gjs)
+            let ej_sum_op =
+              dirsum_op_list
+                (List.map
+                   (fun (ej, gj) ->
+                     make_pure_op_take_one_reg StringMap.empty gj t0
+                       (compile_pure_expr_to_inter_op ej))
+                   (List.combine ejs gjs))
             in
-            let ej'_ops = List.map compile_pure_expr_to_inter_op ej's in
+            let ej'_sum_op =
+              dirsum_op_list
+                (List.map
+                   (fun (ej', gj) ->
+                     make_pure_op_take_one_reg
+                       (map_merge_noopt false g_whole gj)
+                       d_whole t1
+                       (compile_pure_expr_to_inter_op ej'))
+                   (List.combine ej's gjs))
+            in
             let ortho_op = compile_ortho_to_inter_op t0 orp in
             let erase_op =
               compile_erasure_to_inter_op d t1 (StringMap.bindings erp_map)
             in
-            let ej_sum_op = dirsum_op_list ej_ops in
+            let fake_context_sumtype =
+              fake_type_of_context_list
+                (List.map (fun gj -> map_merge_noopt false g_whole gj) gjs)
+            in
               inter_lambda "TCtrl"
                 [("gg*", gsize); ("dd*", dsize)]
                 [
@@ -1730,10 +1872,29 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                   inter_letapp ["g0d0"] (IContextMerge (g, d)) ["g0"; "d0"];
                   inter_letapp ["t0"; "garb"] (IPurify e_op) ["g0d0"];
                   inter_letapp ["t0^(+n)"] ortho_op ["t0"];
-                  inter_letapp ["gj^(+n)"] (IAdjoint ej_sum_op) ["t0^(+n)"];
+                  inter_letapp ["sum(gj)"] (IAdjoint ej_sum_op) ["t0^(+n)"];
+                  inter_letapp ["gg*"] (IContextMerge (g, g')) ["g"; "g*"];
                   inter_letapp ["dd*"] (IContextMerge (d, d')) ["d"; "d*"];
-                  (* ... TODO ... *)
-                  inter_letapp ["t0^(+n)"] ej_sum_op ["gj^(+n)"];
+                  inter_letapp ["gg*dd*"]
+                    (IContextMerge (g_whole, d_whole))
+                    ["gg*"; "dd*"];
+                  inter_letapp ["sum(gg*gjdd*)"]
+                    (big_context_distr_op gjs gg'dd')
+                    ["sum(gj)"; "gg*dd*"];
+                  inter_letapp ["sum(gg*gj*t1)"] ej'_sum_op ["sum(gg*gjdd*)"];
+                  inter_letapp ["sum(gg*gj)*t1"]
+                    (IAdjoint (big_distr_right_op fake_context_sumtype t1))
+                    ["sum(gg*gj*t1)"];
+                  inter_letapp ["sum(gg*gj)"; "t1"]
+                    (IAdjoint (IPair (fake_context_sumtype, t1)))
+                    ["sum(gg*gj)*t1"];
+                  inter_letapp ["sum(gj)"; "gg*"]
+                    (IAdjoint (big_context_distr_op gjs g_whole))
+                    ["sum(gg*gj)"];
+                  inter_letapp ["g"; "g*"]
+                    (IContextPartition (g_whole, map_dom g))
+                    ["gg*"];
+                  inter_letapp ["t0^(+n)"] ej_sum_op ["sum(gj)"];
                   inter_letapp ["t0"] (IAdjoint ortho_op) ["t0^(+n)"];
                   inter_letapp ["g0d0"] (IAdjoint (IPurify e_op))
                     ["t0"; "garb"];
@@ -1741,12 +1902,6 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                     (IAdjoint (IContextMerge (g, d)))
                     ["g0d0"];
                   inter_letapp ["g"] (IAdjoint (IContextShare g)) ["g"; "g0"];
-                  (* temp begin *)
-                  inter_letapp []
-                    (IAdjoint (ITestReg (context_size d + context_size d')))
-                    ["dd*"];
-                  inter_letapp ["t1"] (ITestReg (type_size t1)) [];
-                  (* temp end *)
                   inter_letapp ["t1"] erase_op ["d0"; "t1"];
                   inter_letapp ["gg*"] (IContextMerge (g, g')) ["g"; "g*"];
                 ]
@@ -1870,9 +2025,7 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
   | TRphase (t, e, r0, r1) -> begin
       let _, d = context_of_pure_expr_proof e in
       let e_op = compile_pure_expr_to_inter_op e in
-      let e_op_no_g =
-        remove_g_from_pure_op (context_size d) (type_size t) e_op
-      in
+      let e_op_no_g = make_pure_op_take_one_reg StringMap.empty d t e_op in
         IRphase (t, e_op_no_g, r0, r1)
     end
 
@@ -1886,9 +2039,7 @@ and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
       let dd0 = map_merge_noopt false d d0 in
       let fve' = map_dom d in
       let e_op = compile_pure_expr_to_inter_op e in
-      let e_op_no_g =
-        remove_g_from_pure_op (context_size dd0) (type_size t) e_op
-      in
+      let e_op_no_g = make_pure_op_take_one_reg StringMap.empty dd0 t e_op in
       let e'_op = compile_mixed_expr_to_inter_op e' in
         inter_lambda "TMixedAbs"
           [("t", type_size t)]
@@ -1925,7 +2076,10 @@ let expr_compile (annotate : bool) (e : expr) :
   in
   let out_reg =
     match circ.out_regs with
-    | [out_reg] -> out_reg
+    | [out_reg] -> List.map (fun i -> int_map_find_or_keep i rewiring) out_reg
     | _ -> failwith "Expected single out reg"
   in
-    (gate, nqubits, out_reg, circ.flag_reg)
+  let flag_reg =
+    List.map (fun i -> int_map_find_or_keep i rewiring) circ.flag_reg
+  in
+    (gate, nqubits, out_reg, flag_reg)

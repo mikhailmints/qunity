@@ -15,6 +15,18 @@ DRAW_TIMEOUT = 10
 SIMULATE_TIMEOUT = 10
 
 
+def format_label(x):
+    x = x[::-1]
+    parts = x.split(" ")
+    if len(parts) == 1:
+        return parts[0]
+    else:
+        if parts[1] == "0" * len(parts[1]):
+            return parts[0]
+        else:
+            return x
+
+
 @timeout_decorator.timeout(DRAW_TIMEOUT, use_signals=False)
 def draw_circuit(circuit, basename):
     print("Drawing circuit")
@@ -41,7 +53,7 @@ def simulate_circuit(circuit, basename):
         .result()
         .get_counts()
     )
-    counts = {x[::-1]: y for x, y in counts.items()}
+    counts = {format_label(x): y for x, y in counts.items()}
     plot_histogram(
         counts, filename=("diagrams/sim_results/" + basename + "_sim_results.png")
     )
