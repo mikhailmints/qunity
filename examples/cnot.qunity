@@ -17,7 +17,7 @@ def Gate1Q <N, I, F> :=
     endif
 end
 
-def Cnot <N, I, J> :=
+def Controlled1Q <N, I, J, F> :=
     if I gt J then
         lambda x {NTensorT <[N], Bit>} -> x
         |> Reverse <[N], Bit>
@@ -31,7 +31,7 @@ def Cnot <N, I, J> :=
                 lambda (x, y) {NTensorT <[N], Bit>} ->
                     ctrl {Bit, NTensorT <[N], Bit>} x [
                         Bit0 -> (x, y);
-                        Bit1 -> (x, Gate1Q <[N - 1], [J - 1], Qnot> of y)
+                        Bit1 -> (x, Gate1Q <[N - 1], [J - 1], F> of y)
                     ]
             endif
         else
@@ -39,6 +39,10 @@ def Cnot <N, I, J> :=
                 (x, Cnot <[N - 1], [I - 1], [J - 1]> of y)
         endif
     endif
+end
+
+def Cnot <N, I, J> :=
+    Controlled1Q <[N], [I], [J], Qnot>
 end
 
 // Example: Bell state as Had and Cnot

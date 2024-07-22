@@ -7,12 +7,11 @@ import timeout_decorator
 from qiskit import qasm3, transpile
 from qiskit_aer import Aer
 from qiskit.visualization import plot_histogram
-from qiskit.providers.basic_provider import BasicProvider
 from qiskit.circuit import IfElseOp
 
 
 DRAW_TIMEOUT = 10
-SIMULATE_TIMEOUT = 10
+SIMULATE_TIMEOUT = 60
 
 
 def format_label(x):

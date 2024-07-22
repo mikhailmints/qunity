@@ -75,7 +75,7 @@ type inter_op =
       exprtype * exprtype * exprtype (* (T0 + T1) * T -> T0 * T + T1 * T *)
   | IMixedErr of inter_op
   | IPureErr of inter_op
-  | IAlwaysErr of exprtype
+  | IAlwaysErr of int
   | IDiscard of exprtype
   | IContextDiscard of context
   | IPurify of inter_op
@@ -942,32 +942,31 @@ let circuit_rphase (t : exprtype) (cs : circuit_spec) (r0 : real) (r1 : real) :
 Circuit that always causes an error by creating a nonzero value in the
 flag register.
 *)
-let circuit_always_error (t : exprtype) =
-  let size = type_size t in
-    {
-      in_sizes = [size];
-      out_sizes = [];
-      prep_size = 1;
-      flag_size = 1;
-      circ_fun =
-        begin
-          fun in_regs used_wires _ ->
-            let in_reg =
-              expect_single_in_reg "circuit_always_error" in_regs size
-            in
-            let flag, used_wires = fresh_int used_wires in
-              ( {
-                  name = "always_err";
-                  in_regs;
-                  prep_reg = [flag];
-                  out_regs = in_regs;
-                  flag_reg = in_reg;
-                  garb_reg = [flag];
-                  gate = gate_paulix flag;
-                },
-                used_wires )
-        end;
-    }
+let circuit_always_error (size : int) =
+  {
+    in_sizes = [size];
+    out_sizes = [];
+    prep_size = 1;
+    flag_size = 1;
+    circ_fun =
+      begin
+        fun in_regs used_wires _ ->
+          let in_reg =
+            expect_single_in_reg "circuit_always_error" in_regs size
+          in
+          let flag, used_wires = fresh_int used_wires in
+            ( {
+                name = "always_err";
+                in_regs;
+                prep_reg = [flag];
+                out_regs = [];
+                flag_reg = in_reg @ [flag];
+                garb_reg = [];
+                gate = gate_paulix flag;
+              },
+              used_wires )
+      end;
+  }
 
 (*
 Discards the input by putting the input register into the garbage register.
@@ -1310,7 +1309,7 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | IMixedErr op ->
       circuit_mixed_error_handling (compile_inter_op_to_circuit op)
   | IPureErr op -> circuit_pure_error_handling (compile_inter_op_to_circuit op)
-  | IAlwaysErr t -> circuit_always_error t
+  | IAlwaysErr size -> circuit_always_error size
   | IDiscard t -> circuit_discard (type_size t)
   | IContextDiscard d -> circuit_discard (context_size d)
   | IPurify op' -> circuit_purify (compile_inter_op_to_circuit op')
@@ -1826,7 +1825,13 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
         let n = List.length l in
         let gg'dd' = map_merge_noopt false g_whole d_whole in
           if n = 0 then
-            failwith "TODO"
+            inter_lambda "TCtrl_Void"
+              [("gg*", gsize); ("dd*", dsize)]
+              [
+                inter_letapp [] (IAlwaysErr dsize) ["dd*"];
+                inter_letapp ["res"] IEmpty [];
+              ]
+              [("gg*", gsize); ("res", 0)]
           else
             let e_op = compile_mixed_expr_to_inter_op e in
             let gjs = List.map (fun (x, _, _) -> x) l in
