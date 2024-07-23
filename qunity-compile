@@ -47,12 +47,8 @@ if [ $status -eq 1 ]; then
     echo -e "${YELLOW}Invalid program${NC}"
 elif [ $status -eq 0 ]; then
     echo -e "${GREEN}Compilation done${NC}"
-
     if $analyze; then
         python3 qasm_analyze.py $out_filename
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}Analysis script error${NC}"
-        fi
     fi
 else
     echo -e "${RED}Compiler error${NC}"

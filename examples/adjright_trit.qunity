@@ -1,1 +1,1 @@
-right {qunit, Bit} of Bit1 |> RightAdj<qunit, Bit>
+right {qunit, Bit} of Bit1 |> RightAdj <qunit, Bit>
