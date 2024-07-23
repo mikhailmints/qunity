@@ -33,8 +33,6 @@ an option that tells whether or not to reset the garbage register.
 type circuit_spec = {
   in_sizes : int list;
   out_sizes : int list;
-  prep_size : int;
-  flag_size : int;
   (* in_regs, used_wires, reset_garb -> (circuit, updated used_wires) *)
   circ_fun : int list list -> IntSet.t -> bool -> circuit * IntSet.t;
 }
@@ -149,19 +147,6 @@ let build_circuit (cs : circuit_spec) (in_regs : int list list)
     else
       (circ, used_wires)
 
-let circuit_spec_find_unknown_sizes (in_sizes : int list)
-    (out_sizes : int list)
-    (circ_fun : int list list -> IntSet.t -> bool -> circuit * IntSet.t) :
-    circuit_spec =
-  let prep_size, flag_size =
-    begin
-      let in_regs, used_wires = fresh_int_lists IntSet.empty in_sizes in
-      let temp_circ, _ = circ_fun in_regs used_wires false in
-        (List.length temp_circ.prep_reg, List.length temp_circ.flag_reg)
-    end
-  in
-    { in_sizes; out_sizes; prep_size; flag_size; circ_fun }
-
 (*
 To create a controlled version of something that is already provided as a
 circuit, this should be used instead of just adding a Controlled to the
@@ -223,8 +208,6 @@ let circuit_empty =
   {
     in_sizes = [];
     out_sizes = [0];
-    prep_size = 0;
-    flag_size = 0;
     circ_fun =
       begin
         fun in_regs used_wires _ ->
@@ -250,8 +233,6 @@ let circuit_testreg (size : int) =
   {
     in_sizes = [];
     out_sizes = [size];
-    prep_size = size;
-    flag_size = 0;
     circ_fun =
       begin
         fun in_regs used_wires _ ->
@@ -277,8 +258,6 @@ let circuit_identity (size : int) : circuit_spec =
   {
     in_sizes = [size];
     out_sizes = [size];
-    prep_size = 0;
-    flag_size = 0;
     circ_fun =
       begin
         fun in_regs used_wires _ ->
@@ -302,8 +281,6 @@ let circuit_u3 (theta : real) (phi : real) (lambda : real) : circuit_spec =
   {
     in_sizes = [1];
     out_sizes = [1];
-    prep_size = 0;
-    flag_size = 0;
     circ_fun =
       begin
         fun in_regs used_wires _ ->
@@ -330,8 +307,6 @@ let circuit_gphase (t : exprtype) (theta : real) : circuit_spec =
     {
       in_sizes = [size];
       out_sizes = [size];
-      prep_size = 0;
-      flag_size = 0;
       circ_fun =
         begin
           fun in_regs used_wires _ ->
@@ -359,8 +334,6 @@ let circuit_left (t0 : exprtype) (t1 : exprtype) : circuit_spec =
     {
       in_sizes = [in_size];
       out_sizes = [out_size];
-      prep_size;
-      flag_size = 0;
       circ_fun =
         begin
           fun in_regs used_wires _ ->
@@ -389,8 +362,6 @@ let circuit_right (t0 : exprtype) (t1 : exprtype) : circuit_spec =
     {
       in_sizes = [in_size];
       out_sizes = [out_size];
-      prep_size;
-      flag_size = 0;
       circ_fun =
         begin
           fun in_regs used_wires _ ->
@@ -420,8 +391,6 @@ let circuit_share (size : int) : circuit_spec =
   {
     in_sizes = [size];
     out_sizes = [size; size];
-    prep_size = size;
-    flag_size = 0;
     circ_fun =
       begin
         fun in_regs used_wires _ ->
@@ -448,8 +417,6 @@ let circuit_pair (size0 : int) (size1 : int) : circuit_spec =
   {
     in_sizes = [size0; size1];
     out_sizes = [size0 + size1];
-    prep_size = 0;
-    flag_size = 0;
     circ_fun =
       begin
         fun in_regs used_wires _ ->
@@ -481,8 +448,6 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
   {
     in_sizes = cs.out_sizes;
     out_sizes = cs.in_sizes;
-    prep_size = cs.flag_size;
-    flag_size = cs.prep_size;
     circ_fun =
       begin
         fun in_regs used_wires reset_garb ->
@@ -536,12 +501,9 @@ let circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
   let in_size = 1 + max in_size0 in_size1 in
   let out_size = 1 + max out_size0 out_size1 in
   let min_in_size = min in_size0 in_size1 in
-  let min_out_size = min out_size0 out_size1 in
     {
       in_sizes = [in_size];
       out_sizes = [out_size];
-      prep_size = min_in_size + cs0.prep_size + cs1.prep_size;
-      flag_size = min_out_size + cs0.flag_size + cs1.flag_size;
       circ_fun =
         begin
           fun in_regs used_wires reset_garb ->
@@ -639,8 +601,6 @@ let circuit_assoc (t0 : exprtype) (t1 : exprtype) (t2 : exprtype) :
     {
       in_sizes = [in_size];
       out_sizes = [out_size];
-      prep_size = total_size - in_size;
-      flag_size = total_size - out_size;
       circ_fun =
         begin
           fun in_regs used_wires _ ->
@@ -692,8 +652,6 @@ let circuit_distr_left (t : exprtype) (t0 : exprtype) (t1 : exprtype) :
     {
       in_sizes;
       out_sizes = [out_size];
-      prep_size = 0;
-      flag_size = 0;
       circ_fun =
         begin
           fun in_regs used_wires _ ->
@@ -729,8 +687,6 @@ let circuit_distr_right (t0 : exprtype) (t1 : exprtype) (t : exprtype) :
     {
       in_sizes;
       out_sizes = [out_size];
-      prep_size = 0;
-      flag_size = 0;
       circ_fun =
         begin
           fun in_regs used_wires _ ->
@@ -789,8 +745,6 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
     {
       in_sizes;
       out_sizes = [out_size];
-      prep_size = out_size + cs.prep_size;
-      flag_size = 0;
       circ_fun =
         begin
           fun in_regs used_wires reset_garb ->
@@ -856,13 +810,18 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
 Lemma H.9
 *)
 let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
+  let flag_size =
+    begin
+      let in_regs, used_wires = fresh_int_lists IntSet.empty cs.in_sizes in
+      let temp_circ, _ = build_circuit cs in_regs used_wires false in
+        List.length temp_circ.flag_reg
+    end
+  in
   let in_sizes = cs.in_sizes in
-  let out_size = 1 + max (List.fold_left ( + ) 0 cs.out_sizes) cs.flag_size in
+  let out_size = 1 + List.fold_left ( + ) 0 cs.out_sizes + flag_size in
     {
       in_sizes;
       out_sizes = [out_size];
-      prep_size = 1 + cs.prep_size;
-      flag_size = 0;
       circ_fun =
         begin
           fun in_regs used_wires reset_garb ->
@@ -907,8 +866,6 @@ let circuit_rphase (t : exprtype) (cs : circuit_spec) (r0 : real) (r1 : real) :
     {
       in_sizes = [size];
       out_sizes = [size];
-      prep_size = cs_ef.prep_size;
-      flag_size = cs_ef_adj.flag_size;
       circ_fun =
         begin
           fun in_regs used_wires reset_garb ->
@@ -946,8 +903,6 @@ let circuit_always_error (size : int) =
   {
     in_sizes = [size];
     out_sizes = [];
-    prep_size = 1;
-    flag_size = 1;
     circ_fun =
       begin
         fun in_regs used_wires _ ->
@@ -975,8 +930,6 @@ let circuit_discard (size : int) =
   {
     in_sizes = [size];
     out_sizes = [];
-    prep_size = 0;
-    flag_size = 0;
     circ_fun =
       begin
         fun in_regs used_wires reset_garb ->
@@ -1020,8 +973,6 @@ let circuit_purify (cs : circuit_spec) : circuit_spec =
     {
       in_sizes = cs.in_sizes;
       out_sizes = cs.out_sizes @ [garb_size];
-      prep_size = cs.prep_size;
-      flag_size = cs.flag_size;
       circ_fun =
         begin
           fun in_regs used_wires _ ->
@@ -1085,8 +1036,6 @@ let circuit_context_partition (d : context) (fv : StringSet.t) : circuit_spec =
     {
       in_sizes = [in_size];
       out_sizes = [context_size d0; context_size d1];
-      prep_size = 0;
-      flag_size = 0;
       circ_fun =
         begin
           fun in_regs used_wires _ ->
@@ -1133,8 +1082,6 @@ let circuit_context_distr (g : context) (hsize : int) (d : context) :
     {
       in_sizes;
       out_sizes = [1 + max gsize hsize + dsize];
-      prep_size = 0;
-      flag_size = 0;
       circ_fun =
         begin
           fun in_regs used_wires reset_garb ->
@@ -1321,73 +1268,83 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
       let arg_sizes = List.map snd args in
       let ret_names = List.map fst ret in
       let ret_sizes = List.map snd ret in
-        circuit_spec_find_unknown_sizes arg_sizes ret_sizes
-          begin
-            fun in_regs used_wires reset_garb ->
-              if debug_mode then
-                Printf.printf
-                  "ILambda %s: arg_names = %s, in_regs = %s, arg_sizes = %s, \
-                   ret_sizes = %s\n"
-                  name
-                  (string_of_list (fun s -> s) arg_names)
-                  (string_of_list (string_of_list string_of_int) in_regs)
-                  (string_of_list string_of_int arg_sizes)
-                  (string_of_list string_of_int ret_sizes);
-              let iv =
-                StringMap.of_seq (List.to_seq (List.combine arg_names in_regs))
-              in
-              let init_circ =
-                {
-                  name = "init";
-                  in_regs;
-                  prep_reg = [];
-                  out_regs = in_regs;
-                  flag_reg = [];
-                  garb_reg = [];
-                  gate = Identity;
-                }
-              in
-              let circ, used_wires, iv =
-                compile_inter_com_list_to_circuit init_circ used_wires iv iel
-                  reset_garb
-              in
-                if
-                  not
-                    (StringSet.equal (map_dom iv)
-                       (StringSet.of_list ret_names))
-                then
-                  failwith
-                    (Printf.sprintf
-                       "ILambda %s: Returned variables do not correspond to \
-                        final valuation - remaining unused variables are %s"
-                       name
-                       (string_of_list
-                          (fun x -> x)
-                          (StringSet.elements
-                             (StringSet.diff (map_dom iv)
-                                (StringSet.of_list ret_names)))));
-                let ret_regs =
-                  List.map (fun x -> StringMap.find x iv) ret_names
+        {
+          in_sizes = arg_sizes;
+          out_sizes = ret_sizes;
+          circ_fun =
+            begin
+              fun in_regs used_wires reset_garb ->
+                if debug_mode then
+                  Printf.printf
+                    "ILambda %s: arg_names = %s, in_regs = %s, arg_sizes = \
+                     %s, ret_sizes = %s\n"
+                    name
+                    (string_of_list (fun s -> s) arg_names)
+                    (string_of_list (string_of_list string_of_int) in_regs)
+                    (string_of_list string_of_int arg_sizes)
+                    (string_of_list string_of_int ret_sizes);
+                let iv =
+                  StringMap.of_seq
+                    (List.to_seq (List.combine arg_names in_regs))
+                in
+                let init_circ =
+                  {
+                    name = "init";
+                    in_regs;
+                    prep_reg = [];
+                    out_regs = in_regs;
+                    flag_reg = [];
+                    garb_reg = [];
+                    gate = Identity;
+                  }
+                in
+                let circ, used_wires, iv =
+                  compile_inter_com_list_to_circuit init_circ used_wires iv iel
+                    reset_garb
                 in
                   if
-                    debug_mode
-                    && (int_list_intersection (List.flatten ret_regs)
-                          circ.flag_reg
-                        <> []
-                       || int_list_intersection (List.flatten ret_regs)
-                            circ.garb_reg
-                          <> [])
-                  then begin
-                    Printf.printf
-                      "ILambda %s:\nret_regs: %s\nflag_reg: %s\ngarb_reg: %s\n"
-                      name
-                      (string_of_list (string_of_list string_of_int) ret_regs)
-                      (string_of_list string_of_int circ.flag_reg)
-                      (string_of_list string_of_int circ.garb_reg);
-                    failwith "ret_regs overlap with flag or garb regs"
-                  end;
-                  ({ circ with out_regs = ret_regs }, used_wires)
-          end
+                    not
+                      (StringSet.equal (map_dom iv)
+                         (StringSet.of_list ret_names))
+                  then
+                    failwith
+                      (Printf.sprintf
+                         "ILambda %s: Returned variables do not correspond to \
+                          final valuation - remaining unused variables are %s"
+                         name
+                         (string_of_list
+                            (fun x -> x)
+                            (StringSet.elements
+                               (StringSet.diff (map_dom iv)
+                                  (StringSet.of_list ret_names)))));
+                  let ret_regs =
+                    List.map (fun x -> StringMap.find x iv) ret_names
+                  in
+                    if
+                      debug_mode
+                      && (int_list_intersection (List.flatten ret_regs)
+                            circ.flag_reg
+                          <> []
+                         || int_list_intersection (List.flatten ret_regs)
+                              circ.garb_reg
+                            <> [])
+                    then begin
+                      Printf.printf
+                        "ILambda %s:\n\
+                         ret_regs: %s\n\
+                         flag_reg: %s\n\
+                         garb_reg: %s\n"
+                        name
+                        (string_of_list
+                           (string_of_list string_of_int)
+                           ret_regs)
+                        (string_of_list string_of_int circ.flag_reg)
+                        (string_of_list string_of_int circ.garb_reg);
+                      failwith "ret_regs overlap with flag or garb regs"
+                    end;
+                    ({ circ with out_regs = ret_regs }, used_wires)
+            end;
+        }
     end
 
 let make_pure_op_take_one_reg (g : context) (d : context) (t : exprtype)
@@ -1679,17 +1636,34 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) : inter_op =
           [("res", type_size (dirsum_type_n_times sum_nj (ProdType (t0, t1))))]
     end
 
+let rec ortho_select_op (t : exprtype) (selection : bool list) : inter_op =
+  let n = List.length selection in
+  let n' = List.length (List.filter (fun x -> x) selection) in
+    match selection with
+    | [] -> failwith "Expected nonempty list"
+    | [false] -> failwith "Expected at least one true"
+    | [true] -> IIdentity t
+    | true :: l' when not (List.mem true l') ->
+        IAdjoint (ILeft (t, dirsum_type_n_times (n - 1) t))
+    | true :: l' -> IDirsum (IIdentity t, ortho_select_op t l')
+    | false :: l' -> begin
+        inter_lambda "ortho_select_op"
+          [("t+rest", type_size (dirsum_type_n_times n t))]
+          [
+            inter_letapp ["rest"]
+              (IAdjoint (IRight (t, dirsum_type_n_times (n - 1) t)))
+              ["t+rest"];
+            inter_letapp ["res"] (ortho_select_op t l') ["rest"];
+          ]
+          [("res", type_size (dirsum_type_n_times n' t))]
+      end
+
 let compile_ortho_to_inter_op (t : exprtype) (orp : ortho_proof) : inter_op =
   let sp, span_list, ortho_list = orp in
   let span_op = compile_spanning_to_inter_op sp in
   let n = List.length ortho_list in
-  let select_op =
-    dirsum_op_list
-      (List.map
-         (fun e ->
-           if List.mem e ortho_list then IIdentity t else failwith "TODO")
-         span_list)
-  in
+  let selection = List.map (fun e -> List.mem e ortho_list) span_list in
+  let select_op = ortho_select_op t selection in
     inter_lambda "ortho"
       [("t", type_size t)]
       [
@@ -1789,6 +1763,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
               inter_letapp ["x"; "rest"]
                 (IContextPartition (g, StringSet.singleton x))
                 ["g"];
+              inter_letapp [] (IAdjoint IEmpty) ["d"];
               inter_letapp ["x"; "res"] (IShare t) ["x"];
               inter_letapp ["g"] (IContextMerge (xreg, grest)) ["x"; "rest"];
             ]

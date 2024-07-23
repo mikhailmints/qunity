@@ -15,7 +15,8 @@ GREEN = "\033[0;32m"
 YELLOW = "\033[0;33m"
 NC = "\033[0m"
 
-DRAW_TIMEOUT = 10
+LOAD_TIMEOUT = 20
+DRAW_TIMEOUT = 20
 SIMULATE_TIMEOUT = 60
 SIM_SHOTS = 10000
 
@@ -37,12 +38,21 @@ def format_label(x):
 def draw_circuit(circuit, basename):
     print("Drawing circuit")
     out_filename = "diagrams/circuits/" + basename + ".png"
-    circuit.draw(
-        "mpl",
-        filename=out_filename,
-        cregbundle=False,
-        fold=-1,
-    )
+    try:
+        circuit.draw(
+            "mpl",
+            filename=out_filename,
+            cregbundle=False,
+            fold=-1,
+        )
+    except Exception:
+        circuit.draw(
+            "mpl",
+            scale=0.2,
+            filename=out_filename,
+            cregbundle=False,
+            fold=-1,
+        )
     print(f"Diagram in {out_filename}")
 
 
@@ -51,7 +61,6 @@ def simulate_circuit(circuit, basename):
     print("Simulating circuit")
     reg_counts = {reg.name: len(reg) for reg in circuit.cregs}
     if len(reg_counts) == 0 or max(reg_counts.values()) == 0:
-        print("Circuit has no measurements")
         counts = {"null": SIM_SHOTS}
     else:
         backend = Aer.get_backend("qasm_simulator")
@@ -82,7 +91,7 @@ def analyze_file(qasm_filename):
     basename = os.path.splitext(os.path.basename(qasm_filename))[0]
 
     print("Loading circuit")
-    circuit = qasm3.load(qasm_filename)
+    circuit = timeout_decorator.timeout(LOAD_TIMEOUT)(qasm3.load)(qasm_filename)
 
     draw_circuit(circuit, basename)
 

@@ -210,7 +210,8 @@ def InitialTState <Tbits> :=
         fail
     else
         NTensorE <[Tbits], BitPlus>
-        |> rphase {NTensorT <[Tbits], Bit>, (Bit1, _), -pi / 2, 0} |>
+        |> rphase {NTensorT <[Tbits], Bit>, (Bit1, _), -pi / 2, 0}
+        |>
         if Tbits = [1] then
             Qid <NTensorT <[Tbits], Bit>>
         else
