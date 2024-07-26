@@ -196,7 +196,7 @@ let () =
 
     test_equality "span_list_2bit"
       (span_list (ProdType (bit, bit)) [Qpair (bit0, bit0)])
-      (Some [Qpair (bit0, bit0); Qpair (bit1, Var "$0"); Qpair (bit0, bit1)]);
+      (Some [Qpair (bit0, bit0); Qpair (bit0, bit1); Qpair (bit1, Var "$0")]);
 
     expect_expr_puretype "bell_type"
       (Ctrl

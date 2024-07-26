@@ -55,6 +55,7 @@ type inter_op =
   | ITestReg of int (* create empty test register for debugging purposes *)
   | IIdentity of exprtype
   | ISizeIdentity of int
+  | IAnnotation of int * string
   | IU3 of real * real * real
   | IRphase of exprtype * inter_op * real * real
   | ILeft of exprtype * exprtype (* a {T0} -> left{T0, T1} a *)
@@ -155,11 +156,25 @@ qubits when rearranging them should also be controlled. This undoes the
 permutation and redoes it under a control to ensure this.
 *)
 let controlled_circ (l : int list) (bl : bool list) (circ : circuit) : gate =
-  let circ_in = List.concat circ.in_regs @ circ.prep_reg in
-  let circ_out = List.concat circ.out_regs @ circ.flag_reg @ circ.garb_reg in
+  let circ_in = List.flatten circ.in_regs @ circ.prep_reg in
+  let circ_out = List.flatten circ.out_regs @ circ.flag_reg @ circ.garb_reg in
     Controlled (l, bl, circ.gate)
-    @& gate_permute circ_out circ_in
     @& Controlled (l, bl, gate_permute circ_in circ_out)
+
+let rewire_circuit (circ : circuit) (source : int list) (target : int list) :
+    circuit =
+  let rewiring = IntMap.of_seq (List.to_seq (List.combine source target)) in
+    {
+      name = circ.name;
+      in_regs =
+        List.map (List.map (int_map_find_or_keep rewiring)) circ.in_regs;
+      prep_reg = List.map (int_map_find_or_keep rewiring) circ.prep_reg;
+      out_regs =
+        List.map (List.map (int_map_find_or_keep rewiring)) circ.out_regs;
+      flag_reg = List.map (int_map_find_or_keep rewiring) circ.flag_reg;
+      garb_reg = List.map (int_map_find_or_keep rewiring) circ.garb_reg;
+      gate = gate_rewire circ.gate rewiring;
+    }
 
 (*
 Number of qubits needed to represent a value of a given size.
@@ -269,6 +284,26 @@ let circuit_identity (size : int) : circuit_spec =
               flag_reg = [];
               garb_reg = [];
               gate = Identity;
+            },
+            used_wires )
+      end;
+  }
+
+let circuit_annotation (size : int) (s : string) =
+  {
+    in_sizes = [size];
+    out_sizes = [size];
+    circ_fun =
+      begin
+        fun in_regs used_wires _ ->
+          ( {
+              name = "annotation";
+              in_regs;
+              prep_reg = [];
+              out_regs = in_regs;
+              flag_reg = [];
+              garb_reg = [];
+              gate = Annotation (List.flatten in_regs, s);
             },
             used_wires )
       end;
@@ -472,15 +507,17 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
               IntSet.diff used_wires
                 (IntSet.of_list (List.flatten circ.out_regs))
             in
-            let rewire_list =
-              List.map (fun i -> int_map_find_or_keep i rewiring)
-            in
               ( {
                   name = "adjoint " ^ circ.name;
                   in_regs;
-                  prep_reg = rewire_list circ.flag_reg;
-                  out_regs = List.map rewire_list temp_regs;
-                  flag_reg = rewire_list circ.prep_reg;
+                  prep_reg =
+                    List.map (int_map_find_or_keep rewiring) circ.flag_reg;
+                  out_regs =
+                    List.map
+                      (List.map (int_map_find_or_keep rewiring))
+                      temp_regs;
+                  flag_reg =
+                    List.map (int_map_find_or_keep rewiring) circ.prep_reg;
                   garb_reg = [];
                   gate = gate_adjoint (gate_rewire circ.gate rewiring);
                 },
@@ -491,99 +528,229 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
 (*
 Circuit implementing the direct sum of two circuits.
 *)
-let circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
-  let in_size0, in_size1, out_size0, out_size1 =
+let rec circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec
+    =
+  let s0, s1, s0', s1' =
     match (cs0.in_sizes, cs1.in_sizes, cs0.out_sizes, cs1.out_sizes) with
     | [in_size0], [in_size1], [out_size0], [out_size1] ->
         (in_size0, in_size1, out_size0, out_size1)
     | _ -> assert false
   in
-  let in_size = 1 + max in_size0 in_size1 in
-  let out_size = 1 + max out_size0 out_size1 in
-  let min_in_size = min in_size0 in_size1 in
-    {
-      in_sizes = [in_size];
-      out_sizes = [out_size];
-      circ_fun =
-        begin
-          fun in_regs used_wires reset_garb ->
-            let in_reg =
-              expect_single_in_reg "circuit_dirsum" in_regs in_size
-            in
-            let ctrlbit = List.hd in_reg in
-            let in_reg = List.tl in_reg in
-            let in_reg_min, in_reg_diff = list_split_at_i in_reg min_in_size in
-            let prep_min, used_wires = fresh_int_list used_wires min_in_size in
-            let circ0, circ1, used_wires =
-              if in_size0 <= in_size1 then
-                let circ0, used_wires =
-                  build_circuit cs0 [in_reg_min] used_wires reset_garb
+  let in_size = 1 + max s0 s1 in
+  let out_size = 1 + max s0' s1' in
+    if s0 < s1 then
+      let cs_dirsum_commute = circuit_dirsum cs1 cs0 in
+        {
+          in_sizes = [in_size];
+          out_sizes = [out_size];
+          circ_fun =
+            begin
+              fun in_regs used_wires reset_garb ->
+                let circ, used_wires =
+                  build_circuit cs_dirsum_commute in_regs used_wires reset_garb
                 in
-                let circ1, used_wires =
-                  build_circuit cs1
-                    [prep_min @ in_reg_diff]
-                    used_wires reset_garb
-                in
-                  (circ0, circ1, used_wires)
-              else
-                let circ0, used_wires =
-                  build_circuit cs0
-                    [prep_min @ in_reg_diff]
-                    used_wires reset_garb
-                in
-                let circ1, used_wires =
-                  build_circuit cs1 [in_reg_min] used_wires reset_garb
-                in
-                  (circ0, circ1, used_wires)
-            in
-              if circ0.garb_reg <> [] || circ1.garb_reg <> [] then
-                failwith
-                  "Expected garbage registers to be empty when taking direct \
-                   sum";
-              let out_reg0, out_reg1 =
-                match (circ0.out_regs, circ1.out_regs) with
-                | [out_reg0], [out_reg1] -> (out_reg0, out_reg1)
-                | _ -> assert false
+                let signal_bit = List.hd (List.hd in_regs) in
+                  ( {
+                      circ with
+                      gate =
+                        gate_paulix signal_bit @& circ.gate
+                        @& gate_paulix signal_bit;
+                    },
+                    used_wires )
+            end;
+        }
+    else (* s0 >= s1 *)
+      {
+        in_sizes = [in_size];
+        out_sizes = [out_size];
+        circ_fun =
+          begin
+            fun in_regs used_wires reset_garb ->
+              let in_reg =
+                expect_single_in_reg "circuit_dirsum" in_regs in_size
               in
-              let out_reg_min_in_min, out_reg_min_in_max, out_reg_diff =
-                if out_size0 <= out_size1 then
-                  let out_reg_min_in_min = out_reg0 in
-                  let out_reg_min_in_max, out_reg_diff =
-                    list_split_at_i out_reg1 out_size0
-                  in
-                    (out_reg_min_in_min, out_reg_min_in_max, out_reg_diff)
-                else
-                  let out_reg_min_in_min = out_reg1 in
-                  let out_reg_min_in_max, out_reg_diff =
-                    list_split_at_i out_reg0 out_size1
-                  in
-                    (out_reg_min_in_min, out_reg_min_in_max, out_reg_diff)
+              let signal_bit = List.hd in_reg in
+              let s0_reg = List.tl in_reg in
+              let s1_reg, rest_in_reg = list_split_at_i s0_reg s1 in
+              let circ0, used_wires0 =
+                build_circuit cs0 [s0_reg] used_wires reset_garb
               in
-                ( {
-                    name =
-                      Printf.sprintf "dirsum (%s, %s)" circ0.name circ1.name;
-                    in_regs;
-                    prep_reg = prep_min @ circ0.prep_reg @ circ1.prep_reg;
-                    out_regs = [(ctrlbit :: out_reg_min_in_max) @ out_reg_diff];
-                    flag_reg =
-                      out_reg_min_in_min @ circ0.flag_reg @ circ1.flag_reg;
-                    garb_reg = [];
-                    gate =
-                      Controlled
-                        ( [ctrlbit],
-                          [in_size0 <= in_size1],
-                          gate_swap_regs in_reg_min prep_min )
-                      @& controlled_circ [ctrlbit] [false] circ0
-                      @& controlled_circ [ctrlbit] [true] circ1
-                      @& Controlled
-                           ( [ctrlbit],
-                             [not (out_size0 <= out_size1)],
-                             gate_swap_regs out_reg_min_in_min
-                               out_reg_min_in_max );
-                  },
-                  used_wires )
-        end;
-    }
+              (* Note that I am deliberately not updating used_wires between creating the
+                 circuits! This is because we are trying to reuse the prep register as much
+                 as possible. *)
+              let circ1, used_wires1 =
+                build_circuit cs1 [s1_reg] used_wires reset_garb
+              in
+              let name = "dirsum" in
+              let p0 = List.length circ0.prep_reg in
+              let p1 = List.length circ1.prep_reg in
+              let f0 = List.length circ0.flag_reg in
+              let f1 = List.length circ1.flag_reg in
+              let circ0, circ1 =
+                begin
+                  if p0 >= p1 then
+                    let circ1 =
+                      rewire_circuit circ1 circ1.prep_reg
+                        (fst (list_split_at_i circ0.prep_reg p1))
+                    in
+                      (circ0, circ1)
+                  else
+                    let circ0 =
+                      rewire_circuit circ0 circ0.prep_reg
+                        (fst (list_split_at_i circ1.prep_reg p0))
+                    in
+                      (circ0, circ1)
+                end
+              in
+              let used_wires = IntSet.union used_wires0 used_wires1 in
+              let s0'_reg, f0_reg =
+                list_split_at_i (s0_reg @ circ0.prep_reg) s0'
+              in
+              let s1'_reg, f1_reg =
+                list_split_at_i (s1_reg @ circ1.prep_reg) s1'
+              in
+                begin
+                  (* Sanity checks *)
+                  assert (s0 + p0 = s0' + f0 && s1 + p1 = s1' + f1);
+                  if circ0.garb_reg <> [] || circ1.garb_reg <> [] then
+                    failwith
+                      "Expected garbage registers to be empty when taking \
+                       direct sum";
+                  let p0_set = IntSet.of_list circ0.prep_reg in
+                  let p1_set = IntSet.of_list circ1.prep_reg in
+                    assert (
+                      IntSet.subset p0_set p1_set
+                      || IntSet.subset p1_set p0_set)
+                end;
+                if s0' >= s1' then
+                  if p0 >= p1 then (* Case 1: s0 >= s1, s0' >= s1', p0 >= p1 *)
+                    let k = max 0 (f1 - f0) in
+                    let k_reg, used_wires = fresh_int_list used_wires k in
+                    let prep_reg = circ0.prep_reg @ k_reg in
+                    let rest_prep_reg =
+                      int_list_diff circ0.prep_reg circ1.prep_reg
+                    in
+                    let out_reg, flag_reg =
+                      list_split_at_i (in_reg @ prep_reg) out_size
+                    in
+                      ( {
+                          name;
+                          in_regs;
+                          prep_reg;
+                          out_regs = [out_reg];
+                          flag_reg;
+                          garb_reg = [];
+                          gate =
+                            controlled_circ [signal_bit] [false] circ0
+                            @& controlled_circ [signal_bit] [true] circ1
+                            @& Controlled
+                                 ( [signal_bit],
+                                   [true],
+                                   gate_permute
+                                     (List.tl out_reg @ flag_reg)
+                                     (s1'_reg @ rest_in_reg @ rest_prep_reg
+                                    @ k_reg @ f1_reg) );
+                        },
+                        used_wires )
+                  else (* Case 2: s0 >= s1, s0' >= s1', p0 < p1 *)
+                    let k = max 0 (f1 - f0 + p0 - p1) in
+                    let k_reg, used_wires = fresh_int_list used_wires k in
+                    let prep_reg = circ1.prep_reg @ k_reg in
+                    let out_reg, flag_reg =
+                      list_split_at_i (in_reg @ prep_reg) out_size
+                    in
+                      ( {
+                          name;
+                          in_regs;
+                          prep_reg;
+                          out_regs = [out_reg];
+                          flag_reg;
+                          garb_reg = [];
+                          gate =
+                            controlled_circ [signal_bit] [false] circ0
+                            @& controlled_circ [signal_bit] [true] circ1
+                            @& Controlled
+                                 ( [signal_bit],
+                                   [true],
+                                   gate_permute
+                                     (List.tl out_reg @ flag_reg)
+                                     (s1'_reg @ rest_in_reg @ k_reg @ f1_reg)
+                                 );
+                        },
+                        used_wires )
+                else if p0 >= p1 then
+                  (* Case 3: s0 >= s1, s0' < s1', p0 >= p1 *)
+                  let k = s1' - s0' in
+                  let k_reg, used_wires = fresh_int_list used_wires k in
+                  let prep_reg = circ0.prep_reg @ k_reg in
+                  let rest_prep_reg =
+                    int_list_diff circ0.prep_reg circ1.prep_reg
+                  in
+                  let out_reg, flag_reg =
+                    list_split_at_i (in_reg @ prep_reg) out_size
+                  in
+                    ( {
+                        name;
+                        in_regs;
+                        prep_reg;
+                        out_regs = [out_reg];
+                        flag_reg;
+                        garb_reg = [];
+                        gate =
+                          controlled_circ [signal_bit] [false] circ0
+                          @& controlled_circ [signal_bit] [true] circ1
+                          @& Controlled
+                               ( [signal_bit],
+                                 [false],
+                                 gate_permute
+                                   (List.tl out_reg @ flag_reg)
+                                   (s0'_reg @ k_reg @ f0_reg) )
+                          @& Controlled
+                               ( [signal_bit],
+                                 [true],
+                                 gate_permute
+                                   (List.tl out_reg @ flag_reg)
+                                   (s1'_reg @ rest_in_reg @ rest_prep_reg
+                                  @ f1_reg @ k_reg) );
+                      },
+                      used_wires )
+                else (* Case 4: s0 >= s1, s0' < s1', p0 < p1 *)
+                  let k = max 0 (s1' - s0' + p0 - p1) in
+                  let k_reg, used_wires = fresh_int_list used_wires k in
+                  let prep_reg = circ1.prep_reg @ k_reg in
+                  let rest_prep_reg =
+                    int_list_diff circ1.prep_reg circ0.prep_reg
+                  in
+                  let out_reg, flag_reg =
+                    list_split_at_i (in_reg @ prep_reg) out_size
+                  in
+                    ( {
+                        name;
+                        in_regs;
+                        prep_reg;
+                        out_regs = [out_reg];
+                        flag_reg;
+                        garb_reg = [];
+                        gate =
+                          controlled_circ [signal_bit] [false] circ0
+                          @& controlled_circ [signal_bit] [true] circ1
+                          @& Controlled
+                               ( [signal_bit],
+                                 [false],
+                                 gate_permute
+                                   (List.tl out_reg @ flag_reg)
+                                   (s0'_reg @ rest_prep_reg @ k_reg @ f0_reg)
+                               )
+                          @& Controlled
+                               ( [signal_bit],
+                                 [true],
+                                 gate_permute
+                                   (List.tl out_reg @ flag_reg)
+                                   (s1'_reg @ rest_in_reg @ f1_reg @ k_reg) );
+                      },
+                      used_wires )
+          end;
+      }
 
 (*
 Associativity isomorphism in Lemma H.6. Takes (t0 + t1) + t2 and outputs
@@ -721,7 +888,7 @@ let circuit_distr_right (t0 : exprtype) (t1 : exprtype) (t : exprtype) :
                               gate_permute (t0t1_reg @ t_reg) perm )
                       else if type_size t1 > type_size t0 then
                         let t0_reg, rest_reg =
-                          list_split_at_i t0t1_reg (1 + type_size t0)
+                          list_split_at_i t0t1_reg (type_size t0)
                         in
                         let perm = t0_reg @ t_reg @ rest_reg in
                           Controlled
@@ -759,7 +926,7 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
               int_list_union circ.flag_reg
                 (int_list_union circ.garb_reg fresh_prep)
             in
-            let out_reg = signal_bit :: List.concat circ.out_regs in
+            let out_reg = signal_bit :: List.flatten circ.out_regs in
             let used_wires =
               begin
                 if reset_garb then
@@ -784,7 +951,7 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
                          else
                            gate_paulix signal_bit
                            @& gate_swap_regs
-                                (List.concat circ.out_regs)
+                                (List.flatten circ.out_regs)
                                 fresh_prep
                            @& Controlled
                                 ( circ.flag_reg,
@@ -792,7 +959,7 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
                                     (List.length circ.flag_reg),
                                   gate_paulix signal_bit
                                   @& gate_swap_regs
-                                       (List.concat circ.out_regs)
+                                       (List.flatten circ.out_regs)
                                        fresh_prep )
                        end
                     @& begin
@@ -838,7 +1005,9 @@ let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
                   in_regs;
                   prep_reg = signal_bit :: circ.prep_reg;
                   out_regs =
-                    [(signal_bit :: List.concat circ.out_regs) @ circ.flag_reg];
+                    [
+                      (signal_bit :: List.flatten circ.out_regs) @ circ.flag_reg;
+                    ];
                   flag_reg = [];
                   garb_reg = [];
                   gate =
@@ -887,8 +1056,18 @@ let circuit_rphase (t : exprtype) (cs : circuit_spec) (r0 : real) (r1 : real) :
                   garb_reg = [];
                   gate =
                     circ_ef.gate
-                    @& Controlled ([signal_bit], [false], GphaseGate r0)
-                    @& Controlled ([signal_bit], [true], GphaseGate r1)
+                    @& begin
+                         if real_equal r0 (Const 0) then
+                           Identity
+                         else
+                           Controlled ([signal_bit], [false], GphaseGate r0)
+                       end
+                    @& begin
+                         if real_equal r1 (Const 0) then
+                           Identity
+                         else
+                           Controlled ([signal_bit], [true], GphaseGate r1)
+                       end
                     @& circ_ef_adj.gate;
                 },
                 used_wires )
@@ -933,7 +1112,7 @@ let circuit_discard (size : int) =
     circ_fun =
       begin
         fun in_regs used_wires reset_garb ->
-          let garb_reg = List.concat in_regs in
+          let garb_reg = List.flatten in_regs in
           let used_wires =
             begin
               if reset_garb then
@@ -1169,7 +1348,7 @@ let rec compile_inter_com_to_circuit (circ : circuit) (used_wires : IntSet.t)
       in
       let res_circ =
         {
-          name = op_circ.name ^ " (" ^ circ.name ^ ")";
+          name = op_circ.name;
           in_regs = circ.in_regs;
           prep_reg =
             int_list_union circ.prep_reg
@@ -1233,6 +1412,7 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | ITestReg size -> circuit_testreg size
   | ISizeIdentity size -> circuit_identity size
   | IIdentity t -> circuit_identity (type_size t)
+  | IAnnotation (size, s) -> circuit_annotation size s
   | IU3 (theta, phi, lambda) -> circuit_u3 theta phi lambda
   | IRphase (t, op, r0, r1) ->
       if r0 = r1 then
@@ -1440,18 +1620,21 @@ let rec double_big_assoc_op (stop : exprtype) (t : exprtype) : inter_op =
         [("res", type_size (double_big_assoc_type stop t))]
   | _ -> IIdentity t
 
-let rec big_distr_right_type (t0 : exprtype) (t1 : exprtype) =
+let rec big_distr_right_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype)
+    =
   match t0 with
+  | _ when t0 = stop -> ProdType (t0, t1)
   | SumType (t00, t01) ->
-      SumType (ProdType (t00, t1), big_distr_right_type t01 t1)
+      SumType (ProdType (t00, t1), big_distr_right_type stop t01 t1)
   | _ -> ProdType (t0, t1)
 
 (*
 (a0 + (a1 + (a2 + (... + an)))) * b ->
 (a0 * b + (a1 * b + (a2 * b + (... + an * b))))
 *)
-let rec big_distr_right_op (t0 : exprtype) (t1 : exprtype) =
+let rec big_distr_right_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) =
   match t0 with
+  | _ when t0 = stop -> IIdentity (ProdType (t0, t1))
   | SumType (t00, t01) -> begin
       inter_lambda "big_distr_right"
         [("(t00+t01)*t1", type_size (ProdType (t0, t1)))]
@@ -1463,25 +1646,28 @@ let rec big_distr_right_op (t0 : exprtype) (t1 : exprtype) =
             (IDistrRight (t00, t01, t1))
             ["t00+t01"; "t1"];
           inter_letapp ["res"]
-            (IDirsum (IIdentity (ProdType (t00, t1)), big_distr_right_op t01 t1))
+            (IDirsum
+               (IIdentity (ProdType (t00, t1)), big_distr_right_op stop t01 t1))
             ["(t00*t1)+(t01*t1)"];
         ]
-        [("res", type_size (big_distr_right_type t0 t1))]
+        [("res", type_size (big_distr_right_type stop t0 t1))]
     end
   | _ -> IIdentity (ProdType (t0, t1))
 
-let rec big_distr_left_type (t0 : exprtype) (t1 : exprtype) =
+let rec big_distr_left_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype) =
   match t1 with
+  | _ when t1 = stop -> ProdType (t0, t1)
   | SumType (t10, t11) ->
-      SumType (ProdType (t0, t10), big_distr_left_type t0 t11)
+      SumType (ProdType (t0, t10), big_distr_left_type stop t0 t11)
   | _ -> ProdType (t0, t1)
 
 (*
 b * (a0 + (a1 + (a2 + (... + an)))) ->
 (b * a0 + (b * a1 + (b * a2 + (... + b * an))))
 *)
-let rec big_distr_left_op (t0 : exprtype) (t1 : exprtype) =
+let rec big_distr_left_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) =
   match t1 with
+  | _ when t1 = stop -> IIdentity (ProdType (t0, t1))
   | SumType (t10, t11) -> begin
       inter_lambda "big_distr_left"
         [("t0*(t10+t11)", type_size (ProdType (t0, t1)))]
@@ -1493,10 +1679,11 @@ let rec big_distr_left_op (t0 : exprtype) (t1 : exprtype) =
             (IDistrLeft (t0, t10, t11))
             ["t0"; "t10+t11"];
           inter_letapp ["res"]
-            (IDirsum (IIdentity (ProdType (t0, t10)), big_distr_left_op t0 t11))
+            (IDirsum
+               (IIdentity (ProdType (t0, t10)), big_distr_left_op stop t0 t11))
             ["(t0*t10)+(t0*t11)"];
         ]
-        [("res", type_size (big_distr_left_type t0 t1))]
+        [("res", type_size (big_distr_left_type stop t0 t1))]
     end
   | _ -> IIdentity (ProdType (t0, t1))
 
@@ -1614,14 +1801,14 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) : inter_op =
               (IPair (dirsum_type_n_times m t0, t1))
               ["t0^(+m)"; "t1"];
             inter_letapp ["(t0*t1)^(+m)"]
-              (big_distr_right_op mt0 t1)
+              (big_distr_right_op t0 mt0 t1)
               ["t0^(+m)*t1"];
             inter_letapp ["sum(t0*t1^(+nj))"] l_op_sum ["(t0*t1)^(+m)"];
             inter_letapp ["sum((t0*t1)^(+nj))"]
               (dirsum_op_list
                  (List.map
                     (fun nj ->
-                      big_distr_left_op t0 (dirsum_type_n_times nj t1))
+                      big_distr_left_op t1 t0 (dirsum_type_n_times nj t1))
                     njs))
               ["sum(t0*t1^(+nj))"];
             inter_letapp ["res"]
@@ -1812,6 +1999,15 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             let gjs = List.map (fun (x, _, _) -> x) l in
             let ejs = List.map (fun (_, x, _) -> x) l in
             let ej's = List.map (fun (_, _, x) -> x) l in
+            let ej_adj_sum_op =
+              dirsum_op_list
+                (List.map
+                   (fun (ej, gj) ->
+                     IAdjoint
+                       (make_pure_op_take_one_reg StringMap.empty gj t0
+                          (compile_pure_expr_to_inter_op ej)))
+                   (List.combine ejs gjs))
+            in
             let ej_sum_op =
               dirsum_op_list
                 (List.map
@@ -1852,7 +2048,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                   inter_letapp ["g0d0"] (IContextMerge (g, d)) ["g0"; "d0"];
                   inter_letapp ["t0"; "garb"] (IPurify e_op) ["g0d0"];
                   inter_letapp ["t0^(+n)"] ortho_op ["t0"];
-                  inter_letapp ["sum(gj)"] (IAdjoint ej_sum_op) ["t0^(+n)"];
+                  inter_letapp ["sum(gj)"] ej_adj_sum_op ["t0^(+n)"];
                   inter_letapp ["gg*"] (IContextMerge (g, g')) ["g"; "g*"];
                   inter_letapp ["dd*"] (IContextMerge (d, d')) ["d"; "d*"];
                   inter_letapp ["gg*dd*"]
@@ -1863,7 +2059,8 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                     ["sum(gj)"; "gg*dd*"];
                   inter_letapp ["sum(gg*gj*t1)"] ej'_sum_op ["sum(gg*gjdd*)"];
                   inter_letapp ["sum(gg*gj)*t1"]
-                    (IAdjoint (big_distr_right_op fake_context_sumtype t1))
+                    (IAdjoint
+                       (big_distr_right_op Qunit fake_context_sumtype t1))
                     ["sum(gg*gj*t1)"];
                   inter_letapp ["sum(gg*gj)"; "t1"]
                     (IAdjoint (IPair (fake_context_sumtype, t1)))
@@ -2046,20 +2243,14 @@ let expr_compile (annotate : bool) (e : expr) :
   let cs = compile_inter_op_to_circuit op in
   let circ, _ = build_circuit cs [[]] IntSet.empty true in
   let nqubits = List.length circ.prep_reg in
-  let rewiring =
-    IntMap.of_seq (List.to_seq (List.combine circ.prep_reg (range nqubits)))
-  in
+  let circ = rewire_circuit circ circ.prep_reg (range nqubits) in
   let gate =
-    gate_combine_controls
-      (gate_distribute_controls
-         (gate_remove_identities (gate_rewire circ.gate rewiring)))
+    gate_combine_and_distribute_controls (gate_remove_identities circ.gate)
   in
   let out_reg =
     match circ.out_regs with
-    | [out_reg] -> List.map (fun i -> int_map_find_or_keep i rewiring) out_reg
+    | [out_reg] -> out_reg
     | _ -> failwith "Expected single out reg"
   in
-  let flag_reg =
-    List.map (fun i -> int_map_find_or_keep i rewiring) circ.flag_reg
-  in
+  let flag_reg = circ.flag_reg in
     (gate, nqubits, out_reg, flag_reg)

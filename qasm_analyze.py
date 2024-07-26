@@ -8,7 +8,7 @@ from qiskit import qasm3, transpile
 from qiskit_aer import Aer
 from qiskit.visualization import plot_histogram
 from qiskit.circuit import IfElseOp
-
+import matplotlib.pyplot as plt
 
 RED = "\033[0;31m"
 GREEN = "\033[0;32m"
@@ -42,7 +42,6 @@ def draw_circuit(circuit, basename):
         circuit.draw(
             "mpl",
             filename=out_filename,
-            cregbundle=False,
             fold=-1,
         )
     except Exception:
@@ -50,7 +49,6 @@ def draw_circuit(circuit, basename):
             "mpl",
             scale=0.2,
             filename=out_filename,
-            cregbundle=False,
             fold=-1,
         )
     print(f"Diagram in {out_filename}")
@@ -82,7 +80,9 @@ def simulate_circuit(circuit, basename):
                 counts[x] = 0
             counts[x] += y
     out_filename = "diagrams/sim_results/" + basename + "_sim_results.png"
-    plot_histogram(counts, filename=out_filename)
+    fig, ax = plt.subplots()
+    plot_histogram(counts, ax=ax)
+    fig.savefig(out_filename)
     print(f"Results in {out_filename}")
 
 
@@ -103,11 +103,12 @@ path = sys.argv[1]
 if os.path.isdir(path):
     print()
     for filename in os.listdir(path):
-        try:
-            analyze_file(os.path.join(path, filename))
-        except Exception as e:
-            print(f"{RED}Error: {e}{NC}")
-        print()
+        if filename.endswith(".qasm"):
+            try:
+                analyze_file(os.path.join(path, filename))
+            except Exception as e:
+                print(f"{RED}Error: {e}{NC}")
+            print()
 else:
     try:
         analyze_file(path)

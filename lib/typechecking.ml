@@ -269,6 +269,21 @@ let rec spread_qpair_list (l : expr list) : (expr * expr list) list option =
     end
   | _ -> None
 
+(*
+Comparison for two expressions (assumed to be of the same type).
+If the expressions can't both be on the left-hand side of a control block,
+the output is meaningless.
+*)
+and expr_compare (e0 : expr) (e1 : expr) =
+  match (e0, e1) with
+  | Null, Null -> 0
+  | Apply (Left _, _), Apply (Right _, _) -> -1
+  | Apply (Right _, _), Apply (Left _, _) -> 1
+  | Qpair (e00, e01), Qpair (e10, e11) ->
+      let c0 = expr_compare e00 e10 in
+        if c0 = 0 then expr_compare e01 e11 else c0
+  | _ -> 0
+
 let missing_span (t : exprtype) (l : expr list) :
     (expr list * spanning_proof) option =
   let rec missing_span_helper (t : exprtype) (l : expr list) (fv : StringSet.t)
@@ -312,7 +327,11 @@ let missing_span (t : exprtype) (l : expr list) :
               match missing_span_helper t0 (List.map fst l') next_fv with
               | None -> None
               | Some (l0, sp0) -> begin
-                  let l'' = List.map (fun e0 -> (e0, [])) l0 @ l' in
+                  let l'' =
+                    List.sort
+                      (fun (e0, _) (e1, _) -> expr_compare e0 e1)
+                      (List.map (fun e0 -> (e0, [])) l0 @ l')
+                  in
                   let result =
                     all_or_nothing
                       (List.map
@@ -553,6 +572,7 @@ and pure_type_check (g : context) (d : context) (e : expr) :
     end
   (* T-CTRL *)
   | Ctrl (e', t0, l, t1) -> begin
+      let l = List.sort (fun (e0, _) (e1, _) -> expr_compare e0 e1) l in
       let fve' = free_vars e' in
       let g0, g' = map_partition g fve' in
       let d0, d' = map_partition d fve' in

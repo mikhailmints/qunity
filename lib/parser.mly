@@ -176,6 +176,8 @@ ctrlblock:
     | RBRACKET {([], None)}
     | e0 = xexpr; ARROW; e1 = xexpr; SEMICOLON; ELSE; ARROW; e2 = xexpr RBRACKET
         {([(e0, e1)], Some e2)}
+    | e0 = xexpr; ARROW; e1 = xexpr; SEMICOLON; ELSE; ARROW; e2 = xexpr;
+        SEMICOLON; RBRACKET {([(e0, e1)], Some e2)}
     ;
 
 argnames:

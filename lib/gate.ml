@@ -69,33 +69,18 @@ let rec gate_rewire (u : gate) (rewiring : int IntMap.t) : gate =
   match u with
   | Identity -> Identity
   | U3Gate (i, theta, phi, lambda) ->
-      U3Gate (int_map_find_or_keep i rewiring, theta, phi, lambda)
+      U3Gate (int_map_find_or_keep rewiring i, theta, phi, lambda)
   | GphaseGate theta -> GphaseGate theta
-  | Reset i -> Reset (int_map_find_or_keep i rewiring)
+  | Reset i -> Reset (int_map_find_or_keep rewiring i)
   | Swap (i, j) ->
-      Swap (int_map_find_or_keep i rewiring, int_map_find_or_keep j rewiring)
+      Swap (int_map_find_or_keep rewiring i, int_map_find_or_keep rewiring j)
   | Annotation (l, s) ->
-      Annotation (List.map (fun i -> int_map_find_or_keep i rewiring) l, s)
+      Annotation (List.map (int_map_find_or_keep rewiring) l, s)
   | Controlled (l, bl, u0) ->
-      let _ =
-        begin
-          match u0 with
-          | U3Gate (i, _, _, _) ->
-              if List.mem i l then
-                failwith "OOOOOOOFFFFFFF"
-              else if
-                List.mem
-                  (int_map_find_or_keep i rewiring)
-                  (List.map (fun i -> int_map_find_or_keep i rewiring) l)
-              then
-                failwith "PKKLAWOFAWKMF"
-          | _ -> ()
-        end
-      in
-        Controlled
-          ( List.map (fun i -> int_map_find_or_keep i rewiring) l,
-            bl,
-            gate_rewire u0 rewiring )
+      Controlled
+        ( List.map (int_map_find_or_keep rewiring) l,
+          bl,
+          gate_rewire u0 rewiring )
   | Sequence (u0, u1) ->
       Sequence (gate_rewire u0 rewiring, gate_rewire u1 rewiring)
 
@@ -125,32 +110,26 @@ let rec gate_remove_identities (u : gate) : gate =
 (*
 Replace controlled sequences of gates with sequences of controlled gates,
 making the only controlled gates in the end be single-qubit gates,
-global phase gates, swap gates, and other controlled gates.
+global phase gates, and swap gates.
 *)
-let rec gate_distribute_controls (u : gate) : gate =
-  match u with
-  | Controlled (l, bl, Sequence (u0, u1)) ->
-      gate_distribute_controls
-        (Sequence
-           ( Controlled (l, bl, gate_distribute_controls u0),
-             Controlled (l, bl, gate_distribute_controls u1) ))
-  | Sequence (u0, u1) ->
-      Sequence (gate_distribute_controls u0, gate_distribute_controls u1)
-  | _ -> u
-
-(*
-Replace controlled gates controlling other controlled gates with single
-controlled gates that have more control qubits.
-*)
-let rec gate_combine_controls (u : gate) : gate =
+let rec gate_combine_and_distribute_controls (u : gate) : gate =
   match u with
   | Controlled (l, bl, u0) -> begin
-      match gate_combine_controls u0 with
-      | Controlled (l', bl', u0') -> Controlled (l @ l', bl @ bl', u0')
-      | _ -> u
+      match gate_combine_and_distribute_controls u0 with
+      | Controlled (l', bl', u0') ->
+          gate_combine_and_distribute_controls
+            (Controlled (l @ l', bl @ bl', u0'))
+      | Sequence (u0, u1) ->
+          gate_combine_and_distribute_controls
+            (Sequence
+               ( Controlled (l, bl, gate_combine_and_distribute_controls u0),
+                 Controlled (l, bl, gate_combine_and_distribute_controls u1) ))
+      | u0' -> Controlled (l, bl, u0')
     end
   | Sequence (u0, u1) ->
-      Sequence (gate_combine_controls u0, gate_combine_controls u1)
+      Sequence
+        ( gate_combine_and_distribute_controls u0,
+          gate_combine_and_distribute_controls u1 )
   | _ -> u
 
 (*
@@ -160,7 +139,7 @@ let rec gate_share (reg0 : int list) (reg1 : int list) : gate =
   match (reg0, reg1) with
   | [], [] -> Identity
   | h1 :: t1, h2 :: t2 -> gate_cnot h1 h2 @& gate_share t1 t2
-  | _ -> invalid_arg "Registers must be of the same size."
+  | _ -> invalid_arg "Registers must be of the same size"
 
 (*
 Swap two registers of equal size.
@@ -169,7 +148,7 @@ let rec gate_swap_regs (reg0 : int list) (reg1 : int list) : gate =
   match (reg0, reg1) with
   | [], [] -> Identity
   | h1 :: t1, h2 :: t2 -> Swap (h1, h2) @& gate_swap_regs t1 t2
-  | _ -> invalid_arg "Registers must be of the same size."
+  | _ -> invalid_arg "Registers must be of the same size"
 
 (*
 A gate that sends the qubits specified in reg to the positions specified in
@@ -190,8 +169,10 @@ let gate_permute (reg : int list) (perm : int list) =
           @& Swap (a, b)
       end
   in
-  let perm_map = IntMap.of_seq (List.to_seq (List.combine reg perm)) in
-    gate_permute_helper perm_map
+    if List.sort ( - ) reg <> List.sort ( - ) perm then
+      failwith "Registers in permutation must have the same elements";
+    let perm_map = IntMap.of_seq (List.to_seq (List.combine reg perm)) in
+      gate_permute_helper perm_map
 
 (* Left shift gate: permutes 123 into 231. *)
 let rec gate_lshift (reg : int list) : gate =
@@ -272,9 +253,8 @@ let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
   let final =
     gate_semantics_helper
       (u
-      @& gate_permute
-           (out_reg @ int_list_diff (range nqubits) out_reg)
-           (range nqubits))
+      @& gate_permute (range nqubits)
+           (out_reg @ int_list_diff (range nqubits) out_reg))
       (basis_column_vec qdim 0 *@ basis_row_vec qdim 0)
   in
     mat_from_fun (1 lsl l) (1 lsl l) (fun i j ->

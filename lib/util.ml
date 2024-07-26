@@ -119,19 +119,21 @@ let map_partition (d : 'a StringMap.t) (s : StringSet.t) :
     'a StringMap.t * 'a StringMap.t =
   (map_restriction d s, StringMap.filter (fun x _ -> not (StringSet.mem x s)) d)
 
-let int_map_find_or_keep (i : int) (m : int IntMap.t) : int =
+let int_map_find_or_keep (m : int IntMap.t) (i : int) : int =
   match IntMap.find_opt i m with
   | Some j -> j
   | None -> i
 
-let int_list_union (l1 : int list) (l2 : int list) : int list =
-  IntSet.elements (IntSet.union (IntSet.of_list l1) (IntSet.of_list l2))
-
 let int_list_intersection (l1 : int list) (l2 : int list) : int list =
-  IntSet.elements (IntSet.inter (IntSet.of_list l1) (IntSet.of_list l2))
+  let l2_set = IntSet.of_list l2 in
+    List.filter (fun x -> not (IntSet.mem x l2_set)) l1
 
 let int_list_diff (l1 : int list) (l2 : int list) : int list =
-  IntSet.elements (IntSet.diff (IntSet.of_list l1) (IntSet.of_list l2))
+  let l2_set = IntSet.of_list l2 in
+    List.filter (fun x -> not (IntSet.mem x l2_set)) l1
+
+let int_list_union (l1 : int list) (l2 : int list) : int list =
+  l1 @ int_list_diff l2 l1
 
 let rec int_list_max (l : int list) : int =
   match l with

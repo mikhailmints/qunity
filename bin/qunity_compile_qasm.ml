@@ -39,13 +39,14 @@ let rec gate_to_qasm_str (u : gate) : string =
     match u with
     | Controlled (l, bl, u0) -> begin
         match u0 with
-        | Sequence _ -> failwith "TODO"
+        | Sequence _ -> failwith "Controls should be distributed"
         | Controlled _ -> failwith "Controls should be combined"
         | Annotation (l, s) ->
             if l = [] then
               ""
             else
               Printf.sprintf "// %s %s\n" s (string_of_list string_of_int l)
+        | GphaseGate Pi when List.length l = 1 -> Printf.sprintf "z q[%d];\n" (List.hd l)
         | _ ->
             let s, l0 = simple_gate_to_qasm_str u0 in
               List.fold_left
