@@ -14,6 +14,11 @@ let simple_gate_to_qasm_str (u : gate) : string * int list =
       then
         ("x", [i])
       else if
+        gate_equal u (gate_pauliz i)
+        || gate_equal u (gate_adjoint (gate_pauliz i))
+      then
+        ("z", [i])
+      else if
         gate_equal u (gate_had i) || gate_equal u (gate_adjoint (gate_had i))
       then
         ("h", [i])
@@ -46,7 +51,8 @@ let rec gate_to_qasm_str (u : gate) : string =
               ""
             else
               Printf.sprintf "// %s %s\n" s (string_of_list string_of_int l)
-        | GphaseGate Pi when List.length l = 1 -> Printf.sprintf "z q[%d];\n" (List.hd l)
+        | GphaseGate Pi when List.length l = 1 ->
+            Printf.sprintf "z q[%d];\n" (List.hd l)
         | _ ->
             let s, l0 = simple_gate_to_qasm_str u0 in
               List.fold_left

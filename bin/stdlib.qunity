@@ -16,6 +16,8 @@ def Had := u3 {pi/2, 0, pi} end
 
 def Qnot := u3 {pi, 0, pi} end
 
+def PauliZ := u3 {0, pi, 0} end
+
 def Adjoint <F, T> :=
     lambda (F of x) {T} -> x
 end
@@ -207,4 +209,102 @@ def Retry <N, E> :=
             try E catch Retry <[N - 1], E>
         endif
     endif
+end
+
+def And :=
+    lambda x {Bit * Bit} ->
+    ctrl {Bit * Bit, (Bit * Bit) * Bit} x [
+        (Bit0, Bit0) -> (x, Bit0);
+        (Bit0, Bit1) -> (x, Bit0);
+        (Bit1, Bit0) -> (x, Bit0);
+        (Bit1, Bit1) -> (x, Bit1)
+    ] |> Snd <Bit * Bit, Bit>
+end
+
+/*
+Utilities for the Quantum Fourier Transform
+*/
+def Couple <K> :=
+    lambda (x0, x1) {Bit * Bit} ->
+    ctrl {Bit, Bit * Bit} And of (x0, x1) [
+        Bit0 -> (x1, x0);
+        Bit1 -> (x1, x0) |> gphase {Bit * Bit, 2 * pi / (2 ^ K)}
+    ]
+end
+
+def Rotations <N> :=
+    if N = [0] then
+        Qid <qunit>
+    else
+        if N = [1] then
+            lambda (x, ()) {NTensorT <[1], Bit>} -> (Had of x, ())
+        else
+            lambda (x0, x) {NTensorT <N, Bit>} ->
+            let (x0, (y0', y)) {NTensorT <N, Bit>} =
+            (x0, x |> Rotations <[N - 1]>) in
+            let ((y0, y1), y) {(Bit * Bit) * NTensorT <[N - 2], Bit>} =
+            ((x0, y0') |> Couple <N>, y) in (y0, (y1, y))
+        endif
+    endif
+end
+
+/*
+Quantum Fourier Transform on N bits
+*/
+def Qft <N> :=
+    if N = [0] then
+        Qid <qunit>
+    else
+        lambda x {NTensorT <N, Bit>} ->
+        let (x0, x') {NTensorT <N, Bit>} =
+        x |> Rotations <N> in
+        (x0, x' |> Qft <[N - 1]>)
+    endif
+end
+
+/*
+Using Qunity to construct circuits in the style of the standard circuit model.
+By using the following constructions, we can write quantum circuits in terms of
+single-qubit gates and the CNOT gate.
+*/
+
+def Gate1Q <N, I, F> :=
+    if I lt [0] then
+        fail
+    else
+        if I = [0] then
+            lambda (x, y) {NTensorT <[N], Bit>} -> (F of x, y)
+        else
+            lambda (x, y) {NTensorT <[N], Bit>} ->
+                (x, Gate1Q <[N - 1], [I - 1], F> of y)
+        endif
+    endif
+end
+
+def Controlled1Q <N, I, J, F> :=
+    if I gt J then
+        lambda x {NTensorT <[N], Bit>} -> x
+        |> Reverse <[N], Bit>
+        |> Cnot <[N], [N - 1 - I], [N - 1 - J]>
+        |> Reverse <[N], Bit>
+    else
+        if I = [0] then
+            if J leq [0] then
+                fail
+            else
+                lambda (x, y) {NTensorT <[N], Bit>} ->
+                    ctrl {Bit, NTensorT <[N], Bit>} x [
+                        Bit0 -> (x, y);
+                        Bit1 -> (x, Gate1Q <[N - 1], [J - 1], F> of y)
+                    ]
+            endif
+        else
+            lambda (x, y) {NTensorT <[N], Bit>} ->
+                (x, Cnot <[N - 1], [I - 1], [J - 1]> of y)
+        endif
+    endif
+end
+
+def Cnot <N, I, J> :=
+    Controlled1Q <[N], [I], [J], Qnot>
 end

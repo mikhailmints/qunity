@@ -20,6 +20,7 @@ let ( @& ) a b = Sequence (a, b)
 
 (* Simple utility gate definitions *)
 let gate_paulix (i : int) : gate = U3Gate (i, Pi, Const 0, Pi)
+let gate_pauliz (i : int) : gate = U3Gate (i, Const 0, Pi, Const 0)
 let gate_had (i : int) : gate = U3Gate (i, Div (Pi, Const 2), Const 0, Pi)
 
 let gate_cnot (b0 : int) (b1 : int) : gate =

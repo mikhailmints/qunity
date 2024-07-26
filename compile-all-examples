@@ -23,6 +23,8 @@ while :; do
     shift
 done
 
+rm -f qasm_out/*.qasm
+
 if $analyze; then
     rm -f diagrams/circuits/*
     rm -f diagrams/sim_results/*
