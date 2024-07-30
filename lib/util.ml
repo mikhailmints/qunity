@@ -126,7 +126,7 @@ let int_map_find_or_keep (m : int IntMap.t) (i : int) : int =
 
 let int_list_intersection (l1 : int list) (l2 : int list) : int list =
   let l2_set = IntSet.of_list l2 in
-    List.filter (fun x -> not (IntSet.mem x l2_set)) l1
+    List.filter (fun x -> IntSet.mem x l2_set) l1
 
 let int_list_diff (l1 : int list) (l2 : int list) : int list =
   let l2_set = IntSet.of_list l2 in

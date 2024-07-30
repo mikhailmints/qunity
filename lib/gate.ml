@@ -26,13 +26,10 @@ let gate_had (i : int) : gate = U3Gate (i, Div (Pi, Const 2), Const 0, Pi)
 let gate_cnot (b0 : int) (b1 : int) : gate =
   Controlled ([b0], [true], gate_paulix b1)
 
-let gate_equal (u0 : gate) (u1 : gate) =
-  match (u0, u1) with
-  | U3Gate (i0, theta0, phi0, lambda0), U3Gate (i1, theta1, phi1, lambda1) ->
-      i0 = i1 && real_equal theta0 theta1 && real_equal phi0 phi1
-      && real_equal lambda0 lambda1
-  | GphaseGate theta0, GphaseGate theta1 -> real_equal theta0 theta1
-  | _ -> u0 = u1
+let gate_is_unitary (u : gate) : bool =
+  match u with
+  | Reset _ -> false
+  | _ -> true
 
 (*
 Take the adjoint of a unitary gate.
@@ -41,13 +38,32 @@ let rec gate_adjoint (u : gate) : gate =
   match u with
   | Identity -> Identity
   | U3Gate (i, theta, phi, lambda) ->
-      U3Gate (i, Negate theta, Negate lambda, Negate phi)
+      if u = gate_paulix i || u = gate_pauliz i || u = gate_had i then
+        u
+      else
+        U3Gate (i, Negate theta, Negate lambda, Negate phi)
   | GphaseGate theta -> GphaseGate (Negate theta)
   | Reset _ -> failwith "Can't take adjoint of reset"
   | Swap (i, j) -> Swap (i, j)
   | Annotation (l, s) -> Annotation (l, s)
   | Controlled (l, bl, u0) -> Controlled (l, bl, gate_adjoint u0)
   | Sequence (u0, u1) -> Sequence (gate_adjoint u1, gate_adjoint u0)
+
+(*
+These are some sufficient (but not necessary) conditions for two gates to
+be equal.
+*)
+let rec gate_equal (u0 : gate) (u1 : gate) =
+  match (u0, u1) with
+  | U3Gate (i0, theta0, phi0, lambda0), U3Gate (i1, theta1, phi1, lambda1) ->
+      i0 = i1 && real_equal theta0 theta1 && real_equal phi0 phi1
+      && real_equal lambda0 lambda1
+  | GphaseGate theta0, GphaseGate theta1 -> real_equal theta0 theta1
+  | Controlled (l0, bl0, u0), Controlled (l1, bl1, u1) ->
+      l0 = l1 && bl0 = bl1 && gate_equal u0 u1
+  | Sequence (u00, u01), Sequence (u10, u11) ->
+      gate_equal u00 u10 && gate_equal u01 u11
+  | _ -> u0 = u1
 
 let rec gate_qubits_used (u : gate) : IntSet.t =
   match u with
@@ -66,24 +82,25 @@ let rec gate_qubits_used (u : gate) : IntSet.t =
 Rewire a gate by replacing all references to certain qubits with
 other qubits.
 *)
-let rec gate_rewire (u : gate) (rewiring : int IntMap.t) : gate =
-  match u with
-  | Identity -> Identity
-  | U3Gate (i, theta, phi, lambda) ->
-      U3Gate (int_map_find_or_keep rewiring i, theta, phi, lambda)
-  | GphaseGate theta -> GphaseGate theta
-  | Reset i -> Reset (int_map_find_or_keep rewiring i)
-  | Swap (i, j) ->
-      Swap (int_map_find_or_keep rewiring i, int_map_find_or_keep rewiring j)
-  | Annotation (l, s) ->
-      Annotation (List.map (int_map_find_or_keep rewiring) l, s)
-  | Controlled (l, bl, u0) ->
-      Controlled
-        ( List.map (int_map_find_or_keep rewiring) l,
-          bl,
-          gate_rewire u0 rewiring )
-  | Sequence (u0, u1) ->
-      Sequence (gate_rewire u0 rewiring, gate_rewire u1 rewiring)
+let rec gate_rewire (u : gate) (source : int list) (target : int list) : gate =
+  let rewiring = IntMap.of_seq (List.to_seq (List.combine source target)) in
+    match u with
+    | Identity -> Identity
+    | U3Gate (i, theta, phi, lambda) ->
+        U3Gate (int_map_find_or_keep rewiring i, theta, phi, lambda)
+    | GphaseGate theta -> GphaseGate theta
+    | Reset i -> Reset (int_map_find_or_keep rewiring i)
+    | Swap (i, j) ->
+        Swap (int_map_find_or_keep rewiring i, int_map_find_or_keep rewiring j)
+    | Annotation (l, s) ->
+        Annotation (List.map (int_map_find_or_keep rewiring) l, s)
+    | Controlled (l, bl, u0) ->
+        Controlled
+          ( List.map (int_map_find_or_keep rewiring) l,
+            bl,
+            gate_rewire u0 source target )
+    | Sequence (u0, u1) ->
+        Sequence (gate_rewire u0 source target, gate_rewire u1 source target)
 
 (*
 Remove all identity gates from a circuit, unless the entire circuit is
@@ -132,6 +149,36 @@ let rec gate_combine_and_distribute_controls (u : gate) : gate =
         ( gate_combine_and_distribute_controls u0,
           gate_combine_and_distribute_controls u1 )
   | _ -> u
+
+let rec gate_to_list (u : gate) : gate list =
+  match u with
+  | Sequence (u0, u1) -> gate_to_list u0 @ gate_to_list u1
+  | _ -> [u]
+
+let rec gate_of_list (ul : gate list) : gate =
+  match ul with
+  | [] -> Identity
+  | [u] -> u
+  | u :: ul' -> Sequence (u, gate_of_list ul')
+
+let rec gate_optimization_pass (ul : gate list) : gate list * bool =
+  match ul with
+  | [] -> ([], false)
+  | u :: u' :: ul' when gate_is_unitary u && gate_equal u' (gate_adjoint u) ->
+      (fst (gate_optimization_pass ul'), true)
+  | u :: ul' ->
+      let ul'', changes_made = gate_optimization_pass ul' in
+        (u :: ul'', changes_made)
+
+let rec gate_list_optimize (ul : gate list) : gate list =
+  let ul_opt, changes_made = gate_optimization_pass ul in
+    if changes_made then
+      gate_list_optimize ul_opt
+    else
+      ul
+
+let gate_optimize (u : gate) : gate =
+  gate_of_list (gate_list_optimize (gate_to_list u))
 
 (*
 Share a register to another one by applying CNOT gates for each qubit.

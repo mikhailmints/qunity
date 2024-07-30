@@ -173,7 +173,7 @@ let rewire_circuit (circ : circuit) (source : int list) (target : int list) :
         List.map (List.map (int_map_find_or_keep rewiring)) circ.out_regs;
       flag_reg = List.map (int_map_find_or_keep rewiring) circ.flag_reg;
       garb_reg = List.map (int_map_find_or_keep rewiring) circ.garb_reg;
-      gate = gate_rewire circ.gate rewiring;
+      gate = gate_rewire circ.gate source target;
     }
 
 (*
@@ -519,7 +519,11 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
                   flag_reg =
                     List.map (int_map_find_or_keep rewiring) circ.prep_reg;
                   garb_reg = [];
-                  gate = gate_adjoint (gate_rewire circ.gate rewiring);
+                  gate =
+                    gate_adjoint
+                      (gate_rewire circ.gate
+                         (List.flatten circ.out_regs)
+                         (List.flatten in_regs));
                 },
                 used_wires )
       end;
@@ -2242,15 +2246,25 @@ let expr_compile (annotate : bool) (e : expr) :
   let op = compile_mixed_expr_to_inter_op tp in
   let cs = compile_inter_op_to_circuit op in
   let circ, _ = build_circuit cs [[]] IntSet.empty true in
-  let nqubits = List.length circ.prep_reg in
-  let circ = rewire_circuit circ circ.prep_reg (range nqubits) in
   let gate =
-    gate_combine_and_distribute_controls (gate_remove_identities circ.gate)
+    gate_optimize
+      (gate_combine_and_distribute_controls (gate_remove_identities circ.gate))
   in
+  let qubits_used =
+    List.of_seq
+      (IntSet.to_seq
+         (IntSet.union (gate_qubits_used gate)
+            (IntSet.of_list (List.flatten circ.out_regs))))
+  in
+  let nqubits = List.length qubits_used in
+  let rewire_source = qubits_used @ int_list_diff circ.prep_reg qubits_used in
+  let rewire_target = range (List.length rewire_source) in
+  let circ = rewire_circuit circ rewire_source rewire_target in
+  let gate = gate_rewire gate rewire_source rewire_target in
   let out_reg =
     match circ.out_regs with
     | [out_reg] -> out_reg
     | _ -> failwith "Expected single out reg"
   in
-  let flag_reg = circ.flag_reg in
+  let flag_reg = int_list_intersection circ.flag_reg (range nqubits) in
     (gate, nqubits, out_reg, flag_reg)

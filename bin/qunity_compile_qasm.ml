@@ -8,19 +8,11 @@ let simple_gate_to_qasm_str (u : gate) : string * int list =
   match u with
   | Identity -> failwith "Identities should be removed"
   | U3Gate (i, theta, phi, lambda) ->
-      if
-        gate_equal u (gate_paulix i)
-        || gate_equal u (gate_adjoint (gate_paulix i))
-      then
+      if gate_equal u (gate_paulix i) then
         ("x", [i])
-      else if
-        gate_equal u (gate_pauliz i)
-        || gate_equal u (gate_adjoint (gate_pauliz i))
-      then
+      else if gate_equal u (gate_pauliz i) then
         ("z", [i])
-      else if
-        gate_equal u (gate_had i) || gate_equal u (gate_adjoint (gate_had i))
-      then
+      else if gate_equal u (gate_had i) then
         ("h", [i])
       else
         ( Printf.sprintf "U(%s, %s, %s)"
