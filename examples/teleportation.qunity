@@ -1,9 +1,6 @@
-let (message, (bellAlice, (bellBob, ()))) {Bit * NTensorT <[2], Bit>} =
-    (Bit0 |> u3 {2 * arccos(sqrt(1 / 3)), 0, 0},
-        NTensorE <[2], Bit0>
-        |> Gate1Q <[2], [0], Had>
-        |> Cnot <[2], [0], [1]>
-    )
+let bellAlice {Bit} = BitPlus in
+let (message, (bellAlice, bellBob)) {Bit * (Bit * Bit)} =
+    (Bit0 |> u3 {2 * arccos(sqrt(1 / 3)), 0, 0}, (bellAlice, bellAlice))
 in
 let (bellBob, toSend) {Bit * NTensorT <[2], Bit>} = (bellBob,
     (message, (bellAlice, ()))

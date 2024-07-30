@@ -285,7 +285,7 @@ def Controlled1Q <N, I, J, F> :=
     if I gt J then
         lambda x {NTensorT <[N], Bit>} -> x
         |> Reverse <[N], Bit>
-        |> Cnot <[N], [N - 1 - I], [N - 1 - J]>
+        |> Controlled1Q <[N], [N - 1 - I], [N - 1 - J], F>
         |> Reverse <[N], Bit>
     else
         if I = [0] then
