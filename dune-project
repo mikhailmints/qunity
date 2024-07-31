@@ -21,7 +21,7 @@
  (name qunity)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune menhir)
+ (depends ocaml dune menhir num)
  (tags
   (topics "to describe" your project)))
 
