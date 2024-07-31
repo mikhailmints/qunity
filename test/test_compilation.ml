@@ -7,7 +7,7 @@ open Compilation
 open Matrix
 open Gate
 
-let all_passed = ref false
+let all_passed = ref true
 
 let rec expr_to_encoded_basis_state (e : expr) : matrix =
   let t = type_of_pure_expr_proof (pure_type_check_noopt e) in
