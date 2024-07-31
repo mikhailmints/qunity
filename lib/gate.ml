@@ -11,6 +11,7 @@ type gate =
   | U3Gate of (int * real * real * real)
   | GphaseGate of real
   | Reset of int
+  | MeasureAsErr of int
   | Swap of int * int
   | Annotation of int list * string
   | Controlled of (int list * bool list * gate)
@@ -29,6 +30,7 @@ let gate_cnot (b0 : int) (b1 : int) : gate =
 let gate_is_unitary (u : gate) : bool =
   match u with
   | Reset _ -> false
+  | MeasureAsErr _ -> false
   | _ -> true
 
 (*
@@ -44,6 +46,7 @@ let rec gate_adjoint (u : gate) : gate =
         U3Gate (i, Negate theta, Negate lambda, Negate phi)
   | GphaseGate theta -> GphaseGate (Negate theta)
   | Reset _ -> failwith "Can't take adjoint of reset"
+  | MeasureAsErr _ -> failwith "Can't take adjoint of measurement"
   | Swap (i, j) -> Swap (i, j)
   | Annotation (l, s) -> Annotation (l, s)
   | Controlled (l, bl, u0) -> Controlled (l, bl, gate_adjoint u0)
@@ -71,12 +74,20 @@ let rec gate_qubits_used (u : gate) : IntSet.t =
   | U3Gate (i, _, _, _) -> IntSet.singleton i
   | GphaseGate _ -> IntSet.empty
   | Reset i -> IntSet.singleton i
+  | MeasureAsErr i -> IntSet.singleton i
   | Swap (i, j) -> IntSet.of_list [i; j]
   | Annotation (l, _) -> IntSet.of_list l
   | Controlled (l, _, u0) ->
       IntSet.union (IntSet.of_list l) (gate_qubits_used u0)
   | Sequence (u0, u1) ->
       IntSet.union (gate_qubits_used u0) (gate_qubits_used u1)
+
+let rec gate_num_err_measurements (u : gate) : int =
+  match u with
+  | MeasureAsErr _ -> 1
+  | Sequence (u0, u1) ->
+      gate_num_err_measurements u0 + gate_num_err_measurements u1
+  | _ -> 0
 
 (*
 Rewire a gate by replacing all references to certain qubits with
@@ -90,6 +101,7 @@ let rec gate_rewire (u : gate) (source : int list) (target : int list) : gate =
         U3Gate (int_map_find_or_keep rewiring i, theta, phi, lambda)
     | GphaseGate theta -> GphaseGate theta
     | Reset i -> Reset (int_map_find_or_keep rewiring i)
+    | MeasureAsErr i -> MeasureAsErr (int_map_find_or_keep rewiring i)
     | Swap (i, j) ->
         Swap (int_map_find_or_keep rewiring i, int_map_find_or_keep rewiring j)
     | Annotation (l, s) ->
@@ -238,6 +250,11 @@ let rec gate_reset_reg (reg : int list) : gate =
   | [] -> Identity
   | h :: t -> Reset h @& gate_reset_reg t
 
+let rec gate_measure_reg_as_err (reg : int list) : gate =
+  match reg with
+  | [] -> Identity
+  | h :: t -> MeasureAsErr h @& gate_measure_reg_as_err t
+
 let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
   let qdim = 1 lsl nqubits in
   let rec gate_unitary_semantics (u : gate) : matrix =
@@ -276,9 +293,11 @@ let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
     | Sequence (u0, u1) ->
         gate_unitary_semantics u1 *@ gate_unitary_semantics u0
     | Reset _ -> failwith "Reset is not a unitary gate"
+    | MeasureAsErr _ -> failwith "Measurement is not a unitary gate"
   in
   let rec gate_semantics_helper (u : gate) (state : matrix) : matrix =
     match u with
+    | MeasureAsErr _ -> state
     | Reset a ->
         mat_from_fun qdim qdim
           begin

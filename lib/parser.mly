@@ -101,37 +101,37 @@ qunityfile:
     ;
 
 xexpr:
-    | NULL {Null}
-    | x = VAR {Var x}
-    | LPAREN; e0 = xexpr; COMMA; e1 = xexpr; RPAREN {Qpair (e0, e1)}
+    | NULL {XNull}
+    | x = VAR {XVar x}
+    | LPAREN; e0 = xexpr; COMMA; e1 = xexpr; RPAREN {XQpair (e0, e1)}
     | CTRL; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE; e = xexpr; LBRACKET;
-        l = ctrlblock {Ctrl (e, t0, fst l, t1, snd l)}
-    | TRY; e0 = xexpr; CATCH e1 = xexpr {Try (e0, e1)}
-    | f = xexpr; OF; e = xexpr  {Apply (f, e)}
-    | e = xexpr; PIPE; f = xexpr {Apply (f, e)}
+        l = ctrlblock {XCtrl (e, t0, fst l, t1, snd l)}
+    | TRY; e0 = xexpr; CATCH e1 = xexpr {XTry (e0, e1)}
+    | f = xexpr; OF; e = xexpr  {XApply (f, e)}
+    | e = xexpr; PIPE; f = xexpr {XApply (f, e)}
     | LET; e0 = xexpr; LBRACE; t = xexpr; RBRACE; EQUAL; e1 = xexpr; IN;
-        e2 = xexpr {Apply (Lambda (e0, t, e2), e1)}
-    | VOID {Void}
-    | QUNIT {Qunit}
-    | t0 = xexpr; PLUS; t1 = xexpr {SumType (t0, t1)}
-    | t0 = xexpr; TIMES; t1 = xexpr {ProdType (t0, t1)}
+        e2 = xexpr {XApply (XLambda (e0, t, e2), e1)}
+    | VOID {XVoid}
+    | QUNIT {XQunit}
+    | t0 = xexpr; PLUS; t1 = xexpr {XSumType (t0, t1)}
+    | t0 = xexpr; TIMES; t1 = xexpr {XProdType (t0, t1)}
     | U3; LBRACE; theta = real; COMMA; phi = real; COMMA; lambda = real;
-        RBRACE {U3 (theta, phi, lambda)}
-    | LEFT; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE {Left (t0, t1)}
-    | RIGHT; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE {Right (t0, t1)}
+        RBRACE {XU3 (theta, phi, lambda)}
+    | LEFT; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE {XLeft (t0, t1)}
+    | RIGHT; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE {XRight (t0, t1)}
     | LAMBDA; e0 = xexpr; LBRACE; t = xexpr; RBRACE; ARROW;
-        e1 = xexpr {Lambda (e0, t, e1)}
+        e1 = xexpr {XLambda (e0, t, e1)}
     | RPHASE; LBRACE; t = xexpr; COMMA; er = xexpr; COMMA; r0 = real; COMMA;
-        r1 = real; RBRACE {Rphase (t, er, r0, r1)}
+        r1 = real; RBRACE {XRphase (t, er, r0, r1)}
     | GPHASE; LBRACE; t = xexpr; COMMA; r = real;
-        RBRACE {Rphase (t, Var "_", r, r)}
+        RBRACE {XRphase (t, XVar "_", r, r)}
     | LBRACKET; r = real; RBRACKET {XReal r}
-    | name = XVAR {Invoke (name, [])}
-    | name = XVAR; LANGLE; l = arglist {Invoke (name, l)}
+    | name = XVAR {XInvoke (name, [])}
+    | name = XVAR; LANGLE; l = arglist {XInvoke (name, l)}
     | IF; v0 = xexpr; c = cmp; v1 = xexpr; THEN; vtrue = xexpr;
-        ELSE vfalse = xexpr; ENDIF {Ifcmp (v0, c, v1, vtrue, vfalse)}
+        ELSE vfalse = xexpr; ENDIF {XIfcmp (v0, c, v1, vtrue, vfalse)}
     | LPAREN; x = xexpr; RPAREN {x}
-    | FAIL {Fail}
+    | FAIL {XFail}
     ;
 
 cmp :
@@ -146,7 +146,7 @@ real:
     | PI {XPi}
     | EULER {XEuler}
     | x = CONST {XConst x}
-    | x = XVAR; {XVar x}
+    | x = XVAR; {XRealVar x}
     | MINUS; r = real {XNegate r}
     | r0 = real; PLUS; r1 = real {XPlus (r0, r1)}
     | r0 = real; TIMES; r1 = real {XTimes (r0, r1)}

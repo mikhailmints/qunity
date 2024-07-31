@@ -36,7 +36,7 @@ let test_compilation_correctness (testname : string) (e : expr) =
   Printf.printf "%s: " testname;
   try
     let t = type_of_mixed_expr_proof (mixed_type_check_noopt e) in
-    let gate, nqubits, out_reg, _ = expr_compile false e in
+    let gate, nqubits, out_reg = expr_compile false e in
     let gate_sem = gate_semantics gate nqubits out_reg in
     let sem = top_mixed_expr_semantics e in
       if

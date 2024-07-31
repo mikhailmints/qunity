@@ -129,8 +129,8 @@ let get_expr_from_file (prog_filename : string) : expr optionE =
       end
 
 let compile_file (prog_filename : string) (out_filename : string)
-    (gate_compiler : gate -> int -> int list -> int list -> string)
-    (annotate : bool) : unit =
+    (gate_compiler : gate -> int -> int list -> string) (annotate : bool) :
+    unit =
   let e_opt = get_expr_from_file prog_filename in
     match e_opt with
     | NoneE err ->
@@ -142,8 +142,8 @@ let compile_file (prog_filename : string) (out_filename : string)
             Printf.printf "Typechecking error: %s\n" err;
             exit 1
         | SomeE _ -> begin
-            let gate, nqubits, out_reg, flag_reg = expr_compile annotate e in
-            let qasm_str = gate_compiler gate nqubits out_reg flag_reg in
+            let gate, nqubits, out_reg = expr_compile annotate e in
+            let qasm_str = gate_compiler gate nqubits out_reg in
             let out_file = open_out out_filename in
               Printf.fprintf out_file "%s" qasm_str
           end

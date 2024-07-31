@@ -6,28 +6,28 @@ open Typechecking
 type comparison = Equal | Leq | Lt | Geq | Gt
 
 type xexpr =
-  | Null
-  | Var of string
-  | Qpair of (xexpr * xexpr)
-  | Ctrl of (xexpr * xexpr * (xexpr * xexpr) list * xexpr * xexpr option)
-  | Try of (xexpr * xexpr)
-  | Apply of (xexpr * xexpr)
-  | Void
-  | Qunit
-  | SumType of (xexpr * xexpr)
-  | ProdType of (xexpr * xexpr)
-  | U3 of (xexpr * xexpr * xexpr)
-  | Left of (xexpr * xexpr)
-  | Right of (xexpr * xexpr)
-  | Lambda of (xexpr * xexpr * xexpr)
-  | Rphase of (xexpr * xexpr * xexpr * xexpr)
+  | XNull
+  | XVar of string
+  | XQpair of (xexpr * xexpr)
+  | XCtrl of (xexpr * xexpr * (xexpr * xexpr) list * xexpr * xexpr option)
+  | XTry of (xexpr * xexpr)
+  | XApply of (xexpr * xexpr)
+  | XVoid
+  | XQunit
+  | XSumType of (xexpr * xexpr)
+  | XProdType of (xexpr * xexpr)
+  | XU3 of (xexpr * xexpr * xexpr)
+  | XLeft of (xexpr * xexpr)
+  | XRight of (xexpr * xexpr)
+  | XLambda of (xexpr * xexpr * xexpr)
+  | XRphase of (xexpr * xexpr * xexpr * xexpr)
   | XReal of xexpr
-  | Invoke of string * xexpr list
-  | Ifcmp of (xexpr * comparison * xexpr * xexpr * xexpr)
+  | XInvoke of string * xexpr list
+  | XIfcmp of (xexpr * comparison * xexpr * xexpr * xexpr)
   | XPi
   | XEuler
   | XConst of int
-  | XVar of string
+  | XRealVar of string
   | XNegate of xexpr
   | XPlus of (xexpr * xexpr)
   | XTimes of (xexpr * xexpr)
@@ -46,7 +46,7 @@ type xexpr =
   | XSqrt of xexpr
   | XCeil of xexpr
   | XFloor of xexpr
-  | Fail
+  | XFail
 
 and xresult =
   | RReal of real
@@ -66,7 +66,7 @@ let rec realexpr_eval (r : xexpr) (dm : defmap) (xv : xvaluation) : real =
   | XPi -> Pi
   | XEuler -> Euler
   | XConst x -> Const x
-  | XVar x -> begin
+  | XRealVar x -> begin
       match StringMap.find_opt x xv with
       | Some value -> begin
           match value with
@@ -75,7 +75,7 @@ let rec realexpr_eval (r : xexpr) (dm : defmap) (xv : xvaluation) : real =
           | _ -> failwith "Expected real"
         end
       | _ -> begin
-          match xexpr_eval (Invoke (x, [])) dm xv with
+          match xexpr_eval (XInvoke (x, [])) dm xv with
           | RReal r -> r
           | _ -> failwith (Printf.sprintf "Value %s not found" x)
         end
@@ -117,9 +117,9 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
       end
   in
     match v with
-    | Null -> RExpr Null
-    | Var x -> RExpr (Var x)
-    | Qpair (xe0, xe1) -> begin
+    | XNull -> RExpr Null
+    | XVar x -> RExpr (Var x)
+    | XQpair (xe0, xe1) -> begin
         match (xexpr_eval xe0 dm xv, xexpr_eval xe1 dm xv) with
         | RExpr e0, RExpr e1 -> RExpr (Qpair (e0, e1))
         | RNone err, _
@@ -127,7 +127,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
             RNone (err ^ "\nin Qpair")
         | _, _ -> RNone "Expected expression"
       end
-    | Ctrl (xe0, xt0, xl, xt1, xelseopt) -> begin
+    | XCtrl (xe0, xt0, xl, xt1, xelseopt) -> begin
         match
           ( xexpr_eval xe0 dm xv,
             xexpr_eval xt0 dm xv,
@@ -151,7 +151,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
             RNone err
         | _ -> RNone "Preprocessing error in Ctrl"
       end
-    | Try (xe0, xe1) -> begin
+    | XTry (xe0, xe1) -> begin
         match (xexpr_eval xe0 dm xv, xexpr_eval xe1 dm xv) with
         | RExpr e0, RExpr e1 -> RExpr (Try (e0, e1))
         | RNone err, _
@@ -159,7 +159,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
             RNone (err ^ "\nin Try")
         | _, _ -> RNone "Expected expression in Try"
       end
-    | Apply (xf, xe') -> begin
+    | XApply (xf, xe') -> begin
         match (xexpr_eval xf dm xv, xexpr_eval xe' dm xv) with
         | RProg f, RExpr e' -> RExpr (Apply (f, e'))
         | RNone err, _
@@ -167,9 +167,9 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
             RNone (err ^ "\nin Apply")
         | _ -> RNone "Expected expression in Apply"
       end
-    | Void -> RType Void
-    | Qunit -> RType Qunit
-    | SumType (xt0, xt1) -> begin
+    | XVoid -> RType Void
+    | XQunit -> RType Qunit
+    | XSumType (xt0, xt1) -> begin
         match (xexpr_eval xt0 dm xv, xexpr_eval xt1 dm xv) with
         | RType t0, RType t1 -> RType (SumType (t0, t1))
         | RNone err, _
@@ -177,7 +177,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
             RNone (err ^ "\nin SumType")
         | _ -> RNone "Expected type in SumType"
       end
-    | ProdType (xt0, xt1) -> begin
+    | XProdType (xt0, xt1) -> begin
         match (xexpr_eval xt0 dm xv, xexpr_eval xt1 dm xv) with
         | RType t0, RType t1 -> RType (ProdType (t0, t1))
         | RNone err, _
@@ -185,7 +185,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
             RNone (err ^ "\nin ProdType")
         | _ -> RNone "Expected type in ProdType"
       end
-    | U3 (theta, phi, lambda) -> begin
+    | XU3 (theta, phi, lambda) -> begin
         try
           RProg
             (U3
@@ -195,7 +195,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
         with
         | Failure err -> RNone err
       end
-    | Left (xt0, xt1) -> begin
+    | XLeft (xt0, xt1) -> begin
         match (xexpr_eval xt0 dm xv, xexpr_eval xt1 dm xv) with
         | RType t0, RType t1 -> RProg (Left (t0, t1))
         | RNone err, _
@@ -203,7 +203,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
             RNone (err ^ "\nin Left")
         | _ -> RNone "Expected program in Left"
       end
-    | Right (xt0, xt1) -> begin
+    | XRight (xt0, xt1) -> begin
         match (xexpr_eval xt0 dm xv, xexpr_eval xt1 dm xv) with
         | RType t0, RType t1 -> RProg (Right (t0, t1))
         | RNone err, _
@@ -211,7 +211,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
             RNone (err ^ "\nin Right")
         | _ -> RNone "Expected program in Right"
       end
-    | Lambda (xe, xt, xe') -> begin
+    | XLambda (xe, xt, xe') -> begin
         match
           (xexpr_eval xe dm xv, xexpr_eval xt dm xv, xexpr_eval xe' dm xv)
         with
@@ -222,7 +222,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
             RNone (err ^ "\nin Lambda")
         | _ -> RNone "Expected program in Lambda"
       end
-    | Rphase (xt, xer, r0, r1) -> begin
+    | XRphase (xt, xer, r0, r1) -> begin
         match (xexpr_eval xt dm xv, xexpr_eval xer dm xv) with
         | RType t, RExpr er -> begin
             try
@@ -240,7 +240,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
         try RReal (realexpr_eval r dm xv) with
         | Failure err -> RNone err
       end
-    | Invoke (s, l) -> begin
+    | XInvoke (s, l) -> begin
         match StringMap.find_opt s xv with
         | Some res ->
             if List.length l = 0 then
@@ -264,7 +264,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
               end
           end
       end
-    | Ifcmp (v0, cmp, v1, vtrue, vfalse) -> begin
+    | XIfcmp (v0, cmp, v1, vtrue, vfalse) -> begin
         let branch =
           match (xexpr_eval v0 dm xv, cmp, xexpr_eval v1 dm xv) with
           | RReal r0, Equal, RReal r1 -> SomeE (real_equal r0 r1)
@@ -277,15 +277,15 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
           | RExpr e0, Equal, RExpr e1 -> SomeE (e0 = e1)
           | RNone err, _, _
           | _, _, RNone err ->
-              NoneE (err ^ "\nin Ifeq")
-          | _ -> NoneE "Inconsistent types in Ifeq"
+              NoneE (err ^ "\nin Ifcmp")
+          | _ -> NoneE "Inconsistent types in Ifcmp"
         in
           match branch with
           | SomeE true -> xexpr_eval vtrue dm xv
           | SomeE false -> xexpr_eval vfalse dm xv
           | NoneE err -> RNone err
       end
-    | Fail -> RNone "Failure triggered"
+    | XFail -> RNone "Failure triggered"
     | _ -> (
         try RReal (realexpr_eval v dm xv) with
         | Failure err -> RNone err)

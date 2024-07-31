@@ -4,10 +4,9 @@ print("Importing libraries")
 import sys
 import os
 import timeout_decorator
-from qiskit import qasm3, transpile
+from qiskit import qasm3, transpile, QuantumCircuit
 from qiskit_aer import Aer
 from qiskit.visualization import plot_histogram
-from qiskit.circuit import IfElseOp
 import matplotlib.pyplot as plt
 
 RED = "\033[0;31m"
@@ -54,7 +53,7 @@ def draw_circuit(circuit, basename):
     print(f"Diagram in {out_filename}")
 
 
-@timeout_decorator.timeout(SIMULATE_TIMEOUT, use_signals=False)
+# @timeout_decorator.timeout(SIMULATE_TIMEOUT, use_signals=False)
 def simulate_circuit(circuit, basename):
     print("Simulating circuit")
     reg_counts = {reg.name: len(reg) for reg in circuit.cregs}
@@ -62,17 +61,18 @@ def simulate_circuit(circuit, basename):
         counts = {"null": SIM_SHOTS}
     else:
         backend = Aer.get_backend("qasm_simulator")
-        if "if_else" not in backend.target:
-            backend.target.add_instruction(IfElseOp, name="if_else")
-        counts = (
-            backend.run(
-                transpile(circuit, backend, seed_transpiler=0),
-                seed_simulator=0,
-                shots=SIM_SHOTS,
-            )
-            .result()
-            .get_counts()
+        circuit = transpile(
+            circuit,
+            basis_gates=(backend.operation_names + ["if_else"]),
+            optimization_level=3,
+            seed_transpiler=0,
         )
+        job = backend.run(
+            circuit,
+            seed_simulator=0,
+            shots=SIM_SHOTS,
+        )
+        counts = job.result().get_counts()
         counts_list = [(format_label(x), y) for x, y in counts.items()]
         counts = dict()
         for x, y in counts_list:
@@ -83,6 +83,7 @@ def simulate_circuit(circuit, basename):
     fig, ax = plt.subplots()
     plot_histogram(counts, ax=ax)
     fig.savefig(out_filename)
+    plt.close(fig)
     print(f"Results in {out_filename}")
 
 
@@ -114,3 +115,4 @@ else:
         analyze_file(path)
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
+        raise
