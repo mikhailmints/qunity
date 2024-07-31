@@ -29,4 +29,4 @@ jobs:
 
       - run: opam exec -- dune build
 
-      - run: opam exec -- ${{ github.workspace }}/run-tests
+      - run: opam exec -- bash ${{ github.workspace }}/run-tests
