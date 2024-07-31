@@ -7,7 +7,7 @@ open Compilation
 open Matrix
 open Gate
 
-let all_passed = ref true
+let all_passed = ref false
 
 let rec expr_to_encoded_basis_state (e : expr) : matrix =
   let t = type_of_pure_expr_proof (pure_type_check_noopt e) in
@@ -151,6 +151,8 @@ let () =
     in
       if !all_passed then
         Printf.printf "\nALL COMPILATION TESTS PASSED\n\n"
-      else
-        Printf.printf "\nSOME COMPILATION TESTS FAILED\n\n"
+      else begin
+        Printf.printf "\nSOME COMPILATION TESTS FAILED\n\n";
+        exit 1
+      end
   end

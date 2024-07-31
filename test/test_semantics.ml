@@ -122,6 +122,8 @@ let () =
 
     if !all_passed then
       Printf.printf "\nALL SEMANTICS TESTS PASSED\n\n"
-    else
-      Printf.printf "\nSOME SEMANTICS TESTS FAILED\n\n"
+    else begin
+      Printf.printf "\nSOME SEMANTICS TESTS FAILED\n\n";
+      exit 1
+    end
   end
