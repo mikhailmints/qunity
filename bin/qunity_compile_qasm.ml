@@ -1,8 +1,10 @@
-open Driver_util
 open Qunity
+open Parsing
 open Util
 open Reals
+open Typechecking
 open Gate
+open Compilation
 
 let simple_gate_to_qasm_str (u : gate) : string * int list =
   match u with
@@ -99,8 +101,29 @@ let gate_to_qasm_file (u : gate) (nqubits : int) (out_reg : int list) : string
   in
     header ^ body ^ footer
 
+let compile_file (prog_filename : string) (out_filename : string)
+    (annotate : bool) : unit =
+  let e_opt = get_expr_from_file prog_filename in
+    match e_opt with
+    | NoneE err ->
+        Printf.printf "%s\n" err;
+        exit 1
+    | SomeE e -> begin
+        match mixed_type_check StringMap.empty e with
+        | NoneE err ->
+            Printf.printf "Typechecking error: %s\n" err;
+            exit 1
+        | SomeE _ -> begin
+            let gate, nqubits, out_reg = expr_compile annotate e in
+            let qasm_str = gate_to_qasm_file gate nqubits out_reg in
+            let out_file = open_out out_filename in
+              Printf.fprintf out_file "%s" qasm_str;
+              close_out out_file
+          end
+      end
+
 let () =
   let prog_filename = Sys.argv.(1) in
   let out_filename = Sys.argv.(2) in
   let annotate = bool_of_string Sys.argv.(3) in
-    compile_file prog_filename out_filename gate_to_qasm_file annotate
+    compile_file prog_filename out_filename annotate

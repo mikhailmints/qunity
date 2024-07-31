@@ -71,7 +71,8 @@ let const1 = Lambda (Var "x", bit, bit1)
 let () =
   begin
     Printf.printf
-      "=======================\n\
+      "\n\
+       =======================\n\
        RUNNING SEMANTICS TESTS\n\
        =======================\n";
 

@@ -2,7 +2,7 @@ This is a prototype simulator and compiler for the Qunity quantum programming la
 
 To run the tests:
 ```bash
-dune test
+./run-tests
 ```
 
 To run a single program using the simulator:

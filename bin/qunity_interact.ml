@@ -1,5 +1,6 @@
 open Driver_util
 open Qunity
+open Parsing
 open Util
 open Reals
 open Matrix

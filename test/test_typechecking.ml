@@ -169,7 +169,8 @@ let big_expr_type =
 let () =
   begin
     Printf.printf
-      "==========================\n\
+      "\n\
+       ==========================\n\
        RUNNING TYPECHECKING TESTS\n\
        ==========================\n";
 

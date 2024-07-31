@@ -1,4 +1,5 @@
 open Qunity
+open Parsing
 open Syntax
 open Typechecking
 open Semantics
@@ -32,9 +33,11 @@ let rec expr_to_encoded_basis_state (e : expr) : matrix =
           (expr_to_encoded_basis_state e2)
     | _, _ -> failwith "Type mismatch"
 
-let test_compilation_correctness (testname : string) (e : expr) =
-  Printf.printf "%s: " testname;
+let test_compilation_correctness_general (testname : string)
+    (ef : unit -> expr) =
+  Printf.printf "%s: %!" testname;
   try
+    let e = ef () in
     let t = type_of_mixed_expr_proof (mixed_type_check_noopt e) in
     let gate, nqubits, out_reg = expr_compile false e in
     let gate_sem = gate_semantics gate nqubits out_reg in
@@ -49,20 +52,34 @@ let test_compilation_correctness (testname : string) (e : expr) =
                 (mat_adjoint enc_bs *@ gate_sem *@ enc_bs))
           (Array.to_list (all_basis_exprs t))
       then
-        Printf.printf "passed\n"
+        Printf.printf "passed\n%!"
       else begin
-        Printf.printf "FAILED\n";
-        Printf.printf "sem matrix:\n";
+        Printf.printf "FAILED\n%!";
+        Printf.printf "sem matrix:\n%!";
         print_mat sem;
-        Printf.printf "gate_sem matrix:\n";
+        Printf.printf "gate_sem matrix:\n%!";
         print_mat gate_sem;
         all_passed := false
       end
   with
   | Failure err
-  | Invalid_argument err -> begin
+  | Invalid_argument err
+  | Sys_error err -> begin
       Printf.printf "FAILED\nWith error: %s\n" err;
       all_passed := false
+    end
+
+let test_compilation_correctness (testname : string) (e : expr) =
+  test_compilation_correctness_general testname (fun _ -> e)
+
+let test_compilation_correctness_file (filename : string) =
+  test_compilation_correctness_general
+    ("compile_file " ^ filename)
+    begin
+      fun () ->
+        match get_expr_from_file filename with
+        | NoneE err -> failwith err
+        | SomeE e -> e
     end
 
 let const0 = Lambda (Var "x", bit, bit0)
@@ -71,9 +88,13 @@ let const1 = Lambda (Var "x", bit, bit1)
 let () =
   begin
     Printf.printf
-      "=========================\n\
+      "\n\
+       =========================\n\
        RUNNING COMPILATION TESTS\n\
-       =========================\n";
+       =========================\n\
+       %!";
+
+    Unix.chdir "..";
 
     test_compilation_correctness "compile_null" Null;
 
@@ -110,8 +131,26 @@ let () =
                    Qpair (Var "x", Var "x") ) ),
            bit0 ));
 
-    if !all_passed then
-      Printf.printf "\nALL COMPILATION TESTS PASSED\n\n"
-    else
-      Printf.printf "\nSOME COMPILATION TESTS FAILED\n\n"
+    let example_files = Sys.readdir "examples" in
+    let skipped_files =
+      [
+        "boolean_formula_walk.qunity";
+        "fourier_transform.qunity";
+        "grover.qunity";
+        "retry_example.qunity";
+      ]
+    in
+    let _ =
+      Array.map
+        begin
+          fun filename ->
+            if not (List.mem filename skipped_files) then
+              test_compilation_correctness_file ("examples/" ^ filename)
+        end
+        example_files
+    in
+      if !all_passed then
+        Printf.printf "\nALL COMPILATION TESTS PASSED\n\n"
+      else
+        Printf.printf "\nSOME COMPILATION TESTS FAILED\n\n"
   end

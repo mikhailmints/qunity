@@ -12,7 +12,8 @@
   compilation
   parser
   lexer
-  parser_messages)
+  parser_messages
+  parsing)
  (libraries num menhirLib))
 
 (menhir

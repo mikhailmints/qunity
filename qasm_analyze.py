@@ -16,7 +16,7 @@ NC = "\033[0m"
 
 LOAD_TIMEOUT = 20
 DRAW_TIMEOUT = 20
-SIMULATE_TIMEOUT = 60
+SIMULATE_TIMEOUT = 100
 SIM_SHOTS = 10000
 
 
@@ -53,14 +53,14 @@ def draw_circuit(circuit, basename):
     print(f"Diagram in {out_filename}")
 
 
-# @timeout_decorator.timeout(SIMULATE_TIMEOUT, use_signals=False)
+@timeout_decorator.timeout(SIMULATE_TIMEOUT, use_signals=False)
 def simulate_circuit(circuit, basename):
-    print("Simulating circuit")
     reg_counts = {reg.name: len(reg) for reg in circuit.cregs}
     if len(reg_counts) == 0 or max(reg_counts.values()) == 0:
         counts = {"null": SIM_SHOTS}
     else:
         backend = Aer.get_backend("qasm_simulator")
+        print("Transpiling circuit")
         circuit = transpile(
             circuit,
             basis_gates=(backend.operation_names + ["if_else"]),
@@ -72,6 +72,7 @@ def simulate_circuit(circuit, basename):
             seed_simulator=0,
             shots=SIM_SHOTS,
         )
+        print("Simulating circuit")
         counts = job.result().get_counts()
         counts_list = [(format_label(x), y) for x, y in counts.items()]
         counts = dict()
@@ -115,4 +116,3 @@ else:
         analyze_file(path)
     except Exception as e:
         print(f"{RED}Error: {e}{NC}")
-        raise

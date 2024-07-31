@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+dune test -f -j 1 --no-buffer

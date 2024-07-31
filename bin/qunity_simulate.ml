@@ -1,6 +1,7 @@
 open Driver_util
 open Qunity
 open Util
+open Parsing
 
 let () =
   let prog_filename = Sys.argv.(1) in

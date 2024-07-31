@@ -260,9 +260,12 @@ let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
   let rec gate_unitary_semantics (u : gate) : matrix =
     match u with
     | Identity
-    | GphaseGate _
     | Annotation _ ->
         mat_identity qdim
+    | GphaseGate theta ->
+        mat_scalar_mul
+          (Complex.polar 1. (float_of_real theta))
+          (mat_identity qdim)
     | U3Gate (i, theta, phi, lambda) -> begin
         mat_tensor
           (mat_identity (1 lsl i))
@@ -297,7 +300,16 @@ let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
   in
   let rec gate_semantics_helper (u : gate) (state : matrix) : matrix =
     match u with
-    | MeasureAsErr _ -> state
+    | MeasureAsErr a ->
+        mat_from_fun qdim qdim
+          begin
+            fun i j ->
+              let abit = 1 lsl (nqubits - 1 - a) in
+                if i land abit <> 0 || j land abit <> 0 then
+                  Complex.zero
+                else
+                  mat_entry state i j
+          end
     | Reset a ->
         mat_from_fun qdim qdim
           begin
