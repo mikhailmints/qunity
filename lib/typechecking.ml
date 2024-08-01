@@ -15,6 +15,7 @@ type pure_expr_typing_proof =
       * context (* Δ1 *)
       * pure_expr_typing_proof (* e0 : T0 *)
       * pure_expr_typing_proof (* e1 : T1 *)
+      * bool (* iso *)
   | TCtrl of
       exprtype (* T *)
       * exprtype (* T' *)
@@ -27,6 +28,7 @@ type pure_expr_typing_proof =
       (* Γj, ej : T, ej' : T' *)
       * ortho_proof
       * erasure_proof StringMap.t
+      * bool (* iso *)
   | TPureApp of
       exprtype (* T *)
       * exprtype (* T' *)
@@ -34,6 +36,7 @@ type pure_expr_typing_proof =
       * context (* Δ *)
       * pure_prog_typing_proof (* f : T -> T' *)
       * pure_expr_typing_proof (* e : T *)
+      * bool (* iso *)
 
 and mixed_expr_typing_proof =
   | TMix of pure_expr_typing_proof
@@ -45,18 +48,21 @@ and mixed_expr_typing_proof =
       * context (* Δ1 *)
       * mixed_expr_typing_proof (* e0 : T0 *)
       * mixed_expr_typing_proof (* e1 : T1 *)
+      * bool (* iso *)
   | TTry of
       exprtype (* T *)
       * context (* Δ0 *)
       * context (* Δ1 *)
       * mixed_expr_typing_proof (* e0 : T *)
       * mixed_expr_typing_proof (* e1 : T *)
+      * bool (* iso *)
   | TMixedApp of
       exprtype (* T *)
       * exprtype (* T' *)
       * context (* Δ *)
       * mixed_prog_typing_proof (* f : T -> T' *)
       * mixed_expr_typing_proof (* e : T *)
+      * bool (* iso *)
 
 and pure_prog_typing_proof =
   | TGate of real * real * real
@@ -68,6 +74,7 @@ and pure_prog_typing_proof =
       * context (* Δ *)
       * pure_expr_typing_proof (* e : T *)
       * pure_expr_typing_proof (* e' : T' *)
+      * bool (* iso *)
   | TRphase of
       exprtype (* T *)
       * pure_expr_typing_proof (* e : T *)
@@ -83,6 +90,7 @@ and mixed_prog_typing_proof =
       * context (* Δ0 *)
       * pure_expr_typing_proof (* e : T *)
       * mixed_expr_typing_proof (* e' : T' *)
+      * bool (* iso *)
 
 and prog_typing_proof =
   | PureProg of pure_prog_typing_proof
@@ -116,26 +124,26 @@ let type_of_pure_expr_proof (tp : pure_expr_typing_proof) : exprtype =
   | TUnit _ -> Qunit
   | TCvar (t, _, _) -> t
   | TQvar (t, _, _) -> t
-  | TPurePair (t0, t1, _, _, _, _, _, _) -> ProdType (t0, t1)
-  | TCtrl (_, t, _, _, _, _, _, _, _, _) -> t
-  | TPureApp (_, t, _, _, _, _) -> t
+  | TPurePair (t0, t1, _, _, _, _, _, _, _) -> ProdType (t0, t1)
+  | TCtrl (_, t, _, _, _, _, _, _, _, _, _) -> t
+  | TPureApp (_, t, _, _, _, _, _) -> t
 
 let type_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : exprtype =
   match tp with
   | TMix p -> type_of_pure_expr_proof p
-  | TMixedPair (t0, t1, _, _, _, _, _) -> ProdType (t0, t1)
-  | TTry (t, _, _, _, _) -> t
-  | TMixedApp (_, t, _, _, _) -> t
+  | TMixedPair (t0, t1, _, _, _, _, _, _) -> ProdType (t0, t1)
+  | TTry (t, _, _, _, _, _) -> t
+  | TMixedApp (_, t, _, _, _, _) -> t
 
 let rec type_of_prog_proof (tp : prog_typing_proof) : exprtype * exprtype =
   match tp with
   | PureProg (TGate _) -> (bit, bit)
   | PureProg (TLeft (t0, t1)) -> (t0, SumType (t0, t1))
   | PureProg (TRight (t0, t1)) -> (t1, SumType (t0, t1))
-  | PureProg (TPureAbs (t, t', _, _, _)) -> (t, t')
+  | PureProg (TPureAbs (t, t', _, _, _, _)) -> (t, t')
   | PureProg (TRphase (t, _, _, _)) -> (t, t)
   | MixedProg (TChannel tp') -> type_of_prog_proof (PureProg tp')
-  | MixedProg (TMixedAbs (t, t', _, _, _, _)) -> (t, t')
+  | MixedProg (TMixedAbs (t, t', _, _, _, _, _)) -> (t, t')
 
 let progtype_of_prog_proof (tp : prog_typing_proof) : progtype =
   let t, t' = type_of_prog_proof tp in
@@ -149,19 +157,83 @@ let context_of_pure_expr_proof (tp : pure_expr_typing_proof) :
   | TUnit g -> (g, StringMap.empty)
   | TCvar (_, g, _) -> (g, StringMap.empty)
   | TQvar (_, d, _) -> (StringMap.empty, d)
-  | TPurePair (_, _, g, d, d0, d1, _, _) ->
+  | TPurePair (_, _, g, d, d0, d1, _, _, _) ->
       (g, map_merge_noopt false d (map_merge_noopt false d0 d1))
-  | TCtrl (_, _, g, g', d, d', _, _, _, _) ->
+  | TCtrl (_, _, g, g', d, d', _, _, _, _, _) ->
       (map_merge_noopt false g g', map_merge_noopt false d d')
-  | TPureApp (_, _, g, d, _, _) -> (g, d)
+  | TPureApp (_, _, g, d, _, _, _) -> (g, d)
 
 let context_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : context =
   match tp with
   | TMix tp' -> snd (context_of_pure_expr_proof tp')
-  | TMixedPair (_, _, d, d0, d1, _, _) ->
+  | TMixedPair (_, _, d, d0, d1, _, _, _) ->
       map_merge_noopt false d (map_merge_noopt false d0 d1)
-  | TTry (_, d0, d1, _, _) -> map_merge_noopt false d0 d1
-  | TMixedApp (_, _, d, _, _) -> d
+  | TTry (_, d0, d1, _, _, _) -> map_merge_noopt false d0 d1
+  | TMixedApp (_, _, d, _, _, _) -> d
+
+let is_iso_pure_expr_proof (tp : pure_expr_typing_proof) : bool =
+  match tp with
+  | TUnit _
+  | TCvar _
+  | TQvar _ ->
+      true
+  | TPurePair (_, _, _, _, _, _, _, _, iso) -> iso
+  | TCtrl (_, _, _, _, _, _, _, _, _, _, iso) -> iso
+  | TPureApp (_, _, _, _, _, _, iso) -> iso
+
+let is_iso_mixed_expr_proof (tp : mixed_expr_typing_proof) : bool =
+  match tp with
+  | TMix tp' -> is_iso_pure_expr_proof tp'
+  | TMixedPair (_, _, _, _, _, _, _, iso) -> iso
+  | TTry (_, _, _, _, _, iso) -> iso
+  | TMixedApp (_, _, _, _, _, iso) -> iso
+
+let is_iso_pure_prog_proof (tp : pure_prog_typing_proof) : bool =
+  match tp with
+  | TGate _
+  | TLeft _
+  | TRight _
+  | TRphase _ ->
+      true
+  | TPureAbs (_, _, _, _, _, iso) -> iso
+
+let is_iso_mixed_prog_proof (tp : mixed_prog_typing_proof) : bool =
+  match tp with
+  | TChannel tp' -> is_iso_pure_prog_proof tp'
+  | TMixedAbs (_, _, _, _, _, _, iso) -> iso
+
+let is_iso_prog_proof (tp : prog_typing_proof) : bool =
+  match tp with
+  | PureProg tp' -> is_iso_pure_prog_proof tp'
+  | MixedProg tp' -> is_iso_mixed_prog_proof tp'
+
+let rec expr_is_classical (e : expr) : bool =
+  match e with
+  | Null
+  | Var _ ->
+      true
+  | Qpair (e0, e1) -> expr_is_classical e0 && expr_is_classical e1
+  | Ctrl (e', _, l, _) ->
+      expr_is_classical e'
+      && List.for_all
+           (fun (ej, ej') -> expr_is_classical ej && expr_is_classical ej')
+           l
+  | Try (e0, e1) -> expr_is_classical e0 && expr_is_classical e1
+  | Apply (f, e') -> prog_is_classical f && expr_is_classical e'
+
+and prog_is_classical (f : prog) : bool =
+  match f with
+  | U3 _
+  | Rphase _ ->
+      false
+  | Left _
+  | Right _ ->
+      true
+  | Lambda (e0, _, e1) -> expr_is_classical e0 && expr_is_classical e1
+
+let is_spanning_ortho_proof (orp : ortho_proof) : bool =
+  let _, span_list, ortho_list = orp in
+    span_list = ortho_list
 
 (*
 Finds the free variables in an expression e.
@@ -455,7 +527,9 @@ and mixed_type_check (d : context) (e : expr) : mixed_expr_typing_proof optionE
                        d0,
                        d1,
                        tp0,
-                       tp1 ))
+                       tp1,
+                       is_iso_mixed_expr_proof tp0
+                       && is_iso_mixed_expr_proof tp1 ))
             | NoneE err, _
             | _, NoneE err ->
                 NoneE (err ^ "\nin mixed Qpair")
@@ -468,7 +542,15 @@ and mixed_type_check (d : context) (e : expr) : mixed_expr_typing_proof optionE
             let t0 = type_of_mixed_expr_proof tp0 in
             let t1 = type_of_mixed_expr_proof tp1 in
               if t0 = t1 then
-                SomeE (TTry (t0, d0, d1, tp0, tp1))
+                SomeE
+                  (TTry
+                     ( t0,
+                       d0,
+                       d1,
+                       tp0,
+                       tp1,
+                       is_iso_mixed_expr_proof tp0
+                       || is_iso_mixed_expr_proof tp1 ))
               else
                 NoneE "Type mismatch in Try"
         | NoneE err, _
@@ -487,7 +569,15 @@ and mixed_type_check (d : context) (e : expr) : mixed_expr_typing_proof optionE
             | MixedProg p -> p
           in
             if t' = t0 then
-              SomeE (TMixedApp (t0, t1, d, tpf, tpe'))
+              SomeE
+                (TMixedApp
+                   ( t0,
+                     t1,
+                     d,
+                     tpf,
+                     tpe',
+                     is_iso_mixed_prog_proof tpf
+                     && is_iso_mixed_expr_proof tpe' ))
             else
               NoneE "Type mismatch in mixed Apply"
       | NoneE err, _
@@ -565,7 +655,9 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                        d0,
                        d1,
                        tp0,
-                       tp1 ))
+                       tp1,
+                       is_iso_pure_expr_proof tp0 && is_iso_pure_expr_proof tp1
+                     ))
             | NoneE err, _
             | _, NoneE err ->
                 NoneE (err ^ "\nin Qpair")
@@ -596,9 +688,28 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                             (List.map (pattern_type_check g d t0 t1) l)
                         with
                         | Some l' ->
-                            SomeE
-                              (TCtrl
-                                 (t0, t1, g0, g', d0, d', tpe', l', orp, erp))
+                            let iso =
+                              expr_is_classical e'
+                              && is_iso_mixed_expr_proof tpe'
+                              && is_spanning_ortho_proof orp
+                              && List.for_all
+                                   (fun (_, _, pf) ->
+                                     is_iso_pure_expr_proof pf)
+                                   l'
+                            in
+                              SomeE
+                                (TCtrl
+                                   ( t0,
+                                     t1,
+                                     g0,
+                                     g',
+                                     d0,
+                                     d',
+                                     tpe',
+                                     l',
+                                     orp,
+                                     erp,
+                                     iso ))
                         | _ -> NoneE "Type mismatch in Ctrl"
                       end
                   end
@@ -617,7 +728,16 @@ and pure_type_check (g : context) (d : context) (e : expr) :
           | PureProg tpf, (t0, t1) -> begin
               let t' = type_of_pure_expr_proof tpe' in
                 if t' = t0 then
-                  SomeE (TPureApp (t0, t1, g, d, tpf, tpe'))
+                  SomeE
+                    (TPureApp
+                       ( t0,
+                         t1,
+                         g,
+                         d,
+                         tpf,
+                         tpe',
+                         is_iso_pure_prog_proof tpf
+                         && is_iso_pure_expr_proof tpe' ))
                 else
                   NoneE "Type mismatch in Apply"
             end
@@ -756,39 +876,53 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
   (* T-RIGHT *)
   | Right (t0, t1) -> SomeE (PureProg (TRight (t0, t1)))
   | Lambda (e, t, e') -> begin
-      match context_check StringMap.empty t e with
-      | NoneE err -> NoneE (err ^ "\nin Lambda")
-      | SomeE d -> begin
-          match
-            ( pure_type_check StringMap.empty d e,
-              pure_type_check StringMap.empty d e' )
-          with
-          (* T-PUREABS *)
-          | SomeE tpe, SomeE tpe' ->
-              SomeE
-                (PureProg
-                   (TPureAbs (t, type_of_pure_expr_proof tpe', d, tpe, tpe')))
-          | _ -> begin
-              let d', d0 = map_partition d (free_vars e') in
-                match
-                  (pure_type_check StringMap.empty d e, mixed_type_check d' e')
-                with
-                | NoneE err, _
-                | _, NoneE err ->
-                    NoneE (err ^ "\nin Lambda")
-                (* T-MIXEDABS *)
-                | SomeE tpe, SomeE tpe' ->
-                    SomeE
-                      (MixedProg
-                         (TMixedAbs
-                            ( t,
-                              type_of_mixed_expr_proof tpe',
-                              d',
-                              d0,
-                              tpe,
-                              tpe' )))
-            end
+      let is_e_spanning =
+        begin
+          match missing_span t [e] with
+          | Some ([], _) -> true
+          | _ -> false
         end
+      in
+        match context_check StringMap.empty t e with
+        | NoneE err -> NoneE (err ^ "\nin Lambda")
+        | SomeE d -> begin
+            match
+              ( pure_type_check StringMap.empty d e,
+                pure_type_check StringMap.empty d e' )
+            with
+            (* T-PUREABS *)
+            | SomeE tpe, SomeE tpe' ->
+                let iso = is_iso_pure_expr_proof tpe' && is_e_spanning in
+                  SomeE
+                    (PureProg
+                       (TPureAbs
+                          (t, type_of_pure_expr_proof tpe', d, tpe, tpe', iso)))
+            | _ -> begin
+                let d', d0 = map_partition d (free_vars e') in
+                  match
+                    ( pure_type_check StringMap.empty d e,
+                      mixed_type_check d' e' )
+                  with
+                  | NoneE err, _
+                  | _, NoneE err ->
+                      NoneE (err ^ "\nin Lambda")
+                  (* T-MIXEDABS *)
+                  | SomeE tpe, SomeE tpe' ->
+                      let iso =
+                        is_iso_mixed_expr_proof tpe' && is_e_spanning
+                      in
+                        SomeE
+                          (MixedProg
+                             (TMixedAbs
+                                ( t,
+                                  type_of_mixed_expr_proof tpe',
+                                  d',
+                                  d0,
+                                  tpe,
+                                  tpe',
+                                  iso )))
+              end
+          end
     end
   (* T-RPHASE *)
   | Rphase (t, e', r, r') -> begin

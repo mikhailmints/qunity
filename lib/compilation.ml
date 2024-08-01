@@ -1990,7 +1990,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
           []
           [("g", gsize); ("d", tsize)]
       end
-    | TPurePair (t0, t1, _, d, d0, d1, e0, e1) -> begin
+    | TPurePair (t0, t1, _, d, d0, d1, e0, e1, _) -> begin
         let op0 = compile_pure_expr_to_inter_op e0 in
         let op1 = compile_pure_expr_to_inter_op e1 in
           inter_lambda "TPurePair"
@@ -2011,7 +2011,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             ]
             [("g", gsize); ("res", tsize)]
       end
-    | TCtrl (t0, t1, g, g', d, d', e, l, orp, erp_map) -> begin
+    | TCtrl (t0, t1, g, g', d, d', e, l, orp, erp_map, _) -> begin
         let n = List.length l in
         let gg'dd' = map_merge_noopt false g_whole d_whole in
           if n = 0 then
@@ -2112,7 +2112,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                 ]
                 [("gg*", gsize); ("t1", tsize)]
       end
-    | TPureApp (_, _, _, _, f, e') -> begin
+    | TPureApp (_, _, _, _, f, e', _) -> begin
         let e'_op = compile_pure_expr_to_inter_op e' in
         let f_op = compile_pure_prog_to_inter_op f in
           inter_lambda "TPureApp"
@@ -2146,7 +2146,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             ]
             [("res", tsize)]
       end
-    | TMixedPair (t0, t1, d, d0, d1, e0, e1) -> begin
+    | TMixedPair (t0, t1, d, d0, d1, e0, e1, _) -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
           inter_lambda "TMixedPair"
@@ -2167,7 +2167,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             ]
             [("res", tsize)]
       end
-    | TTry (t, d0, _, e0, e1) -> begin
+    | TTry (t, d0, _, e0, e1, _) -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
           inter_lambda "TTry"
@@ -2197,7 +2197,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             ]
             [("t", tsize)]
       end
-    | TMixedApp (_, _, _, f, e) -> begin
+    | TMixedApp (_, _, _, f, e, _) -> begin
         let e_op = compile_mixed_expr_to_inter_op e in
         let f_op = compile_mixed_prog_to_inter_op f in
           inter_lambda "TMixedApp"
@@ -2214,7 +2214,7 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
   | TGate (theta, phi, lambda) -> IU3 (theta, phi, lambda)
   | TLeft (t0, t1) -> ILeft (t0, t1)
   | TRight (t0, t1) -> IRight (t0, t1)
-  | TPureAbs (t, t', _, e, e') -> begin
+  | TPureAbs (t, t', _, e, e', _) -> begin
       let e_op = compile_pure_expr_to_inter_op e in
       let e'_op = compile_pure_expr_to_inter_op e' in
         inter_lambda "TPureAbs"
@@ -2240,7 +2240,7 @@ Compilation of a mixed program into the intermediate representation.
 and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
   match tp with
   | TChannel tp' -> compile_pure_prog_to_inter_op tp'
-  | TMixedAbs (t, t', d, d0, e, e') -> begin
+  | TMixedAbs (t, t', d, d0, e, e', _) -> begin
       let dd0 = map_merge_noopt false d d0 in
       let fve' = map_dom d in
       let e_op = compile_pure_expr_to_inter_op e in
