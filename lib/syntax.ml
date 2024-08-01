@@ -163,9 +163,9 @@ and ocaml_string_of_prog (f : prog) : string =
 let string_of_context (d : context) =
   string_of_list
     (fun (x, e) -> Printf.sprintf "%s : %s" x (string_of_type e))
-    (StringMap.bindings d)
+    d
 
 let string_of_valuation (sigma : valuation) =
   string_of_list
     (fun (x, e) -> Printf.sprintf "%s = %s" x (string_of_expr e))
-    (StringMap.bindings sigma)
+    sigma

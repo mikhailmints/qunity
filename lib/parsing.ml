@@ -87,7 +87,7 @@ let get_expr_from_file (prog_filename : string) : expr optionE =
               match main with
               | None -> NoneE "No main expression in file"
               | Some main -> begin
-                  match xexpr_eval main combined_dm StringMap.empty with
+                  match xexpr_eval main combined_dm [] with
                   | RNone err ->
                       NoneE (Printf.sprintf "Preprocessing error: %s" err)
                   | RExpr e -> SomeE e

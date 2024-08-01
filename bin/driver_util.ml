@@ -6,7 +6,7 @@ open Typechecking
 open Semantics
 
 let execute_expr (e : expr) : unit =
-  match mixed_type_check StringMap.empty e with
+  match mixed_type_check [] e with
   | NoneE err -> Printf.printf "Typechecking error: %s\n\n" err
   | SomeE tp -> begin
       Printf.printf "Expression type: %s\n\n%!"

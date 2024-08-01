@@ -14,8 +14,7 @@ let rec type_dimension (t : exprtype) : int =
   | ProdType (t0, t1) -> type_dimension t0 * type_dimension t1
 
 let context_dimension (d : context) : int =
-  List.fold_left ( * ) 1
-    (List.map (fun (_, t) -> type_dimension t) (StringMap.bindings d))
+  List.fold_left ( * ) 1 (List.map (fun (_, t) -> type_dimension t) d)
 
 let rec expr_to_basis_state (t : exprtype) (e : expr) : matrix =
   match (e, t) with
@@ -84,7 +83,7 @@ let valuation_to_basis_state (d : context) (tau : valuation) : matrix =
     (fun cur (x, e) ->
       let t = StringMap.find x d in
         mat_tensor cur (expr_to_basis_state t e))
-    (mat_identity 1) (StringMap.bindings tau)
+    (mat_identity 1) tau
 
 let all_context_basis_valuations_memo : (context, valuation array) Hashtbl.t =
   Hashtbl.create memo_size
@@ -107,9 +106,7 @@ let all_context_basis_valuations (d : context) : valuation array =
     if Hashtbl.mem all_context_basis_valuations_memo d then
       Hashtbl.find all_context_basis_valuations_memo d
     else
-      let res =
-        Array.of_list (iter (StringMap.bindings d) [StringMap.empty])
-      in
+      let res = Array.of_list (iter d [[]]) in
         Hashtbl.add all_context_basis_valuations_memo d res;
         res
 
@@ -145,9 +142,10 @@ let basis_index_restriction (d : context) (fv : StringSet.t) (i : int) : int =
     Hashtbl.find basis_index_restriction_memo (d, fv, i)
   else
     let res =
-      list_index (StringMap.equal ( = ))
-        (Array.to_list (all_context_basis_valuations (map_restriction d fv)))
-        (map_restriction (all_context_basis_valuations d).(i) fv)
+      list_index StringMap.equal
+        (Array.to_list
+           (all_context_basis_valuations (StringMap.restriction d fv)))
+        (StringMap.restriction (all_context_basis_valuations d).(i) fv)
     in
       Hashtbl.add basis_index_restriction_memo (d, fv, i) res;
       res
@@ -168,11 +166,12 @@ let basis_index_extension (g : context) (sigma : valuation) (d : context)
   else
     let res =
       begin
-        let gd = map_merge_noopt false g d in
+        let gd = StringMap.merge_noopt false g d in
         let tau =
-          map_merge_noopt false sigma (all_context_basis_valuations d).(i)
+          StringMap.merge_noopt false sigma
+            (all_context_basis_valuations d).(i)
         in
-          list_index (StringMap.equal ( = ))
+          list_index StringMap.equal
             (Array.to_list (all_context_basis_valuations gd))
             tau
       end
@@ -186,8 +185,8 @@ that are not in the specified set fv.
 *)
 let context_partial_trace (d : context) (fv : StringSet.t) (m : matrix) :
     matrix =
-  let d', d0 = map_partition d fv in
-  let fv0 = map_dom d0 in
+  let d', d0 = StringMap.partition d fv in
+  let fv0 = StringMap.dom d0 in
   let d'_dim = context_dimension d' in
     match m.ent with
     | Dense f ->
@@ -246,13 +245,17 @@ let rec pure_expr_semantics (tp : pure_expr_typing_proof) (sigma : valuation) :
               expr_to_basis_state t_whole (StringMap.find x sigma)
           | TQvar _ -> mat_identity tdim
           | TPurePair (_, _, _, d, d0, d1, e0, e1, _) -> begin
-              let dd0 = map_merge_noopt false d d0 in
-              let dd1 = map_merge_noopt false d d1 in
+              let dd0 = StringMap.merge_noopt false d d0 in
+              let dd1 = StringMap.merge_noopt false d d1 in
               let e0sem = pure_expr_semantics e0 sigma in
               let e1sem = pure_expr_semantics e1 sigma in
                 mat_from_basis_action tdim ddim (fun i ->
-                    let i0 = basis_index_restriction d_whole (map_dom dd0) i in
-                    let i1 = basis_index_restriction d_whole (map_dom dd1) i in
+                    let i0 =
+                      basis_index_restriction d_whole (StringMap.dom dd0) i
+                    in
+                    let i1 =
+                      basis_index_restriction d_whole (StringMap.dom dd1) i
+                    in
                       mat_tensor (mat_column e0sem i0) (mat_column e1sem i1))
             end
           | TCtrl _ -> ctrl_semantics tp sigma
@@ -266,9 +269,9 @@ let rec pure_expr_semantics (tp : pure_expr_typing_proof) (sigma : valuation) :
 and ctrl_semantics (tp : pure_expr_typing_proof) (sigma : valuation) : matrix =
   match tp with
   | TCtrl (t0, t1, g, _, d, d', e, l, _, _, _) -> begin
-      let dd' = map_merge_noopt false d d' in
-      let gd = map_merge_noopt false g d in
-      let fve = map_dom gd in
+      let dd' = StringMap.merge_noopt false d d' in
+      let gd = StringMap.merge_noopt false g d in
+      let fve = StringMap.dom gd in
       let tdim = type_dimension t1 in
       let ddim = context_dimension dd' in
       let super0 = mixed_expr_semantics e in
@@ -282,14 +285,13 @@ and ctrl_semantics (tp : pure_expr_typing_proof) (sigma : valuation) : matrix =
                         (List.map
                            (fun sigmaj ->
                              let sigmaj' =
-                               map_merge_noopt false sigma sigmaj
+                               StringMap.merge_noopt false sigma sigmaj
                              in
                              let proj =
                                mat_to_scalar
                                  (mat_adjoint
                                     (valuation_to_basis_state gj sigmaj)
-                                 *@ mat_adjoint
-                                      (pure_expr_semantics ej StringMap.empty)
+                                 *@ mat_adjoint (pure_expr_semantics ej [])
                                  *@ v)
                              in
                                if proj = Complex.zero then
@@ -304,7 +306,7 @@ and ctrl_semantics (tp : pure_expr_typing_proof) (sigma : valuation) : matrix =
                                        in
                                        let i0gd =
                                          basis_index_extension g
-                                           (map_restriction sigma fve)
+                                           (StringMap.restriction sigma fve)
                                            d i0
                                        in
                                        let prob =
@@ -341,17 +343,17 @@ and mixed_expr_semantics (tp : mixed_expr_typing_proof) : superoperator =
         let ddim = context_dimension d_whole in
           match tp with
           | TMix tp' ->
-              let pure_sem = pure_expr_semantics tp' StringMap.empty in
+              let pure_sem = pure_expr_semantics tp' [] in
                 superop_from_basis_action tdim ddim (fun i j ->
                     let tau = index_to_context_basis_state d_whole i in
                     let tau' = index_to_context_basis_state d_whole j in
                       pure_sem *@ tau *@ mat_adjoint tau'
                       *@ mat_adjoint pure_sem)
           | TMixedPair (_, _, d, d0, d1, e0, e1, _) -> begin
-              let dd0 = map_merge_noopt false d d0 in
-              let dd1 = map_merge_noopt false d d1 in
-              let fv0 = map_dom dd0 in
-              let fv1 = map_dom dd1 in
+              let dd0 = StringMap.merge_noopt false d d0 in
+              let dd1 = StringMap.merge_noopt false d d1 in
+              let fv0 = StringMap.dom dd0 in
+              let fv1 = StringMap.dom dd1 in
               let e0sem = mixed_expr_semantics e0 in
               let e1sem = mixed_expr_semantics e1 in
                 superop_from_basis_action tdim ddim (fun i j ->
@@ -364,8 +366,8 @@ and mixed_expr_semantics (tp : mixed_expr_typing_proof) : superoperator =
                         (superop_on_basis e1sem i1 j1))
             end
           | TTry (_, d0, d1, e0, e1, _) -> begin
-              let fv0 = map_dom d0 in
-              let fv1 = map_dom d1 in
+              let fv0 = StringMap.dom d0 in
+              let fv1 = StringMap.dom d1 in
               let e0sem = mixed_expr_semantics e0 in
               let e1sem = mixed_expr_semantics e1 in
                 superop_from_basis_action tdim ddim (fun i j ->
@@ -421,11 +423,10 @@ and pure_prog_semantics (tp : pure_prog_typing_proof) : matrix =
                     (SumType (t0, t1))
                     (Apply (Right (t0, t1), e)))
         | TPureAbs (_, _, _, e, e', _) -> begin
-            pure_expr_semantics e' StringMap.empty
-            *@ mat_adjoint (pure_expr_semantics e StringMap.empty)
+            pure_expr_semantics e' [] *@ mat_adjoint (pure_expr_semantics e [])
           end
         | TRphase (t, e, r0, r1) -> begin
-            let e_sem = pure_expr_semantics e StringMap.empty in
+            let e_sem = pure_expr_semantics e [] in
             let er_proj = e_sem *@ mat_adjoint e_sem in
               mat_plus
                 (mat_scalar_mul (Complex.polar 1. (float_of_real r0)) er_proj)
@@ -454,9 +455,9 @@ and mixed_prog_semantics (tp : mixed_prog_typing_proof) : superoperator =
                   let v' = index_to_basis_state t j in
                     pure_sem *@ v *@ mat_adjoint v' *@ mat_adjoint pure_sem)
         | TMixedAbs (t, t', d, d0, e, e', _) -> begin
-            let dd0 = map_merge_noopt false d d0 in
-            let fve' = map_dom d in
-            let e_pure_sem = pure_expr_semantics e StringMap.empty in
+            let dd0 = StringMap.merge_noopt false d d0 in
+            let fve' = StringMap.dom d in
+            let e_pure_sem = pure_expr_semantics e [] in
             let e'_sem = mixed_expr_semantics e' in
               superop_from_basis_action (type_dimension t') (type_dimension t)
                 (fun i j ->
@@ -473,12 +474,12 @@ and mixed_prog_semantics (tp : mixed_prog_typing_proof) : superoperator =
       res
 
 let top_pure_expr_semantics (e : expr) : matrix =
-  match pure_type_check StringMap.empty StringMap.empty e with
-  | SomeE tp -> pure_expr_semantics tp StringMap.empty
+  match pure_type_check [] [] e with
+  | SomeE tp -> pure_expr_semantics tp []
   | NoneE err -> failwith err
 
 let top_mixed_expr_semantics (e : expr) : matrix =
-  match mixed_type_check StringMap.empty e with
+  match mixed_type_check [] e with
   | SomeE tp ->
       superop_apply (mixed_expr_semantics tp) (expr_to_basis_state Qunit Null)
   | NoneE err -> failwith err
@@ -496,7 +497,7 @@ let top_mixed_prog_semantics (f : prog) : superoperator =
   | NoneE err -> failwith err
 
 let measurement_outcomes (e : expr) : (expr * float) list =
-  match mixed_type_check StringMap.empty e with
+  match mixed_type_check [] e with
   | NoneE err -> failwith err
   | SomeE tp -> begin
       let t = type_of_mixed_expr_proof tp in

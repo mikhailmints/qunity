@@ -89,11 +89,11 @@ open Extended_syntax
 %%
 
 qunityfile:
-    | EOF {{dm = StringMap.empty; main = None}}
-    | SEMICOLON; SEMICOLON; EOF {{dm = StringMap.empty; main = None}}
+    | EOF {{dm = []; main = None}}
+    | SEMICOLON; SEMICOLON; EOF {{dm = []; main = None}}
     | e = xexpr; EOF
     | e = xexpr; SEMICOLON; SEMICOLON; EOF
-        {{dm = StringMap.empty; main = Some e}}
+        {{dm = []; main = Some e}}
     | DEF; name = XVAR; LANGLE; l = argnames; DEFSTART; body = xexpr; END;
         qi = qunityfile {add_def name (l, body) qi}
     | DEF; name = XVAR; DEFSTART; body = xexpr; END;

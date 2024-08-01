@@ -1,14 +1,8 @@
 type 'a optionE = SomeE of 'a | NoneE of string
 
 module StringSet = Set.Make (String)
-module StringMap = Map.Make (String)
 module IntSet = Set.Make (Int)
 module IntMap = Map.Make (Int)
-
-let option_of_optionE (optE : 'a optionE) : 'a option =
-  match optE with
-  | NoneE _ -> None
-  | SomeE x -> Some x
 
 let all_or_nothing (l : 'a option list) : 'a list option =
   if List.for_all (fun a -> a <> None) l then
@@ -22,11 +16,87 @@ let all_or_nothing (l : 'a option list) : 'a list option =
   else
     None
 
-let map_all_or_nothing (d : 'a option StringMap.t) : 'a StringMap.t option =
-  let keys, vals = List.split (StringMap.bindings d) in
-    match all_or_nothing vals with
-    | Some l -> Some (StringMap.of_seq (List.to_seq (List.combine keys l)))
-    | _ -> None
+module ListMap = struct
+  module Make (Ord : Set.OrderedType) = struct
+    type key = Ord.t
+    type 'a t = (key * 'a) list
+
+    module KSet = Set.Make (Ord)
+
+    let dom (d : 'a t) : KSet.t = KSet.of_list (List.map fst d)
+    let mem (x : key) (d : 'a t) : bool = KSet.mem x (dom d)
+
+    let find (x : key) (d : 'a t) : 'a =
+      snd (List.find (fun (x', _) -> x' = x) d)
+
+    let find_opt (x : key) (d : 'a t) : 'a option =
+      match List.find_opt (fun (x', _) -> x' = x) d with
+      | None -> None
+      | Some y -> Some (snd y)
+
+    (*
+    Combine two maps into one. If allow_dup is false: fails if
+    the maps share any bindings. If allow_dup is true: fails only if
+    there is a value mismatch.
+    *)
+    let merge (allow_dup : bool) (d0 : 'a t) (d1 : 'a t) : 'a t optionE =
+      let dom0 = dom d0 in
+      let dom1 = dom d1 in
+        if allow_dup then
+          let dups = KSet.inter dom0 dom1 in
+            if KSet.for_all (fun a -> find a d0 = find a d1) dups then
+              SomeE (d0 @ List.filter (fun (a, _) -> not (mem a d0)) d1)
+            else
+              NoneE "Value mismatch in map merge"
+        else if KSet.filter (fun a -> KSet.mem a dom0) dom1 <> KSet.empty then
+          NoneE "Expected disjoint maps in map merge"
+        else
+          SomeE (d0 @ d1)
+
+    let merge_noopt (allow_dup : bool) (d0 : 'a t) (d1 : 'a t) : 'a t =
+      match merge allow_dup d0 d1 with
+      | SomeE res -> res
+      | NoneE err -> failwith err
+
+    let inclusion (d0 : 'a t) (d1 : 'a t) : bool =
+      KSet.subset (dom d0) (dom d1)
+
+    (* Restrict map to include only variables from a given set *)
+    let restriction (d : 'a t) (s : KSet.t) : 'a t =
+      List.filter (fun (x, _) -> KSet.mem x s) d
+
+    (* Partition map d into part belonging to s and part not belonging to s *)
+    let partition (d : 'a t) (s : KSet.t) : 'a t * 'a t =
+      ( List.filter (fun (x, _) -> KSet.mem x s) d,
+        List.filter (fun (x, _) -> not (KSet.mem x s)) d )
+
+    let all_or_nothing (d : 'a option t) : 'a t option =
+      let keys, vals = List.split d in
+        match all_or_nothing vals with
+        | Some l -> Some (List.combine keys l)
+        | _ -> None
+
+    let remove (x : key) (d : 'a t) : 'a t =
+      List.filter (fun (x', _) -> x' <> x) d
+
+    let add (x : key) (y : 'a) (d : 'a t) : 'a t = remove x d @ [(x, y)]
+
+    let merge_override (d0 : 'a t) (d1 : 'a t) : 'a t =
+      List.fold_left (fun cur (x, y) -> add x y cur) d0 d1
+
+    let sort (d : 'a t) : 'a t =
+      List.sort (fun (x, _) (x', _) -> Ord.compare x x') d
+
+    let equal (d0 : 'a t) (d1 : 'a t) : bool = sort d0 = sort d1
+  end
+end
+
+module StringMap = ListMap.Make (String)
+
+let option_of_optionE (optE : 'a optionE) : 'a option =
+  match optE with
+  | NoneE _ -> None
+  | SomeE x -> Some x
 
 let fresh_string (prefix : string) (s : StringSet.t) : string =
   let rec fresh_string_helper (i : int) =
@@ -63,61 +133,6 @@ let rec fresh_int_lists (s : IntSet.t) (l : int list) :
 let fresh_int (s : IntSet.t) : int * IntSet.t =
   let i, res = fresh_int_list s 1 in
     (List.hd i, res)
-
-(*
-Combine two maps into one. If allow_dup is false: fails if
-the maps share any bindings. If allow_dup is false: fails only if
-there is a type mismatch.
-*)
-let map_merge (allow_dup : bool) (d0 : 'a StringMap.t) (d1 : 'a StringMap.t) :
-    'a StringMap.t optionE =
-  let merged_with_opt =
-    StringMap.merge
-      (fun _ a b ->
-        match (a, b) with
-        | None, None -> None
-        | Some a', None -> Some (Some a')
-        | None, Some b' -> Some (Some b')
-        | Some a', Some b' ->
-            if allow_dup && a' = b' then Some (Some a') else Some None)
-      d0 d1
-  in
-    if StringMap.for_all (fun _ x -> x <> None) merged_with_opt then
-      SomeE
-        (StringMap.map
-           (fun x ->
-             match x with
-             | Some x' -> x'
-             | None -> failwith "unreachable")
-           merged_with_opt)
-    else
-      NoneE
-        (if allow_dup then
-           "Type mismatch in context merge"
-         else
-           "Expected disjoint contexts")
-
-let map_merge_noopt (allow_dup : bool) (d0 : 'a StringMap.t)
-    (d1 : 'a StringMap.t) : 'a StringMap.t =
-  match map_merge allow_dup d0 d1 with
-  | SomeE res -> res
-  | NoneE err -> failwith err
-
-(* Whether a map is included in another map *)
-let map_inclusion (d0 : 'a StringMap.t) (d1 : 'a StringMap.t) : bool =
-  StringMap.for_all (fun x t -> StringMap.find_opt x d1 = Some t) d0
-
-let map_dom (d : 'a StringMap.t) : StringSet.t =
-  StringSet.of_list (List.map fst (StringMap.bindings d))
-
-(* Restrict map to include only variables from a given set *)
-let map_restriction (d : 'a StringMap.t) (s : StringSet.t) : 'a StringMap.t =
-  StringMap.filter (fun x _ -> StringSet.mem x s) d
-
-(* Partition map d into part belonging to s and part not belonging to s *)
-let map_partition (d : 'a StringMap.t) (s : StringSet.t) :
-    'a StringMap.t * 'a StringMap.t =
-  (map_restriction d s, StringMap.filter (fun x _ -> not (StringSet.mem x s)) d)
 
 let int_map_find_or_keep (m : int IntMap.t) (i : int) : int =
   match IntMap.find_opt i m with

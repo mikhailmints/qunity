@@ -34,7 +34,7 @@ let () =
                     match qi.main with
                     | None -> ()
                     | Some xe -> begin
-                        match xexpr_eval xe !dm StringMap.empty with
+                        match xexpr_eval xe !dm [] with
                         | RNone err ->
                             Printf.printf "Preprocessing error: %s\n\n" err
                         | RExpr e -> begin

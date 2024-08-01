@@ -109,7 +109,7 @@ let compile_file (prog_filename : string) (out_filename : string)
         Printf.printf "%s\n" err;
         exit 1
     | SomeE e -> begin
-        match mixed_type_check StringMap.empty e with
+        match mixed_type_check [] e with
         | NoneE err ->
             Printf.printf "Typechecking error: %s\n" err;
             exit 1

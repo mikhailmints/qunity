@@ -230,8 +230,7 @@ Number of qubits needed to represent a set of values corresponding to
 a certain context.
 *)
 let context_size (d : context) =
-  List.fold_left ( + ) 0
-    (List.map (fun (_, t) -> type_size t) (StringMap.bindings d))
+  List.fold_left ( + ) 0 (List.map (fun (_, t) -> type_size t) d)
 
 (*
 Utility function for error-checking when only one in_reg should be provided
@@ -1215,7 +1214,7 @@ let context_reg_split (d : context) (reg : int list) : int list StringMap.t =
           iter (StringMap.add x newreg cur) newrest tl
       end
   in
-    iter StringMap.empty reg (StringMap.bindings d)
+    iter [] reg d
 
 (*
 Partition a register corresponding to a context into a part corresponding to
@@ -1224,16 +1223,15 @@ those variables that are in a specified set and those that are not.
 let context_reg_partition (d : context) (reg : int list) (fv : StringSet.t) :
     int list * int list =
   let reg_map = context_reg_split d reg in
-  let reg_map_in = StringMap.filter (fun x _ -> StringSet.mem x fv) reg_map in
+  let reg_map_in = List.filter (fun (x, _) -> StringSet.mem x fv) reg_map in
   let reg_map_out =
-    StringMap.filter (fun x _ -> not (StringSet.mem x fv)) reg_map
+    List.filter (fun (x, _) -> not (StringSet.mem x fv)) reg_map
   in
     assert (
-      StringSet.inter (map_dom reg_map_in) (map_dom reg_map_out)
+      StringSet.inter (StringMap.dom reg_map_in) (StringMap.dom reg_map_out)
       = StringSet.empty);
     let flatten_bindings = List.fold_left (fun l (_, l') -> l @ l') [] in
-      ( flatten_bindings (StringMap.bindings reg_map_in),
-        flatten_bindings (StringMap.bindings reg_map_out) )
+      (flatten_bindings reg_map_in, flatten_bindings reg_map_out)
 
 (*
 Creates a circuit that partitions a register corresponding to a context into a
@@ -1242,7 +1240,7 @@ are not. These two new registers form the output registers of the circuit.
 *)
 let circuit_context_partition (d : context) (fv : StringSet.t) : circuit_spec =
   let in_size = context_size d in
-  let d0, d1 = map_partition d fv in
+  let d0, d1 = StringMap.partition d fv in
     {
       in_sizes = [in_size];
       out_sizes = [context_size d0; context_size d1];
@@ -1272,12 +1270,8 @@ contexts are disjoint, this merge is simply the adjioint of the
 partition circuit.
 *)
 let circuit_context_merge (d0 : context) (d1 : context) : circuit_spec =
-  let d =
-    match map_merge false d0 d1 with
-    | SomeE d -> d
-    | NoneE err -> failwith err
-  in
-  let fv0 = map_dom d0 in
+  let d = StringMap.merge_noopt false d0 d1 in
+  let fv0 = StringMap.dom d0 in
     circuit_adjoint (circuit_context_partition d fv0)
 
 (*
@@ -1359,7 +1353,7 @@ let rec compile_inter_com_to_circuit (circ : circuit) (used_wires : IntSet.t)
   let argset = StringSet.of_list args in
     if
       StringSet.inter (StringSet.of_list target)
-        (StringSet.diff (map_dom iv) argset)
+        (StringSet.diff (StringMap.dom iv) argset)
       <> StringSet.empty
     then
       failwith "Attempted to store new value in existing variable"
@@ -1397,16 +1391,10 @@ let rec compile_inter_com_to_circuit (circ : circuit) (used_wires : IntSet.t)
             (string_of_list (string_of_list string_of_int) op_circ.out_regs)
             (string_of_list (string_of_list string_of_int) ev_regs);
         let iv' =
-          StringMap.filter (fun x _ -> not (StringSet.mem x argset)) iv
+          List.filter (fun (x, _) -> not (StringSet.mem x argset)) iv
         in
         let iv_add = List.combine target op_circ.out_regs in
-        let iv'' =
-          match
-            map_merge false iv' (StringMap.of_seq (List.to_seq iv_add))
-          with
-          | SomeE iv'' -> iv''
-          | NoneE err -> failwith err
-        in
+        let iv'' = StringMap.merge_noopt false iv' iv_add in
           (res_circ, used_wires, iv'')
 
 (*
@@ -1488,10 +1476,7 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
                     (string_of_list (string_of_list string_of_int) in_regs)
                     (string_of_list string_of_int arg_sizes)
                     (string_of_list string_of_int ret_sizes);
-                let iv =
-                  StringMap.of_seq
-                    (List.to_seq (List.combine arg_names in_regs))
-                in
+                let iv = List.combine arg_names in_regs in
                 let init_circ =
                   {
                     name = "init";
@@ -1509,7 +1494,7 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
                 in
                   if
                     not
-                      (StringSet.equal (map_dom iv)
+                      (StringSet.equal (StringMap.dom iv)
                          (StringSet.of_list ret_names))
                   then
                     failwith
@@ -1520,7 +1505,7 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
                          (string_of_list
                             (fun x -> x)
                             (StringSet.elements
-                               (StringSet.diff (map_dom iv)
+                               (StringSet.diff (StringMap.dom iv)
                                   (StringSet.of_list ret_names)))));
                   let ret_regs =
                     List.map (fun x -> StringMap.find x iv) ret_names
@@ -1722,7 +1707,7 @@ let rec context_sum_size (l : context list) : int =
   | d :: l' -> 1 + max (context_size d) (context_sum_size l')
 
 let fake_type_of_context (d : context) : exprtype =
-  let types = List.map snd (StringMap.bindings d) in
+  let types = List.map snd d in
     List.fold_right (fun x cur -> ProdType (x, cur)) types Qunit
 
 let rec fake_type_of_context_list (l : context list) : exprtype =
@@ -1971,18 +1956,19 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
           [("g", gsize); ("d", tsize)]
       end
     | TCvar (t, g, x) -> begin
-        let xreg, grest = map_partition g (StringSet.singleton x) in
-          inter_lambda "TCvar"
-            [("g", gsize); ("d", dsize)]
-            [
-              inter_letapp ["x"; "rest"]
-                (IContextPartition (g, StringSet.singleton x))
-                ["g"];
-              inter_letapp [] (IAdjoint IEmpty) ["d"];
-              inter_letapp ["x"; "res"] (IShare t) ["x"];
-              inter_letapp ["g"] (IContextMerge (xreg, grest)) ["x"; "rest"];
-            ]
-            [("g", gsize); ("res", tsize)]
+        inter_lambda "TCvar"
+          [("g", gsize); ("d", dsize)]
+          [
+            inter_letapp ["x"; "rest"]
+              (IContextPartition (g, StringSet.singleton x))
+              ["g"];
+            inter_letapp [] (IAdjoint IEmpty) ["d"];
+            inter_letapp ["x"; "res"] (IShare t) ["x"];
+            inter_letapp ["g"]
+              (IAdjoint (IContextPartition (g, StringSet.singleton x)))
+              ["x"; "rest"];
+          ]
+          [("g", gsize); ("res", tsize)]
       end
     | TQvar _ -> begin
         inter_lambda "TQvar"
@@ -1997,10 +1983,11 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             [("g", gsize); ("dd0d1", dsize)]
             [
               inter_letapp ["d"; "d0d1"]
-                (IContextPartition (d_whole, map_dom d))
+                (IContextPartition (d_whole, StringMap.dom d))
                 ["dd0d1"];
               inter_letapp ["d0"; "d1"]
-                (IContextPartition (map_merge_noopt false d0 d1, map_dom d0))
+                (IContextPartition
+                   (StringMap.merge_noopt false d0 d1, StringMap.dom d0))
                 ["d0d1"];
               inter_letapp ["d"; "d*"] (IContextShare d) ["d"];
               inter_letapp ["dd0"] (IContextMerge (d, d0)) ["d"; "d0"];
@@ -2013,7 +2000,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
       end
     | TCtrl (t0, t1, g, g', d, d', e, l, orp, erp_map, _) -> begin
         let n = List.length l in
-        let gg'dd' = map_merge_noopt false g_whole d_whole in
+        let gg'dd' = StringMap.merge_noopt false g_whole d_whole in
           if n = 0 then
             inter_lambda "TCtrl_Void"
               [("gg*", gsize); ("dd*", dsize)]
@@ -2032,7 +2019,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                 (List.map
                    (fun (ej, gj) ->
                      IAdjoint
-                       (make_pure_op_take_one_reg StringMap.empty gj t0
+                       (make_pure_op_take_one_reg [] gj t0
                           (compile_pure_expr_to_inter_op ej)))
                    (List.combine ejs gjs))
             in
@@ -2040,7 +2027,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
               dirsum_op_list
                 (List.map
                    (fun (ej, gj) ->
-                     make_pure_op_take_one_reg StringMap.empty gj t0
+                     make_pure_op_take_one_reg [] gj t0
                        (compile_pure_expr_to_inter_op ej))
                    (List.combine ejs gjs))
             in
@@ -2049,27 +2036,27 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                 (List.map
                    (fun (ej', gj) ->
                      make_pure_op_take_one_reg
-                       (map_merge_noopt false g_whole gj)
+                       (StringMap.merge_noopt false g_whole gj)
                        d_whole t1
                        (compile_pure_expr_to_inter_op ej'))
                    (List.combine ej's gjs))
             in
             let ortho_op = compile_ortho_to_inter_op t0 orp in
-            let erase_op =
-              compile_erasure_to_inter_op d t1 (StringMap.bindings erp_map)
-            in
+            let erase_op = compile_erasure_to_inter_op d t1 erp_map in
             let fake_context_sumtype =
               fake_type_of_context_list
-                (List.map (fun gj -> map_merge_noopt false g_whole gj) gjs)
+                (List.map
+                   (fun gj -> StringMap.merge_noopt false g_whole gj)
+                   gjs)
             in
               inter_lambda "TCtrl"
                 [("gg*", gsize); ("dd*", dsize)]
                 [
                   inter_letapp ["g"; "g*"]
-                    (IContextPartition (g_whole, map_dom g))
+                    (IContextPartition (g_whole, StringMap.dom g))
                     ["gg*"];
                   inter_letapp ["d"; "d*"]
-                    (IContextPartition (d_whole, map_dom d))
+                    (IContextPartition (d_whole, StringMap.dom d))
                     ["dd*"];
                   inter_letapp ["g"; "g0"] (IContextShare g) ["g"];
                   inter_letapp ["d"; "d0"] (IContextShare d) ["d"];
@@ -2097,7 +2084,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                     (IAdjoint (big_context_distr_op gjs g_whole))
                     ["sum(gg*gj)"];
                   inter_letapp ["g"; "g*"]
-                    (IContextPartition (g_whole, map_dom g))
+                    (IContextPartition (g_whole, StringMap.dom g))
                     ["gg*"];
                   inter_letapp ["t0^(+n)"] ej_sum_op ["sum(gj)"];
                   inter_letapp ["t0"] (IAdjoint ortho_op) ["t0^(+n)"];
@@ -2153,10 +2140,11 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             [("dd0d1", dsize)]
             [
               inter_letapp ["d"; "d0d1"]
-                (IContextPartition (d_whole, map_dom d))
+                (IContextPartition (d_whole, StringMap.dom d))
                 ["dd0d1"];
               inter_letapp ["d0"; "d1"]
-                (IContextPartition (map_merge_noopt false d0 d1, map_dom d0))
+                (IContextPartition
+                   (StringMap.merge_noopt false d0 d1, StringMap.dom d0))
                 ["d0d1"];
               inter_letapp ["d"; "d*"] (IContextShare d) ["d"];
               inter_letapp ["dd0"] (IContextMerge (d, d0)) ["d"; "d0"];
@@ -2179,7 +2167,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
               [("d", dsize)]
               [
                 inter_letapp ["d0"; "d1"]
-                  (IContextPartition (d_whole, map_dom d0))
+                  (IContextPartition (d_whole, StringMap.dom d0))
                   ["d"];
                 inter_letapp ["t+c"] (IMixedErr op0) ["d0"];
                 inter_letapp ["t"] op1 ["d1"];
@@ -2195,7 +2183,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
               [("d", dsize)]
               [
                 inter_letapp ["d0"; "d1"]
-                  (IContextPartition (d_whole, map_dom d0))
+                  (IContextPartition (d_whole, StringMap.dom d0))
                   ["d"];
                 inter_letapp ["t+c0"] (IMixedErr op0) ["d0"];
                 inter_letapp ["t+c1"] (IMixedErr op1) ["d1"];
@@ -2253,7 +2241,7 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
   | TRphase (t, e, r0, r1) -> begin
       let _, d = context_of_pure_expr_proof e in
       let e_op = compile_pure_expr_to_inter_op e in
-      let e_op_no_g = make_pure_op_take_one_reg StringMap.empty d t e_op in
+      let e_op_no_g = make_pure_op_take_one_reg [] d t e_op in
         IRphase (t, e_op_no_g, r0, r1)
     end
 
@@ -2264,10 +2252,10 @@ and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
   match tp with
   | TChannel tp' -> compile_pure_prog_to_inter_op tp'
   | TMixedAbs (t, t', d, d0, e, e', _) -> begin
-      let dd0 = map_merge_noopt false d d0 in
-      let fve' = map_dom d in
+      let dd0 = StringMap.merge_noopt false d d0 in
+      let fve' = StringMap.dom d in
       let e_op = compile_pure_expr_to_inter_op e in
-      let e_op_no_g = make_pure_op_take_one_reg StringMap.empty dd0 t e_op in
+      let e_op_no_g = make_pure_op_take_one_reg [] dd0 t e_op in
       let e'_op = compile_mixed_expr_to_inter_op e' in
         inter_lambda "TMixedAbs"
           [("t", type_size t)]

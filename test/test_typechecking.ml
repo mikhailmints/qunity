@@ -57,7 +57,7 @@ let expect_expr_puretype (testname : string) (e : expr) (t : exprtype) : unit =
   test_equality_optionE testname
     begin
       fun () ->
-        match pure_type_check StringMap.empty StringMap.empty e with
+        match pure_type_check [] [] e with
         | SomeE tp -> SomeE (type_of_pure_expr_proof tp)
         | NoneE err -> NoneE err
     end
@@ -67,7 +67,7 @@ let expect_expr_puretype_err (testname : string) (e : expr) : unit =
   expect_noneE testname
     begin
       fun () ->
-        match pure_type_check StringMap.empty StringMap.empty e with
+        match pure_type_check [] [] e with
         | SomeE tp -> SomeE (type_of_pure_expr_proof tp)
         | NoneE err -> NoneE err
     end
@@ -78,7 +78,7 @@ let expect_expr_mixedtype (testname : string) (e : expr) (t : exprtype) : unit
   test_equality_optionE testname
     begin
       fun () ->
-        match mixed_type_check StringMap.empty e with
+        match mixed_type_check [] e with
         | SomeE tp -> SomeE (type_of_mixed_expr_proof tp)
         | NoneE err -> NoneE err
     end
@@ -88,7 +88,7 @@ let expect_expr_mixedtype (testname : string) (e : expr) (t : exprtype) : unit
    expect_noneE testname
      begin
        fun () ->
-         match mixed_type_check StringMap.empty e with
+         match mixed_type_check [] e with
          | SomeE tp -> SomeE (type_of_mixed_expr_proof tp)
          | NoneE err -> NoneE err
      end

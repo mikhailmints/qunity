@@ -256,10 +256,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
                   if List.length l <> List.length argnames then
                     RNone "Incorrect number of arguments in Invoke"
                   else
-                    let xv' =
-                      StringMap.of_seq
-                        (List.to_seq (List.combine argnames l_result))
-                    in
+                    let xv' = List.combine argnames l_result in
                       xexpr_eval body dm xv'
               end
           end
@@ -291,7 +288,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
         | Failure err -> RNone err)
 
 let add_defmap (dm : defmap) (dm_new : defmap) : defmap =
-  StringMap.union (fun _ _ x -> Some x) dm dm_new
+  StringMap.merge_override dm dm_new
 
 let add_def (name : string) (d : definition) (qf : qunityfile) : qunityfile =
   if StringMap.find_opt name qf.dm <> None then
