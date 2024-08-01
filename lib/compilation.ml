@@ -2170,32 +2170,55 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
     | TTry (t, d0, _, e0, e1, _) -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
-          inter_lambda "TTry"
-            [("d", dsize)]
-            [
-              inter_letapp ["d0"; "d1"]
-                (IContextPartition (d_whole, map_dom d0))
-                ["d"];
-              inter_letapp ["t+c0"] (IMixedErr op0) ["d0"];
-              inter_letapp ["t+c1"] (IMixedErr op1) ["d1"];
-              inter_letapp ["t*(t+c)+(t+c)"]
-                (IDistrRight (t, Qunit, SumType (t, Qunit)))
-                ["t+c0"; "t+c1"];
-              inter_letapp ["(t*(t+c)+t)+c"]
-                (IAdjoint (IAssoc (ProdType (t, SumType (t, Qunit)), t, Qunit)))
-                ["t*(t+c)+(t+c)"];
-              inter_letapp ["t*(t+c)+t"]
-                (IAdjoint
-                   (ILeft (SumType (ProdType (t, SumType (t, Qunit)), t), Qunit)))
-                ["(t*(t+c)+t)+c"];
-              inter_letapp ["t"; "(t+c)+c"]
-                (IAdjoint (IDistrLeft (t, SumType (t, Qunit), Qunit)))
-                ["t*(t+c)+t"];
-              inter_letapp []
-                (IDiscard (SumType (SumType (t, Qunit), Qunit)))
-                ["(t+c)+c"];
-            ]
-            [("t", tsize)]
+        let iso0 = is_iso_mixed_expr_proof e0 in
+        let iso1 = is_iso_mixed_expr_proof e1 in
+          if iso0 then
+            compile_mixed_expr_to_inter_op e0
+          else if iso1 then
+            inter_lambda "TTry"
+              [("d", dsize)]
+              [
+                inter_letapp ["d0"; "d1"]
+                  (IContextPartition (d_whole, map_dom d0))
+                  ["d"];
+                inter_letapp ["t+c"] (IMixedErr op0) ["d0"];
+                inter_letapp ["t"] op1 ["d1"];
+                inter_letapp ["t*t+t"] (IDistrRight (t, Qunit, t)) ["t+c"; "t"];
+                inter_letapp ["t"; "t+c"]
+                  (IAdjoint (IDistrLeft (t, t, Qunit)))
+                  ["t*t+t"];
+                inter_letapp [] (IDiscard (SumType (t, Qunit))) ["t+c"];
+              ]
+              [("t", tsize)]
+          else
+            inter_lambda "TTry"
+              [("d", dsize)]
+              [
+                inter_letapp ["d0"; "d1"]
+                  (IContextPartition (d_whole, map_dom d0))
+                  ["d"];
+                inter_letapp ["t+c0"] (IMixedErr op0) ["d0"];
+                inter_letapp ["t+c1"] (IMixedErr op1) ["d1"];
+                inter_letapp ["t*(t+c)+(t+c)"]
+                  (IDistrRight (t, Qunit, SumType (t, Qunit)))
+                  ["t+c0"; "t+c1"];
+                inter_letapp ["(t*(t+c)+t)+c"]
+                  (IAdjoint
+                     (IAssoc (ProdType (t, SumType (t, Qunit)), t, Qunit)))
+                  ["t*(t+c)+(t+c)"];
+                inter_letapp ["t*(t+c)+t"]
+                  (IAdjoint
+                     (ILeft
+                        (SumType (ProdType (t, SumType (t, Qunit)), t), Qunit)))
+                  ["(t*(t+c)+t)+c"];
+                inter_letapp ["t"; "(t+c)+c"]
+                  (IAdjoint (IDistrLeft (t, SumType (t, Qunit), Qunit)))
+                  ["t*(t+c)+t"];
+                inter_letapp []
+                  (IDiscard (SumType (SumType (t, Qunit), Qunit)))
+                  ["(t+c)+c"];
+              ]
+              [("t", tsize)]
       end
     | TMixedApp (_, _, _, f, e, _) -> begin
         let e_op = compile_mixed_expr_to_inter_op e in
