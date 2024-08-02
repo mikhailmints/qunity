@@ -110,8 +110,8 @@ xexpr:
         l = ctrlblock {XCtrl (e, t0, fst l, t1, snd l)}
     | MATCH; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE; e = xexpr; LBRACKET;
         l = ctrlblock {XMatch (e, t0, fst l, t1, snd l)}
-    | PMATCH; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE; e = xexpr; LBRACKET;
-        l = ctrlblock {XPMatch (e, t0, fst l, t1, snd l)}
+    | PMATCH; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE; LBRACKET;
+        l = ctrlblock {XPMatch (t0, fst l, t1, snd l)}
     | TRY; e0 = xexpr; CATCH e1 = xexpr {XTry (e0, e1)}
     | f = xexpr; OF; e = xexpr  {XApply (f, e)}
     | e = xexpr; PIPE; f = xexpr {XApply (f, e)}

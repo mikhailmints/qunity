@@ -945,7 +945,7 @@ qunityfile: PMATCH XVAR
 ##
 ## Ends in an error in state: 88.
 ##
-## xexpr -> PMATCH . LBRACE xexpr COMMA xexpr RBRACE xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> PMATCH . LBRACE xexpr COMMA xexpr RBRACE LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
 ## The known suffix of the stack is as follows:
 ## PMATCH
@@ -957,7 +957,7 @@ qunityfile: PMATCH LBRACE TIMES
 ##
 ## Ends in an error in state: 89.
 ##
-## xexpr -> PMATCH LBRACE . xexpr COMMA xexpr RBRACE xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> PMATCH LBRACE . xexpr COMMA xexpr RBRACE LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
 ## The known suffix of the stack is as follows:
 ## PMATCH LBRACE
@@ -1320,7 +1320,7 @@ qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET TIMES
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL XVAR
+qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE LBRACKET FAIL XVAR
 ##
 ## Ends in an error in state: 122.
 ##
@@ -1339,7 +1339,7 @@ qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL XVAR
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW TIMES
+qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE LBRACKET FAIL ARROW TIMES
 ##
 ## Ends in an error in state: 123.
 ##
@@ -1354,7 +1354,7 @@ qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW TIMES
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL XVAR
+qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE LBRACKET FAIL ARROW FAIL XVAR
 ##
 ## Ends in an error in state: 124.
 ##
@@ -1373,7 +1373,7 @@ qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL XVA
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEMICOLON TIMES
+qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE LBRACKET FAIL ARROW FAIL SEMICOLON TIMES
 ##
 ## Ends in an error in state: 125.
 ##
@@ -1387,7 +1387,7 @@ qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEM
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEMICOLON ELSE XVAR
+qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE LBRACKET FAIL ARROW FAIL SEMICOLON ELSE XVAR
 ##
 ## Ends in an error in state: 126.
 ##
@@ -1400,7 +1400,7 @@ qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEM
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEMICOLON ELSE ARROW TIMES
+qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE LBRACKET FAIL ARROW FAIL SEMICOLON ELSE ARROW TIMES
 ##
 ## Ends in an error in state: 127.
 ##
@@ -1413,7 +1413,7 @@ qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEM
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEMICOLON ELSE ARROW FAIL XVAR
+qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE LBRACKET FAIL ARROW FAIL SEMICOLON ELSE ARROW FAIL XVAR
 ##
 ## Ends in an error in state: 128.
 ##
@@ -1430,7 +1430,7 @@ qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEM
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-qunityfile: CTRL LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET FAIL ARROW FAIL SEMICOLON ELSE ARROW FAIL SEMICOLON XVAR
+qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE LBRACKET FAIL ARROW FAIL SEMICOLON ELSE ARROW FAIL SEMICOLON XVAR
 ##
 ## Ends in an error in state: 129.
 ##
@@ -1961,7 +1961,7 @@ qunityfile: PMATCH LBRACE FAIL XVAR
 ##
 ## Ends in an error in state: 182.
 ##
-## xexpr -> PMATCH LBRACE xexpr . COMMA xexpr RBRACE xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> PMATCH LBRACE xexpr . COMMA xexpr RBRACE LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF COMMA ]
 ## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF COMMA ]
 ## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF COMMA ]
@@ -1977,7 +1977,7 @@ qunityfile: PMATCH LBRACE FAIL COMMA TIMES
 ##
 ## Ends in an error in state: 183.
 ##
-## xexpr -> PMATCH LBRACE xexpr COMMA . xexpr RBRACE xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> PMATCH LBRACE xexpr COMMA . xexpr RBRACE LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
 ## The known suffix of the stack is as follows:
 ## PMATCH LBRACE xexpr COMMA
@@ -1989,7 +1989,7 @@ qunityfile: PMATCH LBRACE FAIL COMMA FAIL XVAR
 ##
 ## Ends in an error in state: 184.
 ##
-## xexpr -> PMATCH LBRACE xexpr COMMA xexpr . RBRACE xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> PMATCH LBRACE xexpr COMMA xexpr . RBRACE LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ## xexpr -> xexpr . OF xexpr [ TIMES RBRACE PLUS PIPE OF ]
 ## xexpr -> xexpr . PIPE xexpr [ TIMES RBRACE PLUS PIPE OF ]
 ## xexpr -> xexpr . PLUS xexpr [ TIMES RBRACE PLUS PIPE OF ]
@@ -2001,11 +2001,11 @@ qunityfile: PMATCH LBRACE FAIL COMMA FAIL XVAR
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE TIMES
+qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE XVAR
 ##
 ## Ends in an error in state: 185.
 ##
-## xexpr -> PMATCH LBRACE xexpr COMMA xexpr RBRACE . xexpr LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
+## xexpr -> PMATCH LBRACE xexpr COMMA xexpr RBRACE . LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
 ## The known suffix of the stack is as follows:
 ## PMATCH LBRACE xexpr COMMA xexpr RBRACE
@@ -2013,37 +2013,21 @@ qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE TIMES
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
-qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE FAIL XVAR
+qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE LBRACKET TIMES
 ##
 ## Ends in an error in state: 186.
 ##
-## xexpr -> PMATCH LBRACE xexpr COMMA xexpr RBRACE xexpr . LBRACKET ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
-## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF LBRACKET ]
-## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF LBRACKET ]
-## xexpr -> xexpr . PLUS xexpr [ TIMES PLUS PIPE OF LBRACKET ]
-## xexpr -> xexpr . TIMES xexpr [ TIMES PLUS PIPE OF LBRACKET ]
+## xexpr -> PMATCH LBRACE xexpr COMMA xexpr RBRACE LBRACKET . ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
 ## The known suffix of the stack is as follows:
-## PMATCH LBRACE xexpr COMMA xexpr RBRACE xexpr
-##
-
-<YOUR SYNTAX ERROR MESSAGE HERE>
-
-qunityfile: PMATCH LBRACE FAIL COMMA FAIL RBRACE FAIL LBRACKET TIMES
-##
-## Ends in an error in state: 187.
-##
-## xexpr -> PMATCH LBRACE xexpr COMMA xexpr RBRACE xexpr LBRACKET . ctrlblock [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
-##
-## The known suffix of the stack is as follows:
-## PMATCH LBRACE xexpr COMMA xexpr RBRACE xexpr LBRACKET
+## PMATCH LBRACE xexpr COMMA xexpr RBRACE LBRACKET
 ##
 
 <YOUR SYNTAX ERROR MESSAGE HERE>
 
 qunityfile: RIGHT LBRACE FAIL XVAR
 ##
-## Ends in an error in state: 189.
+## Ends in an error in state: 188.
 ##
 ## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF COMMA ]
 ## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF COMMA ]
@@ -2059,7 +2043,7 @@ qunityfile: RIGHT LBRACE FAIL XVAR
 
 qunityfile: RIGHT LBRACE FAIL COMMA TIMES
 ##
-## Ends in an error in state: 190.
+## Ends in an error in state: 189.
 ##
 ## xexpr -> RIGHT LBRACE xexpr COMMA . xexpr RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
@@ -2071,7 +2055,7 @@ qunityfile: RIGHT LBRACE FAIL COMMA TIMES
 
 qunityfile: RIGHT LBRACE FAIL COMMA FAIL XVAR
 ##
-## Ends in an error in state: 191.
+## Ends in an error in state: 190.
 ##
 ## xexpr -> xexpr . OF xexpr [ TIMES RBRACE PLUS PIPE OF ]
 ## xexpr -> xexpr . PIPE xexpr [ TIMES RBRACE PLUS PIPE OF ]
@@ -2087,7 +2071,7 @@ qunityfile: RIGHT LBRACE FAIL COMMA FAIL XVAR
 
 qunityfile: RPHASE LBRACE FAIL XVAR
 ##
-## Ends in an error in state: 193.
+## Ends in an error in state: 192.
 ##
 ## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF COMMA ]
 ## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF COMMA ]
@@ -2103,7 +2087,7 @@ qunityfile: RPHASE LBRACE FAIL XVAR
 
 qunityfile: RPHASE LBRACE FAIL COMMA TIMES
 ##
-## Ends in an error in state: 194.
+## Ends in an error in state: 193.
 ##
 ## xexpr -> RPHASE LBRACE xexpr COMMA . xexpr COMMA real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
@@ -2115,7 +2099,7 @@ qunityfile: RPHASE LBRACE FAIL COMMA TIMES
 
 qunityfile: RPHASE LBRACE FAIL COMMA FAIL XVAR
 ##
-## Ends in an error in state: 195.
+## Ends in an error in state: 194.
 ##
 ## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF COMMA ]
 ## xexpr -> xexpr . PIPE xexpr [ TIMES PLUS PIPE OF COMMA ]
@@ -2131,7 +2115,7 @@ qunityfile: RPHASE LBRACE FAIL COMMA FAIL XVAR
 
 qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA VOID
 ##
-## Ends in an error in state: 196.
+## Ends in an error in state: 195.
 ##
 ## xexpr -> RPHASE LBRACE xexpr COMMA xexpr COMMA . real COMMA real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
@@ -2143,7 +2127,7 @@ qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA VOID
 
 qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA CONST RPAREN
 ##
-## Ends in an error in state: 197.
+## Ends in an error in state: 196.
 ##
 ## real -> real . PLUS real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
 ## real -> real . TIMES real [ TIMES POW PLUS MOD MINUS DIV COMMA ]
@@ -2161,7 +2145,7 @@ qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA CONST RPAREN
 
 qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA CONST COMMA VOID
 ##
-## Ends in an error in state: 198.
+## Ends in an error in state: 197.
 ##
 ## xexpr -> RPHASE LBRACE xexpr COMMA xexpr COMMA real COMMA . real RBRACE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
@@ -2173,7 +2157,7 @@ qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA CONST COMMA VOID
 
 qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA CONST COMMA CONST RPAREN
 ##
-## Ends in an error in state: 199.
+## Ends in an error in state: 198.
 ##
 ## real -> real . PLUS real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
 ## real -> real . TIMES real [ TIMES RBRACE POW PLUS MOD MINUS DIV ]
@@ -2191,7 +2175,7 @@ qunityfile: RPHASE LBRACE FAIL COMMA FAIL COMMA CONST COMMA CONST RPAREN
 
 qunityfile: TRY FAIL XVAR
 ##
-## Ends in an error in state: 201.
+## Ends in an error in state: 200.
 ##
 ## xexpr -> TRY xexpr . CATCH xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF CATCH ]
@@ -2207,7 +2191,7 @@ qunityfile: TRY FAIL XVAR
 
 qunityfile: TRY FAIL CATCH TIMES
 ##
-## Ends in an error in state: 202.
+## Ends in an error in state: 201.
 ##
 ## xexpr -> TRY xexpr CATCH . xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
@@ -2219,7 +2203,7 @@ qunityfile: TRY FAIL CATCH TIMES
 
 qunityfile: TRY FAIL CATCH FAIL XVAR
 ##
-## Ends in an error in state: 203.
+## Ends in an error in state: 202.
 ##
 ## xexpr -> TRY xexpr CATCH xexpr . [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ## xexpr -> xexpr . OF xexpr [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
@@ -2235,7 +2219,7 @@ qunityfile: TRY FAIL CATCH FAIL XVAR
 
 qunityfile: XVAR LANGLE FAIL XVAR
 ##
-## Ends in an error in state: 204.
+## Ends in an error in state: 203.
 ##
 ## arglist -> xexpr . RANGLE [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ## arglist -> xexpr . COMMA arglist [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
@@ -2252,7 +2236,7 @@ qunityfile: XVAR LANGLE FAIL XVAR
 
 qunityfile: XVAR LANGLE FAIL COMMA TIMES
 ##
-## Ends in an error in state: 206.
+## Ends in an error in state: 205.
 ##
 ## arglist -> xexpr COMMA . arglist [ TIMES THEN SEMICOLON RPAREN RBRACKET RBRACE RANGLE PLUS PIPE OF LT LEQ LBRACKET LBRACE IN GT GEQ EQUAL EOF ENDIF END ELSE COMMA CATCH ARROW ]
 ##
@@ -2264,7 +2248,7 @@ qunityfile: XVAR LANGLE FAIL COMMA TIMES
 
 qunityfile: SEMICOLON XVAR
 ##
-## Ends in an error in state: 209.
+## Ends in an error in state: 208.
 ##
 ## qunityfile -> SEMICOLON . SEMICOLON EOF [ # ]
 ##
@@ -2276,7 +2260,7 @@ qunityfile: SEMICOLON XVAR
 
 qunityfile: SEMICOLON SEMICOLON XVAR
 ##
-## Ends in an error in state: 210.
+## Ends in an error in state: 209.
 ##
 ## qunityfile -> SEMICOLON SEMICOLON . EOF [ # ]
 ##
@@ -2288,7 +2272,7 @@ qunityfile: SEMICOLON SEMICOLON XVAR
 
 qunityfile: DEF VOID
 ##
-## Ends in an error in state: 213.
+## Ends in an error in state: 212.
 ##
 ## qunityfile -> DEF . XVAR LANGLE argnames DEFSTART xexpr END qunityfile [ # ]
 ## qunityfile -> DEF . XVAR DEFSTART xexpr END qunityfile [ # ]
@@ -2301,7 +2285,7 @@ qunityfile: DEF VOID
 
 qunityfile: DEF XVAR XVAR
 ##
-## Ends in an error in state: 214.
+## Ends in an error in state: 213.
 ##
 ## qunityfile -> DEF XVAR . LANGLE argnames DEFSTART xexpr END qunityfile [ # ]
 ## qunityfile -> DEF XVAR . DEFSTART xexpr END qunityfile [ # ]
@@ -2314,7 +2298,7 @@ qunityfile: DEF XVAR XVAR
 
 qunityfile: DEF XVAR LANGLE VOID
 ##
-## Ends in an error in state: 215.
+## Ends in an error in state: 214.
 ##
 ## qunityfile -> DEF XVAR LANGLE . argnames DEFSTART xexpr END qunityfile [ # ]
 ##
@@ -2326,7 +2310,7 @@ qunityfile: DEF XVAR LANGLE VOID
 
 qunityfile: DEF XVAR LANGLE XVAR XVAR
 ##
-## Ends in an error in state: 216.
+## Ends in an error in state: 215.
 ##
 ## argnames -> XVAR . RANGLE [ DEFSTART ]
 ## argnames -> XVAR . COMMA argnames [ DEFSTART ]
@@ -2339,7 +2323,7 @@ qunityfile: DEF XVAR LANGLE XVAR XVAR
 
 qunityfile: DEF XVAR LANGLE XVAR COMMA VOID
 ##
-## Ends in an error in state: 218.
+## Ends in an error in state: 217.
 ##
 ## argnames -> XVAR COMMA . argnames [ DEFSTART ]
 ##
@@ -2351,7 +2335,7 @@ qunityfile: DEF XVAR LANGLE XVAR COMMA VOID
 
 qunityfile: DEF XVAR LANGLE XVAR RANGLE XVAR
 ##
-## Ends in an error in state: 220.
+## Ends in an error in state: 219.
 ##
 ## qunityfile -> DEF XVAR LANGLE argnames . DEFSTART xexpr END qunityfile [ # ]
 ##
@@ -2363,7 +2347,7 @@ qunityfile: DEF XVAR LANGLE XVAR RANGLE XVAR
 
 qunityfile: DEF XVAR LANGLE XVAR RANGLE DEFSTART TIMES
 ##
-## Ends in an error in state: 221.
+## Ends in an error in state: 220.
 ##
 ## qunityfile -> DEF XVAR LANGLE argnames DEFSTART . xexpr END qunityfile [ # ]
 ##
@@ -2375,7 +2359,7 @@ qunityfile: DEF XVAR LANGLE XVAR RANGLE DEFSTART TIMES
 
 qunityfile: DEF XVAR LANGLE XVAR RANGLE DEFSTART FAIL XVAR
 ##
-## Ends in an error in state: 222.
+## Ends in an error in state: 221.
 ##
 ## qunityfile -> DEF XVAR LANGLE argnames DEFSTART xexpr . END qunityfile [ # ]
 ## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF END ]
@@ -2391,7 +2375,7 @@ qunityfile: DEF XVAR LANGLE XVAR RANGLE DEFSTART FAIL XVAR
 
 qunityfile: DEF XVAR LANGLE XVAR RANGLE DEFSTART FAIL END TIMES
 ##
-## Ends in an error in state: 223.
+## Ends in an error in state: 222.
 ##
 ## qunityfile -> DEF XVAR LANGLE argnames DEFSTART xexpr END . qunityfile [ # ]
 ##
@@ -2403,7 +2387,7 @@ qunityfile: DEF XVAR LANGLE XVAR RANGLE DEFSTART FAIL END TIMES
 
 qunityfile: FAIL XVAR
 ##
-## Ends in an error in state: 224.
+## Ends in an error in state: 223.
 ##
 ## qunityfile -> xexpr . EOF [ # ]
 ## qunityfile -> xexpr . SEMICOLON SEMICOLON EOF [ # ]
@@ -2420,7 +2404,7 @@ qunityfile: FAIL XVAR
 
 qunityfile: FAIL SEMICOLON XVAR
 ##
-## Ends in an error in state: 225.
+## Ends in an error in state: 224.
 ##
 ## qunityfile -> xexpr SEMICOLON . SEMICOLON EOF [ # ]
 ##
@@ -2432,7 +2416,7 @@ qunityfile: FAIL SEMICOLON XVAR
 
 qunityfile: FAIL SEMICOLON SEMICOLON XVAR
 ##
-## Ends in an error in state: 226.
+## Ends in an error in state: 225.
 ##
 ## qunityfile -> xexpr SEMICOLON SEMICOLON . EOF [ # ]
 ##
@@ -2444,7 +2428,7 @@ qunityfile: FAIL SEMICOLON SEMICOLON XVAR
 
 qunityfile: DEF XVAR DEFSTART TIMES
 ##
-## Ends in an error in state: 230.
+## Ends in an error in state: 229.
 ##
 ## qunityfile -> DEF XVAR DEFSTART . xexpr END qunityfile [ # ]
 ##
@@ -2456,7 +2440,7 @@ qunityfile: DEF XVAR DEFSTART TIMES
 
 qunityfile: DEF XVAR DEFSTART FAIL XVAR
 ##
-## Ends in an error in state: 231.
+## Ends in an error in state: 230.
 ##
 ## qunityfile -> DEF XVAR DEFSTART xexpr . END qunityfile [ # ]
 ## xexpr -> xexpr . OF xexpr [ TIMES PLUS PIPE OF END ]
@@ -2472,7 +2456,7 @@ qunityfile: DEF XVAR DEFSTART FAIL XVAR
 
 qunityfile: DEF XVAR DEFSTART FAIL END TIMES
 ##
-## Ends in an error in state: 232.
+## Ends in an error in state: 231.
 ##
 ## qunityfile -> DEF XVAR DEFSTART xexpr END . qunityfile [ # ]
 ##

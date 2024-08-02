@@ -11,7 +11,7 @@ type xexpr =
   | XQpair of (xexpr * xexpr)
   | XCtrl of (xexpr * xexpr * (xexpr * xexpr) list * xexpr * xexpr option)
   | XMatch of (xexpr * xexpr * (xexpr * xexpr) list * xexpr * xexpr option)
-  | XPMatch of (xexpr * xexpr * (xexpr * xexpr) list * xexpr * xexpr option)
+  | XPMatch of (xexpr * (xexpr * xexpr) list * xexpr * xexpr option)
   | XTry of (xexpr * xexpr)
   | XApply of (xexpr * xexpr)
   | XVoid
@@ -178,17 +178,19 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
                  XCtrl (xe0, xt0, xl', XProdType (xt0, xt1), xelseopt') ))
             dm xv
       end
-    | XPMatch (xe0, xt0, xl, xt1, xelseopt) -> begin
-        match ctrl_eval xe0 xt0 xl xt1 xelseopt with
-        | SomeE (e0, t0, l, t1) -> begin
-            let l0 = List.map (fun (ej, ej') -> (ej, Qpair (e0, ej'))) l in
+    | XPMatch (xt0, xl, xt1, xelseopt) -> begin
+        match ctrl_eval (XVar "$x") xt0 xl xt1 xelseopt with
+        | SomeE (_, t0, l, t1) -> begin
+            let l0 =
+              List.map (fun (ej, ej') -> (ej, Qpair (Var "$x", ej'))) l
+            in
             let l1 =
               List.map (fun (ej, ej') -> (ej', Qpair (ej, Var "$y"))) l
             in
-            let ctrl0 = Ctrl (e0, t0, l0, ProdType (t0, t1)) in
+            let ctrl0 = Ctrl (Var "$x", t0, l0, ProdType (t0, t1)) in
             let ctrl1 = Ctrl (Var "$y", t1, l1, ProdType (t0, t1)) in
             let spec_erasure = Lambda (ctrl1, ProdType (t0, t1), Var "$y") in
-              RExpr (Apply (spec_erasure, ctrl0))
+              RProg (Lambda (Var "$x", t0, Apply (spec_erasure, ctrl0)))
           end
         | NoneE err -> RNone err
       end
