@@ -173,25 +173,6 @@ let rec gate_of_list (ul : gate list) : gate =
   | [u] -> u
   | u :: ul' -> Sequence (u, gate_of_list ul')
 
-let rec gate_optimization_pass (ul : gate list) : gate list * bool =
-  match ul with
-  | [] -> ([], false)
-  | u :: u' :: ul' when gate_is_unitary u && gate_equal u' (gate_adjoint u) ->
-      (fst (gate_optimization_pass ul'), true)
-  | u :: ul' ->
-      let ul'', changes_made = gate_optimization_pass ul' in
-        (u :: ul'', changes_made)
-
-let rec gate_list_optimize (ul : gate list) : gate list =
-  let ul_opt, changes_made = gate_optimization_pass ul in
-    if changes_made then
-      gate_list_optimize ul_opt
-    else
-      ul
-
-let gate_optimize (u : gate) : gate =
-  gate_of_list (gate_list_optimize (gate_to_list u))
-
 (*
 Share a register to another one by applying CNOT gates for each qubit.
 *)
@@ -338,3 +319,22 @@ let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
   in
     mat_from_fun (1 lsl l) (1 lsl l) (fun i j ->
         mat_entry final (i lsl (nqubits - l)) (j lsl (nqubits - l)))
+
+let rec gate_optimization_pass (ul : gate list) : gate list * bool =
+  match ul with
+  | [] -> ([], false)
+  | u :: u' :: ul' when gate_is_unitary u && gate_equal u' (gate_adjoint u) ->
+      (fst (gate_optimization_pass ul'), true)
+  | u :: ul' ->
+      let ul'', changes_made = gate_optimization_pass ul' in
+        (u :: ul'', changes_made)
+
+let rec gate_list_optimize (ul : gate list) : gate list =
+  let ul_opt, changes_made = gate_optimization_pass ul in
+    if changes_made then
+      gate_list_optimize ul_opt
+    else
+      ul
+
+let gate_optimize (u : gate) : gate =
+  gate_of_list (gate_list_optimize (gate_to_list u))

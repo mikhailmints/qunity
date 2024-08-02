@@ -138,6 +138,7 @@ let () =
         "fourier_transform.qunity";
         "grover.qunity";
         "retry_example.qunity";
+        "walk_1d.qunity";
       ]
     in
     let _ =

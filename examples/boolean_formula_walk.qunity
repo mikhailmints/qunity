@@ -53,33 +53,20 @@ def UState :=
         Bit0 -> (x, Bit0);
         Bit1 -> (x, BitPlus)
     ]
-    |> lambda x {Bit * Bit} -> ctrl {Bit * Bit, (Bit * Bit) * Coin} x [
-        (Bit0, Bit0) -> (x, Cdown);
-        (Bit1, Bit0) -> (x, Cleft);
-        (Bit1, Bit1) -> (x, Cright)
+    |> lambda x {Bit * Bit} -> pmatch {Bit * Bit, Coin} x [
+        (Bit0, Bit0) -> Cdown;
+        (Bit1, Bit0) -> Cleft;
+        (Bit1, Bit1) -> Cright
     ]
-    |> lambda (
-        ctrl {Coin, (Bit * Bit) * Coin} x' [
-            Cdown -> ((Bit0, Bit0), x');
-            Cleft -> ((Bit1, Bit0), x');
-            Cright -> ((Bit1, Bit1), x')
-        ]
-    ) {(Bit * Bit) * Coin} -> x'
 end
 
 def U'State <N> :=
     Bit0
     |> u3 {2 * arccos(1 / sqrt(sqrt(2 ^ N))), 0, 0}
-    |> lambda x {Bit} -> ctrl {Bit, Bit * Coin} x [
-        Bit0 -> (x, Cdown);
-        Bit1 -> (x, Cleft)
+    |> lambda x {Bit} -> pmatch {Bit, Coin} x [
+        Bit0 -> Cdown;
+        Bit1 -> Cleft
     ]
-    |> lambda (
-        ctrl {Coin, Bit * Coin} x' [
-            Cdown -> (Bit0, x');
-            Cleft -> (Bit1, x')
-        ]
-    ) {Bit * Coin} -> x'
 end
 
 /*

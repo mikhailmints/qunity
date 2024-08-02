@@ -36,6 +36,8 @@ and read = parse
     | "," {COMMA}
     | ";" {SEMICOLON}
     | "ctrl" {CTRL}
+    | "match" {MATCH}
+    | "pmatch" {PMATCH}
     | "try" {TRY}
     | "catch" {CATCH}
     | "lambda" {LAMBDA}

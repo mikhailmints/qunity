@@ -391,12 +391,7 @@ let missing_span (t : exprtype) (l : expr list) :
         match spread_qpair_list l with
         | None -> None
         | Some l' -> begin
-            let next_fv =
-              List.fold_right StringSet.union
-                (List.map free_vars (List.flatten (List.map snd l')))
-                fv
-            in
-              match missing_span_helper t0 (List.map fst l') next_fv with
+              match missing_span_helper t0 (List.map fst l') fv with
               | None -> None
               | Some (l0, sp0) -> begin
                   let l'' =

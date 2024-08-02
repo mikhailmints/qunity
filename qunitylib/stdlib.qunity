@@ -165,17 +165,21 @@ end
 /*
 Little-endian encoding of number N as a quantum state
 */
-def NumToStateLE <N> :=
+def NumToStateLE <N, Nbits> :=
     if N lt [0] then
         fail
     else
-        if N = [0] then
-            ()
+        if Nbits lt [0] then
+            fail
         else
-            if [N % 2] = [0] then
-                (Bit0, NumToStateLE <[N / 2]>)
+            if N = [0] then
+                NTensorE <[Nbits], Bit0>
             else
-                (Bit1, NumToStateLE <[(N - 1) / 2]>)
+                if [N % 2] = [0] then
+                    (Bit0, NumToStateLE <[N / 2], [Nbits - 1]>)
+                else
+                    (Bit1, NumToStateLE <[(N - 1) / 2], [Nbits - 1]>)
+                endif
             endif
         endif
     endif
@@ -184,16 +188,54 @@ end
 /*
 Big-endian encoding of number N as a quantum state
 */
-def NumToStateBE <N> :=
+def NumToStateBE <N, Nbits> :=
+    NumToStateLE <[N], [Nbits]> |> Reverse <[Nbits], Bit>
+end
+
+/*
+Increment a little-endian N-bit number
+*/
+def IncrementLE <N> :=
     if N lt [0] then
         fail
     else
         if N = [0] then
-            ()
+            Qid <qunit>
         else
-            NumToStateLE <[N]> |> Reverse <[floor(log2(N)) + 1], Bit>
+            lambda (x0, x') {NTensorT <[N], Bit>} ->
+                ctrl {Bit, Bit * NTensorT <[N], Bit>} x0 [
+                    Bit0 -> (x0, (Bit1, x'));
+                    Bit1 -> (x0, (Bit0, x' |> IncrementLE <[N - 1]>))
+                ] |> lambda (
+                    ctrl {NTensorT <[N], Bit>, Bit * NTensorT <[N], Bit>} y [
+                        (Bit0, _) -> (Bit1, y);
+                        (Bit1, _) -> (Bit0, y)
+                    ]
+                ) {Bit * NTensorT <[N], Bit>} -> y
         endif
     endif
+end
+
+/*
+Decrement a little-endian N-bit number
+*/
+def DecrementLE <N> :=
+    Adjoint <IncrementLE <[N]>, NTensorT <[N], Bit>>
+end
+
+/*
+Increment a big-endian N-bit number
+*/
+def IncrementBE <N> :=
+    lambda x {NTensorT <[N], Bit>} ->
+    x |> Reverse <[N], Bit> |> IncrementLE <[N]> |> Reverse <[N], Bit>
+end
+
+/*
+Decrement a big-endian N-bit number
+*/
+def DecrementBE <N> :=
+    Adjoint <IncrementBE <[N]>, NTensorT <[N], Bit>>
 end
 
 /*
@@ -213,12 +255,12 @@ end
 
 def And :=
     lambda x {Bit * Bit} ->
-    ctrl {Bit * Bit, (Bit * Bit) * Bit} x [
-        (Bit0, Bit0) -> (x, Bit0);
-        (Bit0, Bit1) -> (x, Bit0);
-        (Bit1, Bit0) -> (x, Bit0);
-        (Bit1, Bit1) -> (x, Bit1)
-    ] |> Snd <Bit * Bit, Bit>
+    match {Bit * Bit, Bit} x [
+        (Bit0, Bit0) -> Bit0;
+        (Bit0, Bit1) -> Bit0;
+        (Bit1, Bit0) -> Bit0;
+        (Bit1, Bit1) -> Bit1
+    ]
 end
 
 /*

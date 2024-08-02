@@ -11,7 +11,7 @@ open Semantics
 
 let () =
   let show_ocaml_string = bool_of_string Sys.argv.(1) in
-  let stdlib_filename = "bin/stdlib.qunity" in
+  let stdlib_filename = "qunitylib/stdlib.qunity" in
     match parse_with_err parse_file stdlib_filename with
     | NoneE err -> Printf.printf "%s\n\n" (err ^ "in " ^ stdlib_filename)
     | SomeE stdlib_qf -> begin

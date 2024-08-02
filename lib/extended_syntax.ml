@@ -10,6 +10,8 @@ type xexpr =
   | XVar of string
   | XQpair of (xexpr * xexpr)
   | XCtrl of (xexpr * xexpr * (xexpr * xexpr) list * xexpr * xexpr option)
+  | XMatch of (xexpr * xexpr * (xexpr * xexpr) list * xexpr * xexpr option)
+  | XPMatch of (xexpr * xexpr * (xexpr * xexpr) list * xexpr * xexpr option)
   | XTry of (xexpr * xexpr)
   | XApply of (xexpr * xexpr)
   | XVoid
@@ -116,6 +118,32 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
           end
       end
   in
+  let ctrl_eval (xe0 : xexpr) (xt0 : xexpr) (xl : (xexpr * xexpr) list)
+      (xt1 : xexpr) (xelseopt : xexpr option) :
+      (expr * exprtype * (expr * expr) list * exprtype) optionE =
+    match
+      ( xexpr_eval xe0 dm xv,
+        xexpr_eval xt0 dm xv,
+        all_or_nothing
+          (List.map
+             (fun (xej, xej') ->
+               match (xexpr_eval xej dm xv, xexpr_eval xej' dm xv) with
+               | RExpr ej, RExpr ej' -> Some (ej, ej')
+               | _ -> None)
+             xl),
+        xexpr_eval xt1 dm xv )
+    with
+    | RExpr e0, RType t0, Some l, RType t1 -> begin
+        match expand_xelse t0 xelseopt l with
+        | NoneE err -> NoneE err
+        | SomeE l' -> SomeE (e0, t0, l', t1)
+      end
+    | RNone err, _, _, _
+    | _, RNone err, _, _
+    | _, _, _, RNone err ->
+        NoneE err
+    | _ -> NoneE "Preprocessing error in Ctrl"
+  in
     match v with
     | XNull -> RExpr Null
     | XVar x -> RExpr (Var x)
@@ -128,28 +156,41 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
         | _, _ -> RNone "Expected expression"
       end
     | XCtrl (xe0, xt0, xl, xt1, xelseopt) -> begin
-        match
-          ( xexpr_eval xe0 dm xv,
-            xexpr_eval xt0 dm xv,
-            all_or_nothing
-              (List.map
-                 (fun (xej, xej') ->
-                   match (xexpr_eval xej dm xv, xexpr_eval xej' dm xv) with
-                   | RExpr ej, RExpr ej' -> Some (ej, ej')
-                   | _ -> None)
-                 xl),
-            xexpr_eval xt1 dm xv )
-        with
-        | RExpr e0, RType t0, Some l, RType t1 -> begin
-            match expand_xelse t0 xelseopt l with
-            | NoneE err -> RNone err
-            | SomeE l' -> RExpr (Ctrl (e0, t0, l', t1))
+        match ctrl_eval xe0 xt0 xl xt1 xelseopt with
+        | SomeE (e0, t0, l, t1) -> RExpr (Ctrl (e0, t0, l, t1))
+        | NoneE err -> RNone err
+      end
+    | XMatch (xe0, xt0, xl, xt1, xelseopt) -> begin
+        let xelseopt' =
+          begin
+            match xelseopt with
+            | Some xelse -> Some (XQpair (xe0, xelse))
+            | None -> None
           end
-        | RNone err, _, _, _
-        | _, RNone err, _, _
-        | _, _, _, RNone err ->
-            RNone err
-        | _ -> RNone "Preprocessing error in Ctrl"
+        in
+        let xl' = List.map (fun (xej, xej') -> (xej, XQpair (xe0, xej'))) xl in
+          xexpr_eval
+            (XApply
+               ( XLambda
+                   ( XQpair (XVar "$x0", XVar "$x1"),
+                     XProdType (xt0, xt1),
+                     XVar "$x1" ),
+                 XCtrl (xe0, xt0, xl', XProdType (xt0, xt1), xelseopt') ))
+            dm xv
+      end
+    | XPMatch (xe0, xt0, xl, xt1, xelseopt) -> begin
+        match ctrl_eval xe0 xt0 xl xt1 xelseopt with
+        | SomeE (e0, t0, l, t1) -> begin
+            let l0 = List.map (fun (ej, ej') -> (ej, Qpair (e0, ej'))) l in
+            let l1 =
+              List.map (fun (ej, ej') -> (ej', Qpair (ej, Var "$y"))) l
+            in
+            let ctrl0 = Ctrl (e0, t0, l0, ProdType (t0, t1)) in
+            let ctrl1 = Ctrl (Var "$y", t1, l1, ProdType (t0, t1)) in
+            let spec_erasure = Lambda (ctrl1, ProdType (t0, t1), Var "$y") in
+              RExpr (Apply (spec_erasure, ctrl0))
+          end
+        | NoneE err -> RNone err
       end
     | XTry (xe0, xe1) -> begin
         match (xexpr_eval xe0 dm xv, xexpr_eval xe1 dm xv) with
