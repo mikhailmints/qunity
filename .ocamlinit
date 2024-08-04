@@ -1,0 +1,25 @@
+(* Automatically load in modules when starting utop *)
+
+#require "num";;
+#mod_use "lib/util.ml";;
+#mod_use "lib/reals.ml";;
+#mod_use "lib/syntax.ml";;
+#mod_use "lib/typechecking.ml";;
+#mod_use "lib/matrix.ml";;
+#mod_use "lib/semantics.ml";;
+#mod_use "lib/extended_syntax.ml";;
+#mod_use "lib/gate.ml";;
+#mod_use "lib/binary_tree.ml";;
+#mod_use "lib/compilation.ml";;
+
+open Util
+open Reals
+open Syntax
+open Typechecking
+open Matrix
+open Semantics
+open Extended_syntax
+open Gate
+open Binary_tree
+open Compilation
+;;

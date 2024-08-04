@@ -192,3 +192,19 @@ let range_arr (i : int) : int array = Array.of_list (range i)
 let float_approx_equal (a : float) (b : float) : bool =
   let eps = 1e-15 in
     Float.abs (a -. b) <= eps
+
+let int_log2_ceil (n : int) : int =
+  if n <= 0 then
+    failwith "n must be positive"
+  else
+    let rec iter (k : int) (i : int) : int =
+      if k >= n then
+        i
+      else
+        iter (k * 2) (i + 1)
+    in
+      iter 1 0
+
+let complete_binary_left_subtree (n : int) : int =
+  let h = int_log2_ceil n in
+    min (n - (1 lsl (h - 2))) (1 lsl (h - 1))

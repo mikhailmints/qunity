@@ -3,6 +3,7 @@ open Reals
 open Syntax
 open Typechecking
 open Gate
+open Binary_tree
 
 let debug_mode = false
 let annotation_mode = ref false
@@ -68,6 +69,7 @@ type inter_op =
   | IShare of exprtype (* a {T} -> [a; a] *)
   | IContextShare of context
   | IAdjoint of inter_op
+  | ISequence of inter_op * inter_op
   | IDirsum of inter_op * inter_op
   | IAssoc of
       exprtype * exprtype * exprtype (* (T0 + T1) + T2 -> T0 + (T1 + T2) *)
@@ -85,7 +87,6 @@ type inter_op =
       context * StringSet.t (* context -> [things in set; things not in set] *)
   | IContextMerge of context * context
     (* merge contexts assumed to be disjoint *)
-  | IContextDistr of context * int * context
   | ILambda of
       string * (string * int) list * inter_com list * (string * int) list
 (* Output sizes, arg names with sizes, body, return vars. *)
@@ -98,6 +99,8 @@ and they also delete the input variables since the registers will overlap in
 an arbitrary way in the reassignment.
 *)
 and inter_com = string list * inter_op * string list
+
+let ( @&& ) a b = ISequence (a, b)
 
 (* Alias for ILambda. *)
 let inter_lambda (name : string) (arglist : (string * int) list)
@@ -565,6 +568,34 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
                          (List.flatten in_regs));
                 },
                 used_wires )
+      end;
+  }
+
+let circuit_sequence (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
+  {
+    in_sizes = cs0.in_sizes;
+    out_sizes = cs1.out_sizes;
+    circ_fun =
+      begin
+        fun in_regs used_wires settings ->
+          let circ0, used_wires =
+            build_circuit cs0 in_regs used_wires settings
+          in
+          let circ1, used_wires =
+            build_circuit cs1 circ0.out_regs used_wires settings
+          in
+            ( {
+                name = "sequence";
+                in_regs;
+                prep_reg =
+                  int_list_union circ0.prep_reg
+                    (int_list_diff circ1.prep_reg (List.flatten circ0.in_regs));
+                out_regs = circ1.out_regs;
+                flag_reg = int_list_union circ0.flag_reg circ1.flag_reg;
+                garb_reg = int_list_union circ0.garb_reg circ1.garb_reg;
+                gate = circ0.gate @& circ1.gate;
+              },
+              used_wires )
       end;
   }
 
@@ -1281,72 +1312,6 @@ let circuit_context_merge (d0 : context) (d1 : context) : circuit_spec =
     circuit_adjoint (circuit_context_partition d fv0)
 
 (*
-Distributivity isomorphism
-(H(g) + H') * H(d) -> H(g,d) + (H' * H(d))
-*)
-let circuit_context_distr (g : context) (hsize : int) (d : context) :
-    circuit_spec =
-  let gsize = context_size g in
-  let dsize = context_size d in
-  let in_sizes = [1 + max gsize hsize; dsize] in
-    {
-      in_sizes;
-      out_sizes = [1 + max gsize hsize + dsize];
-      circ_fun =
-        begin
-          fun in_regs used_wires settings ->
-            expect_sizes "circuit_context_distr" in_sizes in_regs;
-            let signal_bit, sum_reg, d_reg =
-              match in_regs with
-              | [signal_bit :: sum_reg; d_reg] -> (signal_bit, sum_reg, d_reg)
-              | _ -> failwith "Invalid input regs"
-            in
-            let g_reg, g_rest_reg = list_split_at_i sum_reg gsize in
-            let _, h_rest_reg = list_split_at_i sum_reg hsize in
-            let d_reg_shifted, _ =
-              list_split_at_i (g_rest_reg @ d_reg) dsize
-            in
-            let merge_cs = circuit_context_merge g d in
-            let merge_circ, used_wires =
-              build_circuit merge_cs [g_reg; d_reg_shifted] used_wires settings
-            in
-              ( {
-                  name = "context_distr";
-                  in_regs;
-                  prep_reg = [];
-                  out_regs = [List.flatten in_regs];
-                  flag_reg = [];
-                  garb_reg = [];
-                  gate =
-                    begin
-                      begin
-                        if g_rest_reg <> [] then
-                          Controlled
-                            ( [signal_bit],
-                              [false],
-                              gate_permute (g_rest_reg @ d_reg)
-                                (d_reg @ g_rest_reg) )
-                        else
-                          Identity
-                      end
-                      @& controlled_circ [signal_bit] [false] merge_circ
-                      @& begin
-                           if h_rest_reg <> [] then
-                             Controlled
-                               ( [signal_bit],
-                                 [true],
-                                 gate_permute (h_rest_reg @ d_reg)
-                                   (d_reg @ h_rest_reg) )
-                           else
-                             Identity
-                         end
-                    end;
-                },
-                used_wires )
-        end;
-    }
-
-(*
 Given a circuit and an intermediate representation command, as well as an
 intermediate representation valuation, applies the command's operator to the
 registers of the circuit. Returns an updated circuit and valuation (which
@@ -1451,6 +1416,10 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | IShare t -> circuit_share (type_size t)
   | IContextShare d -> circuit_share (context_size d)
   | IAdjoint op' -> circuit_adjoint (compile_inter_op_to_circuit op')
+  | ISequence (op0, op1) ->
+      circuit_sequence
+        (compile_inter_op_to_circuit op0)
+        (compile_inter_op_to_circuit op1)
   | IDirsum (op0, op1) ->
       circuit_dirsum
         (compile_inter_op_to_circuit op0)
@@ -1467,7 +1436,6 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | IPurify op' -> circuit_purify (compile_inter_op_to_circuit op')
   | IContextPartition (d, fv) -> circuit_context_partition d fv
   | IContextMerge (d0, d1) -> circuit_context_merge d0 d1
-  | IContextDistr (g, s, d) -> circuit_context_distr g s d
   | ILambda (name, args, iel, ret) -> begin
       let arg_names = List.map fst args in
       let arg_sizes = List.map snd args in
@@ -1555,16 +1523,8 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
 let make_pure_op_take_one_reg (g : context) (d : context) (t : exprtype)
     (op : inter_op) =
   let gsize = context_size g in
-  let dsize = context_size d in
   let tsize = type_size t in
-    inter_lambda "make_pure_op_take_one_reg"
-      [("gd", gsize + dsize)]
-      [
-        inter_letapp ["g"; "d"] (IAdjoint (IContextMerge (g, d))) ["gd"];
-        inter_letapp ["g"; "t"] op ["g"; "d"];
-        inter_letapp ["res"] (ISizePair (gsize, tsize)) ["g"; "t"];
-      ]
-      [("res", gsize + tsize)]
+    IAdjoint (IContextMerge (g, d)) @&& op @&& ISizePair (gsize, tsize)
 
 let rec dirsum_op_n_times (n : int) (op : inter_op) =
   if n < 1 then
@@ -1572,13 +1532,19 @@ let rec dirsum_op_n_times (n : int) (op : inter_op) =
   else if n = 1 then
     op
   else
-    IDirsum (op, dirsum_op_n_times (n - 1) op)
+    let n_left = complete_binary_left_subtree n in
+    let n_right = n - n_left in
+      IDirsum (dirsum_op_n_times n_left op, dirsum_op_n_times n_right op)
 
 let rec dirsum_op_list (l : inter_op list) : inter_op =
   match l with
   | [] -> failwith "Expected nonempty list"
   | [op] -> op
-  | op :: l' -> IDirsum (op, dirsum_op_list l')
+  | _ -> begin
+      let n_left = complete_binary_left_subtree (List.length l) in
+      let l_left, l_right = list_split_at_i l n_left in
+        IDirsum (dirsum_op_list l_left, dirsum_op_list l_right)
+    end
 
 let rec dirsum_type_n_times (n : int) (t : exprtype) =
   if n < 1 then
@@ -1586,77 +1552,100 @@ let rec dirsum_type_n_times (n : int) (t : exprtype) =
   else if n = 1 then
     t
   else
-    SumType (t, dirsum_type_n_times (n - 1) t)
+    let n_left = complete_binary_left_subtree n in
+    let n_right = n - n_left in
+      SumType (dirsum_type_n_times n_left t, dirsum_type_n_times n_right t)
 
 let rec dirsum_type_list (l : exprtype list) : exprtype =
   match l with
   | [] -> failwith "Expected nonempty list"
   | [t] -> t
-  | t :: l' -> SumType (t, dirsum_type_list l')
-
-let rec big_assoc_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
-    exprtype =
-  match t0 with
-  | _ when t0 = stop -> SumType (t0, t1)
-  | SumType (t00, t01) -> SumType (t00, big_assoc_type stop t01 t1)
-  | _ -> SumType (t0, t1)
-
-(*
-(a0 + (a1 + (a2 + (... + an)))) + b -> (a0 + (a1 + (a2 + (... + (an + b)))))
-Specifically, b can be (b0 + (b1 + (b2 + (... + bm))))
-*)
-let rec big_assoc_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
-    inter_op =
-  match t0 with
-  | _ when t0 = stop -> IIdentity (SumType (t0, t1))
-  | SumType (t00, t01) -> begin
-      inter_lambda "big_assoc"
-        [("(t00+t01)+t1", type_size (SumType (t0, t1)))]
-        [
-          inter_letapp ["t00+(t01+t1)"] (IAssoc (t00, t01, t1)) ["(t00+t01)+t1"];
-          inter_letapp ["res"]
-            (IDirsum (IIdentity t0, big_assoc_op stop t01 t1))
-            ["t00+(t01+t1)"];
-        ]
-        [("res", type_size (big_assoc_type stop t0 t1))]
+  | _ -> begin
+      let n_left = complete_binary_left_subtree (List.length l) in
+      let l_left, l_right = list_split_at_i l n_left in
+        SumType (dirsum_type_list l_left, dirsum_type_list l_right)
     end
-  | _ -> IIdentity (SumType (t0, t1))
 
-let rec double_big_assoc_type (stop : exprtype) (t : exprtype) : exprtype =
+let rec binary_tree_of_type (stop : exprtype) (t : exprtype) : binary_tree =
+  match t with
+  | _ when t = stop -> Leaf
+  | SumType (t0, t1) ->
+      Node (binary_tree_of_type stop t0, binary_tree_of_type stop t1)
+  | _ -> Leaf
+
+let rec transform_type_as_tree (stop : exprtype) (trans : tree_transformation)
+    (t : exprtype) : exprtype =
   match t with
   | _ when t = stop -> t
-  | SumType (t0, t1) -> big_assoc_type stop t0 (double_big_assoc_type stop t1)
+  | SumType (t0, t1) -> begin
+      match trans with
+      | TreeIdentity -> t
+      | TreeLeftRotation -> begin
+          match t1 with
+          | SumType (t10, t11) -> SumType (SumType (t0, t10), t11)
+          | _ -> failwith "Cannot apply left rotation"
+        end
+      | TreeRightRotation -> begin
+          match t0 with
+          | SumType (t00, t01) -> SumType (t00, SumType (t01, t1))
+          | _ -> failwith "Cannot apply right rotation"
+        end
+      | TreeLeftApply trans' ->
+          SumType (transform_type_as_tree stop trans' t0, t1)
+      | TreeRightApply trans' ->
+          SumType (t0, transform_type_as_tree stop trans' t1)
+      | TreeSequence (trans0, trans1) ->
+          transform_type_as_tree stop trans1
+            (transform_type_as_tree stop trans0 t)
+    end
   | _ -> t
 
-let rec double_big_assoc_op (stop : exprtype) (t : exprtype) : inter_op =
-  match t with
-  | _ when t = stop -> IIdentity t
-  | SumType (t0, t1) ->
-      inter_lambda "double_big_assoc"
-        [("t0+t1", type_size t)]
-        [
-          inter_letapp ["t0+dba(t1)"]
-            (IDirsum (IIdentity t0, double_big_assoc_op stop t1))
-            ["t0+t1"];
-          inter_letapp ["res"]
-            (big_assoc_op stop t0 (double_big_assoc_type stop t1))
-            ["t0+dba(t1)"];
-        ]
-        [("res", type_size (double_big_assoc_type stop t))]
-  | _ -> IIdentity t
+let rec inter_op_of_tree_transformation (stop : exprtype)
+    (trans : tree_transformation) (t : exprtype) : inter_op =
+  match trans with
+  | TreeIdentity -> IIdentity t
+  | TreeLeftRotation -> begin
+      match t with
+      | SumType (t0, SumType (t1, t2)) -> IAdjoint (IAssoc (t0, t1, t2))
+      | _ -> failwith "Can't convert left rotation to inter_op"
+    end
+  | TreeRightRotation -> begin
+      match t with
+      | SumType (SumType (t0, t1), t2) -> IAssoc (t0, t1, t2)
+      | _ -> failwith "Can't convert right rotation to inter_op"
+    end
+  | TreeLeftApply trans' -> begin
+      match t with
+      | SumType (t0, t1) ->
+          IDirsum (inter_op_of_tree_transformation stop trans' t0, IIdentity t1)
+      | _ -> failwith "Can't convert left apply to inter_op"
+    end
+  | TreeRightApply trans' -> begin
+      match t with
+      | SumType (t0, t1) ->
+          IDirsum (IIdentity t0, inter_op_of_tree_transformation stop trans' t1)
+      | _ -> failwith "Can't convert right apply to inter_op"
+    end
+  | TreeSequence (trans0, trans1) ->
+      ISequence
+        ( inter_op_of_tree_transformation stop trans0 t,
+          inter_op_of_tree_transformation stop trans1
+            (transform_type_as_tree stop trans0 t) )
+
+let balance_dirsum_tree_op (stop : exprtype) (t : exprtype) : inter_op =
+  inter_op_of_tree_transformation stop
+    (balance_tree (binary_tree_of_type stop t))
+    t
 
 let rec big_distr_right_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype)
     : exprtype =
   match t0 with
   | _ when t0 = stop -> ProdType (t0, t1)
   | SumType (t00, t01) ->
-      SumType (ProdType (t00, t1), big_distr_right_type stop t01 t1)
+      SumType
+        (big_distr_right_type stop t00 t1, big_distr_right_type stop t01 t1)
   | _ -> ProdType (t0, t1)
 
-(*
-(a0 + (a1 + (a2 + (... + an)))) * b ->
-(a0 * b + (a1 * b + (a2 * b + (... + an * b))))
-*)
 let rec big_distr_right_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
     inter_op =
   match t0 with
@@ -1673,7 +1662,7 @@ let rec big_distr_right_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
             ["t00+t01"; "t1"];
           inter_letapp ["res"]
             (IDirsum
-               (IIdentity (ProdType (t00, t1)), big_distr_right_op stop t01 t1))
+               (big_distr_right_op stop t00 t1, big_distr_right_op stop t01 t1))
             ["(t00*t1)+(t01*t1)"];
         ]
         [("res", type_size (big_distr_right_type stop t0 t1))]
@@ -1685,13 +1674,9 @@ let rec big_distr_left_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
   match t1 with
   | _ when t1 = stop -> ProdType (t0, t1)
   | SumType (t10, t11) ->
-      SumType (ProdType (t0, t10), big_distr_left_type stop t0 t11)
+      SumType (big_distr_left_type stop t0 t10, big_distr_left_type stop t0 t11)
   | _ -> ProdType (t0, t1)
 
-(*
-b * (a0 + (a1 + (a2 + (... + an)))) ->
-(b * a0 + (b * a1 + (b * a2 + (... + b * an))))
-*)
 let rec big_distr_left_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
     inter_op =
   match t1 with
@@ -1708,63 +1693,35 @@ let rec big_distr_left_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
             ["t0"; "t10+t11"];
           inter_letapp ["res"]
             (IDirsum
-               (IIdentity (ProdType (t0, t10)), big_distr_left_op stop t0 t11))
+               (big_distr_left_op stop t0 t10, big_distr_left_op stop t0 t11))
             ["(t0*t10)+(t0*t11)"];
         ]
         [("res", type_size (big_distr_left_type stop t0 t1))]
     end
   | _ -> IIdentity (ProdType (t0, t1))
 
-let rec context_sum_size (l : context list) : int =
-  match l with
-  | [] -> 0
-  | [d] -> context_size d
-  | d :: l' -> 1 + max (context_size d) (context_sum_size l')
-
 let fake_type_of_context (d : context) : exprtype =
   let types = List.map snd (StringMap.bindings d) in
     List.fold_right (fun x cur -> ProdType (x, cur)) types Qunit
 
-let rec fake_type_of_context_list (l : context list) : exprtype =
-  match l with
-  | [] -> failwith "Expected nonempty list"
-  | [d] -> fake_type_of_context d
-  | d :: l' -> SumType (fake_type_of_context d, fake_type_of_context_list l')
+let fake_type_of_context_list (l : context list) : exprtype =
+  dirsum_type_list (List.map fake_type_of_context l)
 
 let rec big_context_distr_op (l : context list) (d : context) : inter_op =
   match l with
   | [] -> failwith "Expected nonempty list"
   | [g] -> IContextMerge (g, d)
-  | g :: rest -> begin
-      let gsize = context_size g in
-      let dsize = context_size d in
-      let lsize = context_sum_size l in
-      let rest_size = context_sum_size rest in
-        inter_lambda "big_context_distr"
-          [("g+rest", lsize); ("d", dsize)]
-          [
-            inter_letapp ["gd+(rest*d)"]
-              (IContextDistr (g, rest_size, d))
-              ["g+rest"; "d"];
-            inter_letapp ["res"]
-              (IDirsum
-                 ( ISizeIdentity (gsize + dsize),
-                   begin
-                     inter_lambda "big_context_distr_rest"
-                       [("rest*d", rest_size + dsize)]
-                       [
-                         inter_letapp ["rest"; "d"]
-                           (IAdjoint (ISizePair (rest_size, dsize)))
-                           ["rest*d"];
-                         inter_letapp ["rest_distr"]
-                           (big_context_distr_op rest d)
-                           ["rest"; "d"];
-                       ]
-                       [("rest_distr", rest_size + dsize)]
-                   end ))
-              ["gd+(rest*d)"];
-          ]
-          [("res", lsize + dsize)]
+  | _ -> begin
+      let l0, l1 =
+        list_split_at_i l (complete_binary_left_subtree (List.length l))
+      in
+      let tl0 = fake_type_of_context_list l0 in
+      let tl1 = fake_type_of_context_list l1 in
+      let td = fake_type_of_context d in
+        IDistrRight (tl0, tl1, td)
+        @&& IDirsum
+              ( IAdjoint (IPair (tl0, td)) @&& big_context_distr_op l0 d,
+                IAdjoint (IPair (tl1, td)) @&& big_context_distr_op l1 d )
     end
 
 let rec compile_spanning_to_inter_op (sp : spanning_proof) : inter_op =
@@ -1789,10 +1746,11 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) : inter_op =
                    dirsum_op_n_times n1 (IRight (t0, t1)) ))
               ["t0^(+n0)+t1^(+n1)"];
             inter_letapp ["res"]
-              (big_assoc_op
+              (balance_dirsum_tree_op
                  (SumType (t0, t1))
-                 (dirsum_type_n_times n0 (SumType (t0, t1)))
-                 (dirsum_type_n_times n1 (SumType (t0, t1))))
+                 (SumType
+                    ( dirsum_type_n_times n0 (SumType (t0, t1)),
+                      dirsum_type_n_times n1 (SumType (t0, t1)) )))
               ["(t0+t1)^(+n0)+(t0+t1)^(+n1)"];
           ]
           [
@@ -1840,7 +1798,7 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) : inter_op =
                     njs))
               ["sum(t0*t1^(+nj))"];
             inter_letapp ["res"]
-              (double_big_assoc_op
+              (balance_dirsum_tree_op
                  (ProdType (t0, t1))
                  (dirsum_type_list
                     (List.map
@@ -1851,41 +1809,45 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) : inter_op =
           [("res", type_size (dirsum_type_n_times sum_nj (ProdType (t0, t1))))]
     end
 
-let rec ortho_select_op (t : exprtype) (selection : bool list) : inter_op =
+let rec ortho_select_op (t : exprtype) (selection : bool list) :
+    inter_op * exprtype =
   let n = List.length selection in
   let n' = List.length (List.filter (fun x -> x) selection) in
-    match selection with
-    | [] -> failwith "Expected nonempty list"
-    | [false] -> failwith "Expected at least one true"
-    | [true] -> IIdentity t
-    | true :: l' when not (List.mem true l') ->
-        IAdjoint (ILeft (t, dirsum_type_n_times (n - 1) t))
-    | true :: l' -> IDirsum (IIdentity t, ortho_select_op t l')
-    | false :: l' -> begin
-        inter_lambda "ortho_select_op"
-          [("t+rest", type_size (dirsum_type_n_times n t))]
-          [
-            inter_letapp ["rest"]
-              (IAdjoint (IRight (t, dirsum_type_n_times (n - 1) t)))
-              ["t+rest"];
-            inter_letapp ["res"] (ortho_select_op t l') ["rest"];
-          ]
-          [("res", type_size (dirsum_type_n_times n' t))]
-      end
+    if n = n' then
+      (IIdentity t, t)
+    else if n' = 0 then
+      failwith "Expected at least one true"
+    else
+      match selection with
+      | [] -> failwith "Expected nonempty list"
+      | [true] -> (IIdentity t, t)
+      | _ -> begin
+          match t with
+          | SumType (t0, t1) -> begin
+              let sel0, sel1 =
+                list_split_at_i selection (complete_binary_left_subtree n)
+              in
+                if not (List.mem true sel0) then
+                  let op1, t1' = ortho_select_op t1 sel1 in
+                    (IAdjoint (IRight (t0, t1)) @&& op1, t1')
+                else if not (List.mem true sel1) then
+                  let op0, t0' = ortho_select_op t0 sel0 in
+                    (IAdjoint (ILeft (t0, t1)) @&& op0, t0')
+                else
+                  let op0, t0' = ortho_select_op t0 sel0 in
+                  let op1, t1' = ortho_select_op t1 sel1 in
+                    (IDirsum (op0, op1), SumType (t0', t1'))
+            end
+          | _ -> failwith "Expected sum type"
+        end
 
 let compile_ortho_to_inter_op (t : exprtype) (orp : ortho_proof) : inter_op =
   let sp, span_list, ortho_list = orp in
   let span_op = compile_spanning_to_inter_op sp in
-  let n = List.length ortho_list in
   let selection = List.map (fun e -> List.mem e ortho_list) span_list in
-  let select_op = ortho_select_op t selection in
-    inter_lambda "ortho"
-      [("t", type_size t)]
-      [
-        inter_letapp ["t^(+n*)"] span_op ["t"];
-        inter_letapp ["res"] select_op ["t^(+n*)"];
-      ]
-      [("res", type_size (dirsum_type_n_times n t))]
+  let sum_t = dirsum_type_n_times (List.length span_list) t in
+  let select_op, sum_t' = ortho_select_op sum_t selection in
+    span_op @&& select_op @&& balance_dirsum_tree_op t sum_t'
 
 let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     (erp : erasure_proof) =
