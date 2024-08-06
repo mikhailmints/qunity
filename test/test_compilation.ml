@@ -137,6 +137,7 @@ let () =
         "boolean_formula_walk.qunity";
         "fourier_transform.qunity";
         "grover.qunity";
+        "phase_estimation.qunity";
         "retry_example.qunity";
         "walk_1d.qunity";
       ]
