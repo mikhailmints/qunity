@@ -12,6 +12,7 @@ type gate =
   | GphaseGate of real
   | Reset of int
   | MeasureAsErr of int
+  | PotentialDeletionLabel of int
   | Swap of int * int
   | Annotation of int list * string
   | Controlled of (int list * bool list * gate)
@@ -47,6 +48,7 @@ let rec gate_adjoint (u : gate) : gate =
   | GphaseGate theta -> GphaseGate (Negate theta)
   | Reset _ -> failwith "Can't take adjoint of reset"
   | MeasureAsErr _ -> failwith "Can't take adjoint of measurement"
+  | PotentialDeletionLabel _ -> Identity
   | Swap (i, j) -> Swap (i, j)
   | Annotation (l, s) -> Annotation (l, s)
   | Controlled (l, bl, u0) -> Controlled (l, bl, gate_adjoint u0)
@@ -63,9 +65,14 @@ let rec gate_equal (u0 : gate) (u1 : gate) =
       && real_equal lambda0 lambda1
   | GphaseGate theta0, GphaseGate theta1 -> real_equal theta0 theta1
   | Controlled (l0, bl0, u0), Controlled (l1, bl1, u1) ->
-      l0 = l1 && bl0 = bl1 && gate_equal u0 u1
+      let lbl0 = List.combine l0 bl0 in
+      let lbl1 = List.combine l1 bl1 in
+        List.sort (fun (i, _) (j, _) -> i - j) lbl0
+        = List.sort (fun (i, _) (j, _) -> i - j) lbl1
+        && bl0 = bl1 && gate_equal u0 u1
   | Sequence (u00, u01), Sequence (u10, u11) ->
       gate_equal u00 u10 && gate_equal u01 u11
+  | Swap (i, j), Swap (i', j') -> (i = i' && j = j') || (i = j' && j = i')
   | _ -> u0 = u1
 
 let rec gate_qubits_used (u : gate) : IntSet.t =
@@ -73,8 +80,10 @@ let rec gate_qubits_used (u : gate) : IntSet.t =
   | Identity -> IntSet.empty
   | U3Gate (i, _, _, _) -> IntSet.singleton i
   | GphaseGate _ -> IntSet.empty
-  | Reset i -> IntSet.singleton i
-  | MeasureAsErr i -> IntSet.singleton i
+  | Reset i
+  | MeasureAsErr i
+  | PotentialDeletionLabel i ->
+      IntSet.singleton i
   | Swap (i, j) -> IntSet.of_list [i; j]
   | Annotation (l, _) -> IntSet.of_list l
   | Controlled (l, _, u0) ->
@@ -102,6 +111,8 @@ let rec gate_rewire (u : gate) (source : int list) (target : int list) : gate =
     | GphaseGate theta -> GphaseGate theta
     | Reset i -> Reset (int_map_find_or_keep rewiring i)
     | MeasureAsErr i -> MeasureAsErr (int_map_find_or_keep rewiring i)
+    | PotentialDeletionLabel i ->
+        PotentialDeletionLabel (int_map_find_or_keep rewiring i)
     | Swap (i, j) ->
         Swap (int_map_find_or_keep rewiring i, int_map_find_or_keep rewiring j)
     | Annotation (l, s) ->
@@ -236,12 +247,19 @@ let rec gate_measure_reg_as_err (reg : int list) : gate =
   | [] -> Identity
   | h :: t -> MeasureAsErr h @& gate_measure_reg_as_err t
 
+let rec gate_label_reg_for_potential_deletion (reg : int list) : gate =
+  match reg with
+  | [] -> Identity
+  | h :: t ->
+      PotentialDeletionLabel h @& gate_label_reg_for_potential_deletion t
+
 let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
   let qdim = 1 lsl nqubits in
   let rec gate_unitary_semantics (u : gate) : matrix =
     match u with
     | Identity
-    | Annotation _ ->
+    | Annotation _
+    | PotentialDeletionLabel _ ->
         mat_identity qdim
     | GphaseGate theta ->
         mat_scalar_mul
@@ -320,21 +338,170 @@ let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
     mat_from_fun (1 lsl l) (1 lsl l) (fun i j ->
         mat_entry final (i lsl (nqubits - l)) (j lsl (nqubits - l)))
 
-let rec gate_optimization_pass (ul : gate list) : gate list * bool =
+let rec split_first_consecutive_measurements (ul : gate list) (i : int) :
+    gate list * gate list =
+  match ul with
+  | [] -> ([], [])
+  | u :: _
+    when IntSet.mem i (gate_qubits_used u)
+         && u <> Reset i && u <> MeasureAsErr i ->
+      ([], ul)
+  | u :: ul' ->
+      let ul'0, ul'1 = split_first_consecutive_measurements ul' i in
+        (u :: ul'0, ul'1)
+
+(*
+Given gate list ul, returns:
+Part of ul up to and including first series of consecutive measurements of i
+Part of ul after first series of consecutive measurements of i
+*)
+let rec split_up_to_first_measurements (ul : gate list) (i : int) :
+    gate list * gate list =
+  match ul with
+  | [] -> ([], [])
+  | Reset j :: _ when j = i -> split_first_consecutive_measurements ul i
+  | MeasureAsErr j :: _ when j = i -> split_first_consecutive_measurements ul i
+  | u :: ul' ->
+      let ul'0, ul'1 = split_up_to_first_measurements ul' i in
+        (u :: ul'0, ul'1)
+
+let rec is_valid_to_delete (ul : gate list) (i : int) =
+  match ul with
+  | [] -> true
+  | u :: ul' ->
+      if is_valid_to_delete ul' i = false then
+        false
+      else begin
+        match u with
+        | _ when not (IntSet.mem i (gate_qubits_used u)) -> true
+        | Identity -> true
+        | U3Gate _ when gate_equal u (gate_paulix i) -> true
+        | U3Gate _ -> false
+        | GphaseGate _ -> true
+        | Reset _ -> true
+        | MeasureAsErr _ -> true
+        | PotentialDeletionLabel _ -> true
+        | Swap _ -> false
+        | Annotation _ -> true
+        | Controlled (_, _, GphaseGate _) -> false
+        | Controlled (l, _, u0) ->
+            if List.mem i l then false else is_valid_to_delete [u0] i
+        | Sequence (u0, u1) ->
+            is_valid_to_delete [u0] i && is_valid_to_delete [u1] i
+      end
+
+let rec shift_deletion_labels_left_pass (ul : gate list) : gate list * bool =
   match ul with
   | [] -> ([], false)
-  | u :: u' :: ul' when gate_is_unitary u && gate_equal u' (gate_adjoint u) ->
-      (fst (gate_optimization_pass ul'), true)
+  | u :: PotentialDeletionLabel i :: ul' -> begin
+      let do_switch =
+        begin
+          match u with
+          | Reset j
+          | MeasureAsErr j ->
+              j <> i
+          | PotentialDeletionLabel _ -> false
+          | _ -> true
+        end
+      in
+        if do_switch then
+          ( PotentialDeletionLabel i :: u
+            :: fst (shift_deletion_labels_left_pass ul'),
+            true )
+        else
+          let ul'', changes_made = shift_deletion_labels_left_pass ul' in
+            (u :: PotentialDeletionLabel i :: ul'', changes_made)
+    end
   | u :: ul' ->
-      let ul'', changes_made = gate_optimization_pass ul' in
+      let ul'', changes_made = shift_deletion_labels_left_pass ul' in
         (u :: ul'', changes_made)
 
-let rec gate_list_optimize (ul : gate list) : gate list =
-  let ul_opt, changes_made = gate_optimization_pass ul in
+let rec gate_list_shift_deletion_labels_left (ul : gate list) : gate list =
+  let ul_opt, changes_made = shift_deletion_labels_left_pass ul in
     if changes_made then
-      gate_list_optimize ul_opt
+      gate_list_shift_deletion_labels_left ul_opt
     else
       ul
 
-let gate_optimize (u : gate) : gate =
-  gate_of_list (gate_list_optimize (gate_to_list u))
+let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
+    gate list * int list * bool =
+  match ul with
+  | [] -> ([], out_reg, false)
+  | u :: u' :: ul' when gate_is_unitary u && gate_equal u' (gate_adjoint u) ->
+      let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
+        (ul'', out_reg', true)
+  | Controlled (l0, bl0, u0) :: Controlled (l1, bl1, u1) :: ul'
+    when gate_equal u0 u1 && List.sort ( - ) l0 = List.sort ( - ) l1 -> begin
+      let lbl0 = List.combine l0 bl0 in
+      let lbl1 = List.combine l1 bl1 in
+      let lbl0 = List.sort (fun (i, _) (j, _) -> i - j) lbl0 in
+      let lbl1 = List.sort (fun (i, _) (j, _) -> i - j) lbl1 in
+      let unequal_indices =
+        List.filter_map
+          (fun ((i, b0), (j, b1)) ->
+            assert (i = j);
+            if b0 <> b1 then Some i else None)
+          (List.combine lbl0 lbl1)
+      in
+        if List.length unequal_indices <> 1 then
+          let ul'', out_reg', changes_made =
+            gate_optimization_pass ul' out_reg
+          in
+            ( Controlled (l0, bl0, u0) :: Controlled (l1, bl1, u1) :: ul'',
+              out_reg',
+              changes_made )
+        else
+          let remove_i = List.hd unequal_indices in
+          let lbl0 = List.remove_assoc remove_i lbl0 in
+          let l, bl = List.split lbl0 in
+          let newgate =
+            if List.length l = 0 then
+              u0
+            else
+              Controlled (l, bl, u0)
+          in
+          let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
+            (newgate :: ul'', out_reg', true)
+    end
+  | PotentialDeletionLabel i :: ul' -> begin
+      let ul0, ul1 = split_up_to_first_measurements ul i in
+        if is_valid_to_delete ul0 i then
+          let ul0' =
+            List.filter (fun u -> not (IntSet.mem i (gate_qubits_used u))) ul0
+          in
+          let ul'', out_reg', _ =
+            gate_optimization_pass (ul0' @ ul1) out_reg
+          in
+            (ul'', out_reg', true)
+        else
+          let ul'', out_reg', changes_made =
+            gate_optimization_pass ul' out_reg
+          in
+            (PotentialDeletionLabel i :: ul'', out_reg', changes_made)
+    end
+  | Swap (i, j) :: ul' -> begin
+      let ul'', out_reg', _ =
+        gate_optimization_pass
+          (List.map (fun u -> gate_rewire u [i; j] [j; i]) ul')
+          (List.map
+             (fun x -> if x = i then j else if x = j then i else x)
+             out_reg)
+      in
+        (ul'', out_reg', true)
+    end
+  | u :: ul' ->
+      let ul'', out_reg', changes_made = gate_optimization_pass ul' out_reg in
+        (u :: ul'', out_reg', changes_made)
+
+let rec gate_list_optimize (ul : gate list) (out_reg : int list) :
+    gate list * int list =
+  let ul_opt, out_reg', changes_made = gate_optimization_pass ul out_reg in
+    if changes_made then
+      gate_list_optimize ul_opt out_reg'
+    else
+      (ul, out_reg')
+
+let gate_optimize (u : gate) (out_reg : int list) : gate * int list =
+  let ul = gate_list_shift_deletion_labels_left (gate_to_list u) in
+  let ul, out_reg' = gate_list_optimize ul out_reg in
+    (gate_of_list ul, out_reg')

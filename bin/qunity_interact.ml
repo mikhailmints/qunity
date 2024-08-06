@@ -52,9 +52,11 @@ let () =
                               Printf.printf "%s\n" (ocaml_string_of_prog f);
                             match prog_type_check f with
                             | SomeE tp ->
-                                Printf.printf "Program type: %s\n\n"
+                                Printf.printf "Program type: %s\n"
                                   (string_of_progtype
                                      (progtype_of_prog_proof tp));
+                                Printf.printf "Isometry: %b\n\n"
+                                  (is_iso_prog_proof tp);
                                 Printf.printf "Pure semantics:\n%!";
                                 begin
                                   try

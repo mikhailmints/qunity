@@ -17,13 +17,11 @@ let simple_gate_to_qasm_str (u : gate) : string * int list =
       else if gate_equal u (gate_had i) then
         ("h", [i])
       else
-        ( Printf.sprintf "U(%s, %s, %s)"
-            (qasm_string_of_real_temp theta)
-            (qasm_string_of_real_temp phi)
-            (qasm_string_of_real_temp lambda),
+        ( Printf.sprintf "U(%.20f, %.20f, %.20f)" (float_of_real theta)
+            (float_of_real phi) (float_of_real lambda),
           [i] )
   | GphaseGate theta ->
-      (Printf.sprintf "gphase(%s)" (qasm_string_of_real_temp theta), [])
+      (Printf.sprintf "gphase(%.20f)" (float_of_real theta), [])
   | Reset i -> ("reset", [i])
   | Swap (i, j) -> ("swap", [i; j])
   | _ -> failwith "Expected simple gate"
@@ -40,16 +38,28 @@ let rec gate_to_qasm_str (u : gate) (err_num : int) : string * int =
         match u0 with
         | Sequence _ -> failwith "Controls should be distributed"
         | Controlled _ -> failwith "Controls should be combined"
-        | Annotation (l, s) ->
-            if l = [] then
-              ("", err_num)
-            else
-              ( Printf.sprintf "// %s %s\n" s (string_of_list string_of_int l),
-                err_num )
-        | GphaseGate Pi when List.length l = 1 ->
-            (Printf.sprintf "z q[%d];\n" (List.hd l), err_num)
-        | _ ->
-            let s, l0 = simple_gate_to_qasm_str u0 in
+        | Annotation _
+        | PotentialDeletionLabel _ ->
+            ("", err_num)
+        | _ -> begin
+            let l, bl, (s, l0) =
+              begin
+                match u0 with
+                | GphaseGate theta -> begin
+                    let bl =
+                      if List.hd bl = true then bl else List.map not bl
+                    in
+                      ( List.tl l,
+                        List.tl bl,
+                        ( (if real_equal theta Pi then
+                             "z"
+                           else
+                             Printf.sprintf "p(%.20f)" (float_of_real theta)),
+                          [List.hd l] ) )
+                  end
+                | _ -> (l, bl, simple_gate_to_qasm_str u0)
+              end
+            in
               ( List.fold_left
                   (fun cur bi ->
                     if bi then cur ^ "ctrl @ " else cur ^ "negctrl @ ")
@@ -58,6 +68,7 @@ let rec gate_to_qasm_str (u : gate) (err_num : int) : string * int =
                 ^ List.fold_left arglist_fold "" (l @ l0)
                 ^ ";\n",
                 err_num )
+          end
       end
     | Sequence (u0, u1) ->
         let s0, err_num = gate_to_qasm_str u0 err_num in
@@ -70,9 +81,9 @@ let rec gate_to_qasm_str (u : gate) (err_num : int) : string * int =
           ( Printf.sprintf "// %s %s\n" s (string_of_list string_of_int l),
             err_num )
     | MeasureAsErr i ->
-        ( Printf.sprintf "err[%d] = measure q[%d];\nif (err[%d] == false) {\n"
-            err_num i err_num,
-          err_num + 1 )
+        (Printf.sprintf "err[%d] = measure q[%d];\n" err_num i, err_num + 1)
+    | PotentialDeletionLabel i ->
+        (Printf.sprintf "// Potential deletion %d\n" i, err_num)
     | _ ->
         let s, l = simple_gate_to_qasm_str u in
           ( Printf.sprintf "%s%s;\n" s (List.fold_left arglist_fold "" l),
@@ -93,11 +104,10 @@ let gate_to_qasm_file (u : gate) (nqubits : int) (out_reg : int list) : string
   in
   let body, _ = if u = Identity then ("", 0) else gate_to_qasm_str u 0 in
   let footer =
-    List.fold_left ( ^ ) "" (List.map (fun _ -> "}\n") (range n_flag))
-    ^ List.fold_left ( ^ ) ""
-        (List.map
-           (fun (i, j) -> Printf.sprintf "out[%d] = measure q[%d];\n" i j)
-           (List.combine (range n_out) out_reg))
+    List.fold_left ( ^ ) ""
+      (List.map
+         (fun (i, j) -> Printf.sprintf "out[%d] = measure q[%d];\n" i j)
+         (List.combine (range n_out) out_reg))
   in
     header ^ body ^ footer
 

@@ -26,7 +26,11 @@ type circuit = {
   gate : gate;
 }
 
-type instantiation_settings = { reset_flag : bool; reset_garb : bool }
+type instantiation_settings = {
+  reset_flag : bool;
+  reset_garb : bool;
+  iso : bool;
+}
 
 (*
 A circuit specification wraps a function for building a circuit provided a
@@ -83,6 +87,7 @@ type inter_op =
   | IDiscard of exprtype
   | IContextDiscard of context
   | IPurify of inter_op
+  | IMarkAsIso of bool * inter_op
   | IContextPartition of
       context * StringSet.t (* context -> [things in set; things not in set] *)
   | IContextMerge of context * context
@@ -103,9 +108,9 @@ and inter_com = string list * inter_op * string list
 let ( @&& ) a b = ISequence (a, b)
 
 (* Alias for ILambda. *)
-let inter_lambda (name : string) (arglist : (string * int) list)
+let inter_lambda (name : string) (iso : bool) (arglist : (string * int) list)
     (body : inter_com list) (ret : (string * int) list) : inter_op =
-  ILambda (name, arglist, body, ret)
+  IMarkAsIso (iso, ILambda (name, arglist, body, ret))
 
 (* Alias for construcing an inter_com for clarity. *)
 let inter_letapp (target : string list) (op : inter_op) (args : string list) :
@@ -168,7 +173,20 @@ let build_circuit (cs : circuit_spec) (in_regs : int list list)
       flag_reg = (if settings.reset_flag then [] else circ.flag_reg);
       garb_reg = (if settings.reset_garb then [] else circ.garb_reg);
       gate =
-        circ.gate
+        begin
+          if settings.iso then
+            (* Note that this label may not necessarily be placed
+               in the location where the qubits of interest are initialized - this
+               might be part of the input rather than the prep register. However,
+               this is ok, because in the post-processing stage, the labels will
+               be shifted as far left as possible before the qubit removal optimization
+               procedure is started. *)
+            gate_label_reg_for_potential_deletion circ.flag_reg
+          else
+            Identity
+        end
+        @& gate_label_reg_for_potential_deletion circ.garb_reg
+        @& circ.gate
         @& begin
              if settings.reset_flag then
                gate_measure_reg_as_err circ.flag_reg
@@ -526,14 +544,14 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
     out_sizes = cs.in_sizes;
     circ_fun =
       begin
-        fun in_regs used_wires _ ->
+        fun in_regs used_wires settings ->
           expect_sizes "circuit_adjoint" cs.out_sizes in_regs;
           let temp_regs, temp_used_wires =
             fresh_int_lists used_wires cs.in_sizes
           in
           let circ, used_wires =
             build_circuit cs temp_regs temp_used_wires
-              { reset_flag = false; reset_garb = false }
+              { settings with reset_flag = false; reset_garb = false }
           in
             if circ.garb_reg <> [] then
               failwith
@@ -1045,7 +1063,7 @@ let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
       let in_regs, used_wires = fresh_int_lists IntSet.empty cs.in_sizes in
       let temp_circ, _ =
         build_circuit cs in_regs used_wires
-          { reset_flag = false; reset_garb = false }
+          { reset_flag = false; reset_garb = false; iso = false }
       in
         List.length temp_circ.flag_reg
     end
@@ -1203,7 +1221,7 @@ let circuit_purify (cs : circuit_spec) : circuit_spec =
       let in_regs, used_wires = fresh_int_lists IntSet.empty cs.in_sizes in
       let temp_circ, _ =
         build_circuit cs in_regs used_wires
-          { reset_flag = false; reset_garb = false }
+          { reset_flag = false; reset_garb = false; iso = false }
       in
         List.length temp_circ.garb_reg
     end
@@ -1230,6 +1248,18 @@ let circuit_purify (cs : circuit_spec) : circuit_spec =
                 used_wires )
         end;
     }
+
+let circuit_mark_as_iso (iso : bool) (cs : circuit_spec) : circuit_spec =
+  {
+    in_sizes = cs.in_sizes;
+    out_sizes = cs.out_sizes;
+    circ_fun =
+      begin
+        fun in_regs used_wires settings ->
+          build_circuit cs in_regs used_wires
+            (if iso = true then { settings with iso = true } else settings)
+      end;
+  }
 
 (*
 Given a context and a register containing something in the space associated
@@ -1434,6 +1464,8 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | IDiscard t -> circuit_discard (type_size t)
   | IContextDiscard d -> circuit_discard (context_size d)
   | IPurify op' -> circuit_purify (compile_inter_op_to_circuit op')
+  | IMarkAsIso (iso, op') ->
+      circuit_mark_as_iso iso (compile_inter_op_to_circuit op')
   | IContextPartition (d, fv) -> circuit_context_partition d fv
   | IContextMerge (d0, d1) -> circuit_context_merge d0 d1
   | ILambda (name, args, iel, ret) -> begin
@@ -1651,7 +1683,7 @@ let rec big_distr_right_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
   match t0 with
   | _ when t0 = stop -> IIdentity (ProdType (t0, t1))
   | SumType (t00, t01) -> begin
-      inter_lambda "big_distr_right"
+      inter_lambda "big_distr_right" false
         [("(t00+t01)*t1", type_size (ProdType (t0, t1)))]
         [
           inter_letapp ["t00+t01"; "t1"]
@@ -1682,7 +1714,7 @@ let rec big_distr_left_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
   match t1 with
   | _ when t1 = stop -> IIdentity (ProdType (t0, t1))
   | SumType (t10, t11) -> begin
-      inter_lambda "big_distr_left"
+      inter_lambda "big_distr_left" false
         [("t0*(t10+t11)", type_size (ProdType (t0, t1)))]
         [
           inter_letapp ["t0"; "t10+t11"]
@@ -1733,7 +1765,7 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) : inter_op =
   | SSum (t0, t1, sp0, sp1, n0, n1) -> begin
       let sp0_op = compile_spanning_to_inter_op sp0 in
       let sp1_op = compile_spanning_to_inter_op sp1 in
-        inter_lambda "SSum"
+        inter_lambda "SSum" false
           [("t0+t1", type_size (SumType (t0, t1)))]
           [
             inter_letapp ["t0^(+n0)+t1^(+n1)"]
@@ -1762,7 +1794,7 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) : inter_op =
       let op0 = compile_spanning_to_inter_op sp0 in
       let l_op = List.map compile_spanning_to_inter_op l in
       let tensor_with_id_t0 (op, nj) =
-        inter_lambda "tensor_with_id_t0"
+        inter_lambda "tensor_with_id_t0" false
           [("t0*t1", type_size (ProdType (t0, t1)))]
           [
             inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t0*t1"];
@@ -1778,7 +1810,7 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) : inter_op =
       in
       let sum_nj = List.fold_left ( + ) 0 njs in
       let mt0 = dirsum_type_n_times m t0 in
-        inter_lambda "SPair"
+        inter_lambda "SPair" false
           [("t0*t1", type_size (ProdType (t0, t1)))]
           [
             inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t0*t1"];
@@ -1855,7 +1887,7 @@ let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     match erp with
     | EVar t -> begin
         let tsize = type_size t in
-          inter_lambda "EVar"
+          inter_lambda "EVar" false
             [("x", xsize); ("t", tsize)]
             [inter_letapp ["res"] (IAdjoint (IShare t)) ["t"; "x"]]
             [("res", tsize)]
@@ -1863,7 +1895,7 @@ let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     | EPair0 (t0, t1, erp') -> begin
         let tsize = type_size (ProdType (t0, t1)) in
         let op' = compile_single_erasure_to_inter_op x xtype erp' in
-          inter_lambda "EPair0"
+          inter_lambda "EPair0" false
             [("x", xsize); ("t", tsize)]
             [
               inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t"];
@@ -1875,7 +1907,7 @@ let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     | EPair1 (t0, t1, erp') -> begin
         let tsize = type_size (ProdType (t0, t1)) in
         let op' = compile_single_erasure_to_inter_op x xtype erp' in
-          inter_lambda "EPair1"
+          inter_lambda "EPair1" false
             [("x", xsize); ("t", tsize)]
             [
               inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t"];
@@ -1891,7 +1923,7 @@ let rec compile_erasure_to_inter_op (d : context) (t : exprtype)
   let tsize = type_size t in
     match l with
     | [] -> begin
-        inter_lambda "erasure_empty"
+        inter_lambda "erasure_empty" false
           [("d", dsize); ("t", tsize)]
           [inter_letapp [] (IAdjoint IEmpty) ["d"]]
           [("t", tsize)]
@@ -1901,7 +1933,7 @@ let rec compile_erasure_to_inter_op (d : context) (t : exprtype)
         let rest_d = StringMap.remove x d in
         let rest_op = compile_erasure_to_inter_op rest_d t l' in
         let cur_op = compile_single_erasure_to_inter_op x xtype erp in
-          inter_lambda "erasure"
+          inter_lambda "erasure" false
             [("d", dsize); ("t", tsize)]
             [
               inter_letapp ["x"; "rest_d"]
@@ -1927,14 +1959,14 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
   let tsize = type_size t in
     match tp with
     | TUnit _ -> begin
-        inter_lambda "TUnit"
+        inter_lambda "TUnit" true
           [("g", gsize); ("d", dsize)]
           []
           [("g", gsize); ("d", tsize)]
       end
     | TCvar (t, g, x) -> begin
         let xreg, grest = map_partition g (StringSet.singleton x) in
-          inter_lambda "TCvar"
+          inter_lambda "TCvar" true
             [("g", gsize); ("d", dsize)]
             [
               inter_letapp ["x"; "rest"]
@@ -1947,15 +1979,15 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             [("g", gsize); ("res", tsize)]
       end
     | TQvar _ -> begin
-        inter_lambda "TQvar"
+        inter_lambda "TQvar" true
           [("g", gsize); ("d", dsize)]
           []
           [("g", gsize); ("d", tsize)]
       end
-    | TPurePair (t0, t1, _, d, d0, d1, e0, e1, _) -> begin
+    | TPurePair (t0, t1, _, d, d0, d1, e0, e1, iso) -> begin
         let op0 = compile_pure_expr_to_inter_op e0 in
         let op1 = compile_pure_expr_to_inter_op e1 in
-          inter_lambda "TPurePair"
+          inter_lambda "TPurePair" iso
             [("g", gsize); ("dd0d1", dsize)]
             [
               inter_letapp ["d"; "d0d1"]
@@ -1973,11 +2005,11 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             ]
             [("g", gsize); ("res", tsize)]
       end
-    | TCtrl (t0, t1, g, g', d, d', e, l, orp, erp_map, _) -> begin
+    | TCtrl (t0, t1, g, g', d, d', e, l, orp, erp_map, iso) -> begin
         let n = List.length l in
         let gg'dd' = map_merge_noopt false g_whole d_whole in
           if n = 0 then
-            inter_lambda "TCtrl_Void"
+            inter_lambda "TCtrl_Void" iso
               [("gg*", gsize); ("dd*", dsize)]
               [
                 inter_letapp [] (IAlwaysErr dsize) ["dd*"];
@@ -1986,9 +2018,9 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
               [("gg*", gsize); ("res", 0)]
           else
             let e_op = compile_mixed_expr_to_inter_op e in
-            let gjs = List.map (fun (x, _, _) -> x) l in
-            let ejs = List.map (fun (_, x, _) -> x) l in
-            let ej's = List.map (fun (_, _, x) -> x) l in
+            let gjs = List.map fst3 l in
+            let ejs = List.map snd3 l in
+            let ej's = List.map trd3 l in
             let ej_adj_sum_op =
               dirsum_op_list
                 (List.map
@@ -2024,7 +2056,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
               fake_type_of_context_list
                 (List.map (fun gj -> map_merge_noopt false g_whole gj) gjs)
             in
-              inter_lambda "TCtrl"
+              inter_lambda "TCtrl" iso
                 [("gg*", gsize); ("dd*", dsize)]
                 [
                   inter_letapp ["g"; "g*"]
@@ -2074,10 +2106,10 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                 ]
                 [("gg*", gsize); ("t1", tsize)]
       end
-    | TPureApp (_, _, _, _, f, e', _) -> begin
+    | TPureApp (_, _, _, _, f, e', iso) -> begin
         let e'_op = compile_pure_expr_to_inter_op e' in
         let f_op = compile_pure_prog_to_inter_op f in
-          inter_lambda "TPureApp"
+          inter_lambda "TPureApp" iso
             [("g", gsize); ("d", dsize)]
             [
               inter_letapp ["g"; "t*"] e'_op ["g"; "d"];
@@ -2099,7 +2131,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
     match tp with
     | TMix tp' -> begin
         let tp'_op = compile_pure_expr_to_inter_op tp' in
-          inter_lambda "TMix"
+          inter_lambda "TMix" false
             [("d", dsize)]
             [
               inter_letapp ["g"] IEmpty [];
@@ -2108,10 +2140,10 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             ]
             [("res", tsize)]
       end
-    | TMixedPair (t0, t1, d, d0, d1, e0, e1, _) -> begin
+    | TMixedPair (t0, t1, d, d0, d1, e0, e1, iso) -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
-          inter_lambda "TMixedPair"
+          inter_lambda "TMixedPair" iso
             [("dd0d1", dsize)]
             [
               inter_letapp ["d"; "d0d1"]
@@ -2129,7 +2161,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             ]
             [("res", tsize)]
       end
-    | TTry (t, d0, _, e0, e1, _) -> begin
+    | TTry (t, d0, _, e0, e1, iso) -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
         let iso0 = is_iso_mixed_expr_proof e0 in
@@ -2137,7 +2169,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
           if iso0 then
             compile_mixed_expr_to_inter_op e0
           else if iso1 then
-            inter_lambda "TTry"
+            inter_lambda "TTry" iso
               [("d", dsize)]
               [
                 inter_letapp ["d0"; "d1"]
@@ -2153,7 +2185,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
               ]
               [("t", tsize)]
           else
-            inter_lambda "TTry"
+            inter_lambda "TTry" iso
               [("d", dsize)]
               [
                 inter_letapp ["d0"; "d1"]
@@ -2182,10 +2214,10 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
               ]
               [("t", tsize)]
       end
-    | TMixedApp (_, _, _, f, e, _) -> begin
+    | TMixedApp (_, _, _, f, e, iso) -> begin
         let e_op = compile_mixed_expr_to_inter_op e in
         let f_op = compile_mixed_prog_to_inter_op f in
-          inter_lambda "TMixedApp"
+          inter_lambda "TMixedApp" iso
             [("d", dsize)]
             [inter_letapp ["t*"] e_op ["d"]; inter_letapp ["res"] f_op ["t*"]]
             [("res", tsize)]
@@ -2199,10 +2231,10 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
   | TGate (theta, phi, lambda) -> IU3 (theta, phi, lambda)
   | TLeft (t0, t1) -> ILeft (t0, t1)
   | TRight (t0, t1) -> IRight (t0, t1)
-  | TPureAbs (t, t', _, e, e', _) -> begin
+  | TPureAbs (t, t', _, e, e', iso) -> begin
       let e_op = compile_pure_expr_to_inter_op e in
       let e'_op = compile_pure_expr_to_inter_op e' in
-        inter_lambda "TPureAbs"
+        inter_lambda "TPureAbs" iso
           [("t", type_size t)]
           [
             inter_letapp ["g"] IEmpty [];
@@ -2216,7 +2248,7 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
       let _, d = context_of_pure_expr_proof e in
       let e_op = compile_pure_expr_to_inter_op e in
       let e_op_no_g = make_pure_op_take_one_reg StringMap.empty d t e_op in
-        IRphase (t, e_op_no_g, r0, r1)
+        IMarkAsIso (true, IRphase (t, e_op_no_g, r0, r1))
     end
 
 (*
@@ -2225,13 +2257,13 @@ Compilation of a mixed program into the intermediate representation.
 and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
   match tp with
   | TChannel tp' -> compile_pure_prog_to_inter_op tp'
-  | TMixedAbs (t, t', d, d0, e, e', _) -> begin
+  | TMixedAbs (t, t', d, d0, e, e', iso) -> begin
       let dd0 = map_merge_noopt false d d0 in
       let fve' = map_dom d in
       let e_op = compile_pure_expr_to_inter_op e in
       let e_op_no_g = make_pure_op_take_one_reg StringMap.empty dd0 t e_op in
       let e'_op = compile_mixed_expr_to_inter_op e' in
-        inter_lambda "TMixedAbs"
+        inter_lambda "TMixedAbs" iso
           [("t", type_size t)]
           [
             inter_letapp ["d"] (IAdjoint e_op_no_g) ["t"];
@@ -2254,12 +2286,20 @@ let expr_compile (annotate : bool) (e : expr) : gate * int * int list =
   let op = compile_mixed_expr_to_inter_op tp in
   let cs = compile_inter_op_to_circuit op in
   let circ, _ =
-    build_circuit cs [[]] IntSet.empty { reset_flag = true; reset_garb = true }
+    build_circuit cs [[]] IntSet.empty
+      { reset_flag = true; reset_garb = true; iso = false }
   in
-  let gate =
+  let out_reg =
+    match circ.out_regs with
+    | [out_reg] -> out_reg
+    | _ -> failwith "Expected single out reg"
+  in
+  let gate, out_reg =
     gate_optimize
       (gate_combine_and_distribute_controls (gate_remove_identities circ.gate))
+      out_reg
   in
+  let circ = { circ with out_regs = [out_reg] } in
   let qubits_used =
     List.of_seq
       (IntSet.to_seq

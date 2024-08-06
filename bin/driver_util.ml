@@ -9,8 +9,9 @@ let execute_expr (e : expr) : unit =
   match mixed_type_check StringMap.empty e with
   | NoneE err -> Printf.printf "Typechecking error: %s\n\n" err
   | SomeE tp -> begin
-      Printf.printf "Expression type: %s\n\n%!"
+      Printf.printf "Expression type: %s\n%!"
         (string_of_type (type_of_mixed_expr_proof tp));
+      Printf.printf "Isometry: %b\n\n%!" (is_iso_mixed_expr_proof tp);
       Printf.printf "Pure semantics:\n%!";
       begin
         try print_mat (top_pure_expr_semantics e) with

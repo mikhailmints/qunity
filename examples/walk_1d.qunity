@@ -10,12 +10,9 @@ def Step <N> :=
         ]
 end
 
-def N := [3] end
+def N := [2] end
 
 (NTensorE <[N], BitPlus>, Bit0 |> u3 {pi/4, 0, 0})
-|> Step <[N]>
-|> Step <[N]>
-|> Step <[N]>
 |> Step <[N]>
 |> Fst <NTensorT <[N], Bit>, Bit>
 |> Reverse <[N], Bit>

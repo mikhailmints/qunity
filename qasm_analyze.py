@@ -4,7 +4,7 @@ print("Importing libraries")
 import sys
 import os
 import timeout_decorator
-from qiskit import qasm3, transpile, QuantumCircuit
+from qiskit import qasm3, transpile
 from qiskit_aer import Aer
 from qiskit.visualization import plot_histogram
 import matplotlib.pyplot as plt
@@ -14,9 +14,9 @@ GREEN = "\033[0;32m"
 YELLOW = "\033[0;33m"
 NC = "\033[0m"
 
-LOAD_TIMEOUT = 20
-DRAW_TIMEOUT = 20
-SIMULATE_TIMEOUT = 100
+LOAD_TIMEOUT = 40
+DRAW_TIMEOUT = 40
+SIMULATE_TIMEOUT = 180
 SIM_SHOTS = 10000
 
 
@@ -44,12 +44,7 @@ def draw_circuit(circuit, basename):
             fold=-1,
         )
     except Exception:
-        circuit.draw(
-            "mpl",
-            scale=0.2,
-            filename=out_filename,
-            fold=-1,
-        )
+        circuit.draw("mpl", scale=0.2, filename=out_filename)
     print(f"Diagram in {out_filename}")
 
 

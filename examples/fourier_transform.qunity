@@ -1,1 +1,1 @@
-Qft <[2]> of (BitPlus |> u3 {0, pi / 4, 0}, (Bit0, ()))
+Qft <[3]> of (BitPlus |> u3 {0, pi / 4, 0}, (Bit0, (Bit1, ())))
