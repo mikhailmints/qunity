@@ -23,8 +23,8 @@ def Grover <N, F, Niter> :=
     endif
 end
 
-def N := [2] end
-def Answer := (Bit0, (Bit1, ())) end
+def N := [3] end
+def Answer := (Bit0, (Bit1, (Bit1, ()))) end
 
 /*
 Quantum oracle representing a function acting on N bits that outputs
@@ -38,5 +38,5 @@ def F :=
     ] |> Snd <NTensorT <N, Bit>, Bit>
 end
 
-Grover <N, F, [1]>
+Grover <N, F, [2]>
 

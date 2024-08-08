@@ -42,32 +42,37 @@ let rec gate_to_qasm_str (u : gate) (err_num : int) : string * int =
         | PotentialDeletionLabel _ ->
             ("", err_num)
         | _ -> begin
-            let l, bl, (s, l0) =
+            let l, bl, (s, l0), apply_x =
               begin
                 match u0 with
                 | GphaseGate theta -> begin
-                    let bl =
-                      if List.hd bl = true then bl else List.map not bl
-                    in
-                      ( List.tl l,
-                        List.tl bl,
-                        ( (if real_equal theta Pi then
-                             "z"
-                           else
-                             Printf.sprintf "p(%.20f)" (float_of_real theta)),
-                          [List.hd l] ) )
+                    ( List.tl l,
+                      List.tl bl,
+                      ( (if real_equal theta Pi then
+                           "z"
+                         else
+                           Printf.sprintf "p(%.20f)" (float_of_real theta)),
+                        [List.hd l] ),
+                      if not (List.hd bl) then Some (List.hd l) else None )
                   end
-                | _ -> (l, bl, simple_gate_to_qasm_str u0)
+                | _ -> (l, bl, simple_gate_to_qasm_str u0, None)
               end
             in
-              ( List.fold_left
-                  (fun cur bi ->
-                    if bi then cur ^ "ctrl @ " else cur ^ "negctrl @ ")
-                  "" bl
-                ^ s
-                ^ List.fold_left arglist_fold "" (l @ l0)
-                ^ ";\n",
-                err_num )
+            let s =
+              List.fold_left
+                (fun cur bi ->
+                  if bi then cur ^ "ctrl @ " else cur ^ "negctrl @ ")
+                "" bl
+              ^ s
+              ^ List.fold_left arglist_fold "" (l @ l0)
+              ^ ";\n"
+            in
+            let s =
+              match apply_x with
+              | Some i -> Printf.sprintf "x q[%d];\n%sx q[%d];\n" i s i
+              | None -> s
+            in
+              (s, err_num)
           end
       end
     | Sequence (u0, u1) ->
@@ -111,8 +116,7 @@ let gate_to_qasm_file (u : gate) (nqubits : int) (out_reg : int list) : string
   in
     header ^ body ^ footer
 
-let compile_file (prog_filename : string) (out_filename : string)
-    (annotate : bool) : unit =
+let compile_file (prog_filename : string) (out_filename : string) : unit =
   let e_opt = get_expr_from_file prog_filename in
     match e_opt with
     | NoneE err ->
@@ -124,11 +128,12 @@ let compile_file (prog_filename : string) (out_filename : string)
             Printf.printf "Typechecking error: %s\n" err;
             exit 1
         | SomeE _ -> begin
-            let gate, nqubits, out_reg = expr_compile annotate e in
-            let qasm_str = gate_to_qasm_file gate nqubits out_reg in
-            let out_file = open_out out_filename in
-              Printf.fprintf out_file "%s" qasm_str;
-              close_out out_file
+            let gate, nqubits, out_reg = expr_compile e in
+              Printf.printf "Outputting to file\n%!";
+              let qasm_str = gate_to_qasm_file gate nqubits out_reg in
+              let out_file = open_out out_filename in
+                Printf.fprintf out_file "%s" qasm_str;
+                close_out out_file
           end
       end
 
@@ -136,4 +141,6 @@ let () =
   let prog_filename = Sys.argv.(1) in
   let out_filename = Sys.argv.(2) in
   let annotate = bool_of_string Sys.argv.(3) in
-    compile_file prog_filename out_filename annotate
+    optimization_print := true;
+    annotation_mode := annotate;
+    compile_file prog_filename out_filename

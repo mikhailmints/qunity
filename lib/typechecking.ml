@@ -391,48 +391,47 @@ let missing_span (t : exprtype) (l : expr list) :
         match spread_qpair_list l with
         | None -> None
         | Some l' -> begin
-              match missing_span_helper t0 (List.map fst l') fv with
-              | None -> None
-              | Some (l0, sp0) -> begin
-                  let l'' =
-                    List.sort
-                      (fun (e0, _) (e1, _) -> expr_compare e0 e1)
-                      (List.map (fun e0 -> (e0, [])) l0 @ l')
-                  in
-                  let result =
-                    all_or_nothing
-                      (List.map
-                         (fun (e0, l1) ->
-                           match
-                             missing_span_helper t1 l1
-                               (StringSet.union fv (free_vars e0))
-                           with
-                           | Some (l1', tp1) ->
-                               Some
-                                 (List.map (fun e1 -> Qpair (e0, e1)) l1', tp1)
-                           | None -> None)
-                         l'')
-                  in
-                    match result with
-                    | Some r ->
-                        let njs =
-                          List.map
-                            (fun (a, b) -> a + b)
-                            (List.combine
-                               (List.map List.length (List.map fst r))
-                               (List.map List.length (List.map snd l'')))
-                        in
-                          Some
-                            ( List.flatten (List.map fst r),
-                              SPair
-                                ( t0,
-                                  t1,
-                                  sp0,
-                                  List.map snd r,
-                                  List.length l'',
-                                  njs ) )
-                    | None -> None
-                end
+            match missing_span_helper t0 (List.map fst l') fv with
+            | None -> None
+            | Some (l0, sp0) -> begin
+                let l'' =
+                  List.sort
+                    (fun (e0, _) (e1, _) -> expr_compare e0 e1)
+                    (List.map (fun e0 -> (e0, [])) l0 @ l')
+                in
+                let result =
+                  all_or_nothing
+                    (List.map
+                       (fun (e0, l1) ->
+                         match
+                           missing_span_helper t1 l1
+                             (StringSet.union fv (free_vars e0))
+                         with
+                         | Some (l1', tp1) ->
+                             Some (List.map (fun e1 -> Qpair (e0, e1)) l1', tp1)
+                         | None -> None)
+                       l'')
+                in
+                  match result with
+                  | Some r ->
+                      let njs =
+                        List.map
+                          (fun (a, b) -> a + b)
+                          (List.combine
+                             (List.map List.length (List.map fst r))
+                             (List.map List.length (List.map snd l'')))
+                      in
+                        Some
+                          ( List.flatten (List.map fst r),
+                            SPair
+                              ( t0,
+                                t1,
+                                sp0,
+                                List.map snd r,
+                                List.length l'',
+                                njs ) )
+                  | None -> None
+              end
           end
       end
     | _, _ -> None

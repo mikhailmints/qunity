@@ -62,14 +62,17 @@ def simulate_circuit(circuit, basename):
             optimization_level=3,
             seed_transpiler=0,
         )
+        print("Depth:", circuit.depth())
+        print("Gates:", sum(circuit.count_ops().values()))
         job = backend.run(
             circuit,
             seed_simulator=0,
             shots=SIM_SHOTS,
         )
         print("Simulating circuit")
-        counts = job.result().get_counts()
-        counts_list = [(format_label(x), y) for x, y in counts.items()]
+        result = job.result()
+        counts_raw = result.get_counts()
+        counts_list = [(format_label(x), y) for x, y in counts_raw.items()]
         counts = dict()
         for x, y in counts_list:
             if x not in counts:

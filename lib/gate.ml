@@ -75,6 +75,11 @@ let rec gate_equal (u0 : gate) (u1 : gate) =
   | Swap (i, j), Swap (i', j') -> (i = i' && j = j') || (i = j' && j = i')
   | _ -> u0 = u1
 
+let gate_is_x (u : gate) : bool =
+  match u with
+  | U3Gate (i, _, _, _) -> gate_equal u (gate_paulix i)
+  | _ -> false
+
 let rec gate_qubits_used (u : gate) : IntSet.t =
   match u with
   | Identity -> IntSet.empty
@@ -393,6 +398,18 @@ let rec is_valid_to_delete (ul : gate list) (i : int) =
 let rec shift_deletion_labels_left_pass (ul : gate list) : gate list * bool =
   match ul with
   | [] -> ([], false)
+  | Reset i :: PotentialDeletionLabel j :: PotentialDeletionLabel k :: ul' ->
+      ( PotentialDeletionLabel k :: Reset i :: PotentialDeletionLabel j
+        :: fst (shift_deletion_labels_left_pass ul'),
+        true )
+  | MeasureAsErr i
+    :: PotentialDeletionLabel j
+    :: PotentialDeletionLabel k
+    :: ul'
+    when i = j && i <> k ->
+      ( PotentialDeletionLabel k :: MeasureAsErr i :: PotentialDeletionLabel j
+        :: fst (shift_deletion_labels_left_pass ul'),
+        true )
   | u :: PotentialDeletionLabel i :: ul' -> begin
       let do_switch =
         begin
@@ -427,9 +444,51 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
     gate list * int list * bool =
   match ul with
   | [] -> ([], out_reg, false)
+  (* Cancel adjacent adjoint gates *)
   | u :: u' :: ul' when gate_is_unitary u && gate_equal u' (gate_adjoint u) ->
       let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
         (ul'', out_reg', true)
+  (* Check if deletion can occur on labeled wire segment *)
+  | PotentialDeletionLabel i :: ul' -> begin
+      let ul0, ul1 = split_up_to_first_measurements ul i in
+        if is_valid_to_delete ul0 i then
+          let ul0' =
+            List.filter (fun u -> not (IntSet.mem i (gate_qubits_used u))) ul0
+          in
+          let ul'', out_reg', _ =
+            gate_optimization_pass (ul0' @ ul1) out_reg
+          in
+            (ul'', out_reg', true)
+        else
+          let ul'', out_reg', changes_made =
+            gate_optimization_pass ul' out_reg
+          in
+            (PotentialDeletionLabel i :: ul'', out_reg', changes_made)
+    end
+  (* Removing physical swap gates and relabeling wires *)
+  | Swap (i, j) :: ul' -> begin
+      let ul'', out_reg', _ =
+        gate_optimization_pass
+          (List.map (fun u -> gate_rewire u [i; j] [j; i]) ul')
+          (List.map
+             (fun x -> if x = i then j else if x = j then i else x)
+             out_reg)
+      in
+        (ul'', out_reg', true)
+    end
+  (* Commuting single-qubit gates *)
+  | u0 :: u1 :: ul'
+    when begin
+           let i0s = IntSet.elements (gate_qubits_used u0) in
+           let i1s = IntSet.elements (gate_qubits_used u1) in
+             if List.length i0s = 1 && List.length i1s = 1 then
+               List.hd i1s < List.hd i0s
+             else
+               false
+         end ->
+      let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
+        (u1 :: u0 :: ul'', out_reg', true)
+  (* Combining controlled and anti-controlled gate *)
   | Controlled (l0, bl0, u0) :: Controlled (l1, bl1, u1) :: ul'
     when gate_equal u0 u1 && List.sort ( - ) l0 = List.sort ( - ) l1 -> begin
       let lbl0 = List.combine l0 bl0 in
@@ -463,38 +522,36 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
           let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
             (newgate :: ul'', out_reg', true)
     end
-  | PotentialDeletionLabel i :: ul' -> begin
-      let ul0, ul1 = split_up_to_first_measurements ul i in
-        if is_valid_to_delete ul0 i then
-          let ul0' =
-            List.filter (fun u -> not (IntSet.mem i (gate_qubits_used u))) ul0
-          in
-          let ul'', out_reg', _ =
-            gate_optimization_pass (ul0' @ ul1) out_reg
-          in
-            (ul'', out_reg', true)
-        else
-          let ul'', out_reg', changes_made =
-            gate_optimization_pass ul' out_reg
-          in
-            (PotentialDeletionLabel i :: ul'', out_reg', changes_made)
-    end
-  | Swap (i, j) :: ul' -> begin
-      let ul'', out_reg', _ =
-        gate_optimization_pass
-          (List.map (fun u -> gate_rewire u [i; j] [j; i]) ul')
-          (List.map
-             (fun x -> if x = i then j else if x = j then i else x)
-             out_reg)
-      in
-        (ul'', out_reg', true)
-    end
+  (* Commuting controlled gates *)
+  | Controlled (l0, bl0, u0) :: Controlled (l1, bl1, u1) :: ul'
+    when begin
+           (IntSet.cardinal (gate_qubits_used u0) = 0
+           || not
+                (List.mem (List.hd (IntSet.elements (gate_qubits_used u0))) l1)
+           )
+           && (IntSet.cardinal (gate_qubits_used u1) = 0
+              || not
+                   (List.mem
+                      (List.hd (IntSet.elements (gate_qubits_used u1)))
+                      l0))
+         end
+         && List.hd (List.sort ( - ) l1) < List.hd (List.sort ( - ) l0) ->
+      let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
+        ( Controlled (l1, bl1, u1) :: Controlled (l0, bl0, u0) :: ul'',
+          out_reg',
+          true )
   | u :: ul' ->
       let ul'', out_reg', changes_made = gate_optimization_pass ul' out_reg in
         (u :: ul'', out_reg', changes_made)
 
+let optimization_print = ref false
+let optimization_max_length = 10000
+
 let rec gate_list_optimize (ul : gate list) (out_reg : int list) :
     gate list * int list =
+  if !optimization_print then
+    Printf.printf ".%!";
+  let ul = gate_list_shift_deletion_labels_left ul in
   let ul_opt, out_reg', changes_made = gate_optimization_pass ul out_reg in
     if changes_made then
       gate_list_optimize ul_opt out_reg'
@@ -502,6 +559,17 @@ let rec gate_list_optimize (ul : gate list) (out_reg : int list) :
       (ul, out_reg')
 
 let gate_optimize (u : gate) (out_reg : int list) : gate * int list =
-  let ul = gate_list_shift_deletion_labels_left (gate_to_list u) in
-  let ul, out_reg' = gate_list_optimize ul out_reg in
-    (gate_of_list ul, out_reg')
+  let ul = gate_to_list u in
+    if List.length ul > optimization_max_length then begin
+      if !optimization_print then
+        Printf.printf "Circuit too large - not optimizing\n%!";
+      (u, out_reg)
+    end
+    else begin
+      if !optimization_print then
+        Printf.printf "Optimizing\n%!";
+      let ul, out_reg = gate_list_optimize ul out_reg in
+        if !optimization_print then
+          Printf.printf "\n%!";
+        (gate_of_list ul, out_reg)
+    end

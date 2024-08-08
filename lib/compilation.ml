@@ -174,7 +174,7 @@ let build_circuit (cs : circuit_spec) (in_regs : int list list)
       garb_reg = (if settings.reset_garb then [] else circ.garb_reg);
       gate =
         begin
-          if settings.iso then
+          if settings.iso && settings.reset_flag then
             (* Note that this label may not necessarily be placed
                in the location where the qubits of interest are initialized - this
                might be part of the input rather than the prep register. However,
@@ -185,7 +185,12 @@ let build_circuit (cs : circuit_spec) (in_regs : int list list)
           else
             Identity
         end
-        @& gate_label_reg_for_potential_deletion circ.garb_reg
+        @& begin
+             if settings.reset_garb then
+               gate_label_reg_for_potential_deletion circ.garb_reg
+             else
+               Identity
+           end
         @& circ.gate
         @& begin
              if settings.reset_flag then
@@ -607,7 +612,7 @@ let circuit_sequence (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
                 in_regs;
                 prep_reg =
                   int_list_union circ0.prep_reg
-                    (int_list_diff circ1.prep_reg (List.flatten circ0.in_regs));
+                    (int_list_diff circ1.prep_reg (List.flatten in_regs));
                 out_regs = circ1.out_regs;
                 flag_reg = int_list_union circ0.flag_reg circ1.flag_reg;
                 garb_reg = int_list_union circ0.garb_reg circ1.garb_reg;
@@ -2280,8 +2285,7 @@ gate: into the intermediate representation, then compiling the intermediate
 representation to a circuit, then applying several postprocessing steps, and
 outputting the circuit's gate and additional relevant information.
 *)
-let expr_compile (annotate : bool) (e : expr) : gate * int * int list =
-  annotation_mode := annotate;
+let expr_compile (e : expr) : gate * int * int list =
   let tp = mixed_type_check_noopt e in
   let op = compile_mixed_expr_to_inter_op tp in
   let cs = compile_inter_op_to_circuit op in
