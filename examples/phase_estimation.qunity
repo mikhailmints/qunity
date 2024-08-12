@@ -3,11 +3,10 @@ def ApplyPhase <N, P> :=
         Qid <qunit>
     else
         lambda (x0, x') {NTensorT <[N], Bit>} ->
-            ctrl {Bit, NTensorT <[N], Bit>} x0 [
-                Bit0 -> (x0, ApplyPhase <[N - 1], [2 * P]> of x');
-                Bit1 -> (x0 |> gphase {Bit, 2 * pi * P},
-                        ApplyPhase <[N - 1], [2 * P]> of x');
-            ]
+            (ctrl {Bit, Bit} x0 [
+                Bit0 -> x0;
+                Bit1 -> x0 |> gphase {Bit, 2 * pi * P};
+            ], ApplyPhase <[N - 1], [2 * P]> of x')
     endif
 end
 

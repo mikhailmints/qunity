@@ -504,11 +504,9 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
       in
         if List.length unequal_indices <> 1 then
           let ul'', out_reg', changes_made =
-            gate_optimization_pass ul' out_reg
+            gate_optimization_pass (Controlled (l1, bl1, u1) :: ul') out_reg
           in
-            ( Controlled (l0, bl0, u0) :: Controlled (l1, bl1, u1) :: ul'',
-              out_reg',
-              changes_made )
+            (Controlled (l0, bl0, u0) :: ul'', out_reg', changes_made)
         else
           let remove_i = List.hd unequal_indices in
           let lbl0 = List.remove_assoc remove_i lbl0 in
@@ -524,22 +522,24 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
     end
   (* Commuting controlled gates *)
   | Controlled (l0, bl0, u0) :: Controlled (l1, bl1, u1) :: ul'
-    when begin
-           (IntSet.cardinal (gate_qubits_used u0) = 0
-           || not
-                (List.mem (List.hd (IntSet.elements (gate_qubits_used u0))) l1)
-           )
-           && (IntSet.cardinal (gate_qubits_used u1) = 0
-              || not
-                   (List.mem
-                      (List.hd (IntSet.elements (gate_qubits_used u1)))
-                      l0))
-         end
-         && List.hd (List.sort ( - ) l1) < List.hd (List.sort ( - ) l0) ->
-      let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
-        ( Controlled (l1, bl1, u1) :: Controlled (l0, bl0, u0) :: ul'',
-          out_reg',
-          true )
+    when let gph0 = IntSet.cardinal (gate_qubits_used u0) = 0 in
+         let gph1 = IntSet.cardinal (gate_qubits_used u1) = 0 in
+           begin
+             IntSet.for_all
+               (fun x -> not (List.mem x l1))
+               (gate_qubits_used u0)
+             && IntSet.for_all
+                  (fun x -> not (List.mem x l0))
+                  (gate_qubits_used u1)
+           end
+           && ((gph0 && not gph1)
+              || (not (gph1 && not gph0))
+                 && List.hd (List.sort ( - ) l1) < List.hd (List.sort ( - ) l0)
+              ) ->
+      let ul'', out_reg', _ =
+        gate_optimization_pass (Controlled (l0, bl0, u0) :: ul') out_reg
+      in
+        (Controlled (l1, bl1, u1) :: ul'', out_reg', true)
   | u :: ul' ->
       let ul'', out_reg', changes_made = gate_optimization_pass ul' out_reg in
         (u :: ul'', out_reg', changes_made)
