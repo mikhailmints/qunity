@@ -861,9 +861,7 @@ let circuit_assoc (t0 : exprtype) (t1 : exprtype) (t2 : exprtype) :
   let in_size = type_size (SumType (SumType (t0, t1), t2)) in
   (* 1 + max(s0, 1 + max(s1, s2)) *)
   let out_size = type_size (SumType (t0, SumType (t1, t2))) in
-  let total_size =
-    2 + max (type_size t0) (max (type_size t1) (type_size t2))
-  in
+  let total_size = max in_size out_size in
     {
       in_sizes = [in_size];
       out_sizes = [out_size];
@@ -1601,6 +1599,12 @@ let rec binary_tree_of_type (stop : exprtype) (t : exprtype) : binary_tree =
       Node (binary_tree_of_type stop t0, binary_tree_of_type stop t1)
   | _ -> Leaf
 
+let rec type_of_binary_tree (stop : exprtype) (tree : binary_tree) : exprtype =
+  match tree with
+  | Leaf -> stop
+  | Node (l, r) ->
+      SumType (type_of_binary_tree stop l, type_of_binary_tree stop r)
+
 let rec transform_type_as_tree (stop : exprtype) (trans : tree_transformation)
     (t : exprtype) : exprtype =
   match t with
@@ -1664,6 +1668,9 @@ let balance_dirsum_tree_op (stop : exprtype) (t : exprtype) : inter_op =
   inter_op_of_tree_transformation stop
     (balance_tree (binary_tree_of_type stop t))
     t
+
+let balance_dirsum_tree_type (stop : exprtype) (t : exprtype) : exprtype =
+  type_of_binary_tree stop (balance_tree_apply (binary_tree_of_type stop t))
 
 let rec big_distr_right_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype)
     : exprtype =
@@ -1767,23 +1774,18 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
       let sp1_op, spt1 = compile_spanning_to_inter_op sp1 in
       let tree0 = binary_tree_of_type t0 spt0 in
       let tree1 = binary_tree_of_type t1 spt1 in
-      let res_type =
+      let t_res_unbalanced =
         dirsum_type_by_tree (Node (tree0, tree1)) (SumType (t0, t1))
       in
-        ( inter_lambda "SSum" false
-            [("t0+t1", type_size (SumType (t0, t1)))]
-            [
-              inter_letapp ["t0^(+n0)+t1^(+n1)"]
-                (IDirsum (sp0_op, sp1_op))
-                ["t0+t1"];
-              inter_letapp ["res"]
-                (IDirsum
-                   ( dirsum_op_by_tree tree0 (ILeft (t0, t1)),
-                     dirsum_op_by_tree tree1 (IRight (t0, t1)) ))
-                ["t0^(+n0)+t1^(+n1)"];
-            ]
-            [("res", type_size res_type)],
-          res_type )
+      let t_res =
+        balance_dirsum_tree_type (SumType (t0, t1)) t_res_unbalanced
+      in
+        ( IDirsum (sp0_op, sp1_op)
+          @&& IDirsum
+                ( dirsum_op_by_tree tree0 (ILeft (t0, t1)),
+                  dirsum_op_by_tree tree1 (IRight (t0, t1)) )
+          @&& balance_dirsum_tree_op (SumType (t0, t1)) t_res_unbalanced,
+          t_res )
     end
   | SPair (t0, t1, sp0, l, _, _) -> begin
       let op0, spt0 = compile_spanning_to_inter_op sp0 in
@@ -1792,9 +1794,12 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
       in
       let tree0 = binary_tree_of_type t0 spt0 in
       let l_tree1 = List.map (binary_tree_of_type t1) l_spt1 in
-      let t_res =
+      let t_res_unbalanced =
         dirsum_type_list tree0
           (List.map (fun spt1 -> big_distr_left_type t1 t0 spt1) l_spt1)
+      in
+      let t_res =
+        balance_dirsum_tree_type (ProdType (t0, t1)) t_res_unbalanced
       in
       let tensor_with_id_t0 (op, tree) =
         inter_lambda "tensor_with_id_t0" false
@@ -1823,13 +1828,16 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
                 (big_distr_right_op t0 mt0 t1)
                 ["t0^(+m)*t1"];
               inter_letapp ["sum(t0*t1^(+nj))"] l_op_sum ["(t0*t1)^(+m)"];
-              inter_letapp ["res"]
+              inter_letapp ["sum((t0*t1)^(+nj))"]
                 (dirsum_op_list tree0
                    (List.map
                       (fun tree1 ->
                         big_distr_left_op t1 t0 (dirsum_type_by_tree tree1 t1))
                       l_tree1))
                 ["sum(t0*t1^(+nj))"];
+              inter_letapp ["res"]
+                (balance_dirsum_tree_op (ProdType (t0, t1)) t_res_unbalanced)
+                ["sum((t0*t1)^(+nj))"];
             ]
             [("res", type_size t_res)],
           t_res )
@@ -1874,7 +1882,8 @@ let compile_ortho_to_inter_op (t : exprtype) (orp : ortho_proof) :
   let span_op, sum_t = compile_spanning_to_inter_op sp in
   let selection = List.map (fun e -> List.mem e ortho_list) span_list in
   let select_op, sum_t' = ortho_select_op t sum_t selection in
-    (span_op @&& select_op, sum_t')
+  let sum_t'' = balance_dirsum_tree_type t sum_t' in
+    (span_op @&& select_op @&& balance_dirsum_tree_op t sum_t', sum_t'')
 
 let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     (erp : erasure_proof) =
