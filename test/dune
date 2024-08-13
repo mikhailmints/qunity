@@ -1,5 +1,5 @@
 (tests
- (names test_typechecking test_semantics test_binary_tree test_compilation)
+ (names test_typechecking test_semantics test_compilation)
  (libraries qunity unix)
  (deps
   (glob_files ../qunitylib/*)

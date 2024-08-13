@@ -257,7 +257,7 @@ def And :=
     lambda x {Bit * Bit} ->
     match {Bit * Bit, Bit} x [
         (Bit1, Bit1) -> Bit1;
-        else -> Bit0        
+        else -> Bit0;
     ]
 end
 
@@ -270,7 +270,7 @@ def Couple <K> :=
         (Bit0, Bit0) -> (x1, x0);
         (Bit0, Bit1) -> (x1, x0);
         (Bit1, Bit0) -> (x1, x0);
-        (Bit1, Bit1) -> (x1, x0) |> gphase {Bit * Bit, 2 * pi / (2 ^ K)}
+        (Bit1, Bit1) -> (x1, x0) |> gphase {Bit * Bit, 2 * pi / (2 ^ K)};
     ]
 end
 
