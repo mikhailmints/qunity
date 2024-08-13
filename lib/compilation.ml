@@ -3,7 +3,6 @@ open Reals
 open Syntax
 open Typechecking
 open Gate
-open Binary_tree
 
 let debug_mode = false
 let annotation_mode = ref false
@@ -106,6 +105,13 @@ an arbitrary way in the reassignment.
 and inter_com = string list * inter_op * string list
 
 let ( @&& ) a b = ISequence (a, b)
+
+type binary_tree = Leaf | Node of binary_tree * binary_tree
+
+let rec tree_size (tree : binary_tree) : int =
+  match tree with
+  | Leaf -> 1
+  | Node (l, r) -> tree_size l + tree_size r
 
 (* Alias for ILambda. *)
 let inter_lambda (name : string) (iso : bool) (arglist : (string * int) list)
@@ -1600,70 +1606,6 @@ let rec binary_tree_of_type (stop : exprtype) (t : exprtype) : binary_tree =
   | SumType (t0, t1) ->
       Node (binary_tree_of_type stop t0, binary_tree_of_type stop t1)
   | _ -> Leaf
-
-let rec transform_type_as_tree (stop : exprtype) (trans : tree_transformation)
-    (t : exprtype) : exprtype =
-  match t with
-  | _ when t = stop -> t
-  | SumType (t0, t1) -> begin
-      match trans with
-      | TreeIdentity -> t
-      | TreeLeftRotation -> begin
-          match t1 with
-          | SumType (t10, t11) -> SumType (SumType (t0, t10), t11)
-          | _ -> failwith "Cannot apply left rotation"
-        end
-      | TreeRightRotation -> begin
-          match t0 with
-          | SumType (t00, t01) -> SumType (t00, SumType (t01, t1))
-          | _ -> failwith "Cannot apply right rotation"
-        end
-      | TreeLeftApply trans' ->
-          SumType (transform_type_as_tree stop trans' t0, t1)
-      | TreeRightApply trans' ->
-          SumType (t0, transform_type_as_tree stop trans' t1)
-      | TreeSequence (trans0, trans1) ->
-          transform_type_as_tree stop trans1
-            (transform_type_as_tree stop trans0 t)
-    end
-  | _ -> t
-
-let rec inter_op_of_tree_transformation (stop : exprtype)
-    (trans : tree_transformation) (t : exprtype) : inter_op =
-  match trans with
-  | TreeIdentity -> IIdentity t
-  | TreeLeftRotation -> begin
-      match t with
-      | SumType (t0, SumType (t1, t2)) -> IAdjoint (IAssoc (t0, t1, t2))
-      | _ -> failwith "Can't convert left rotation to inter_op"
-    end
-  | TreeRightRotation -> begin
-      match t with
-      | SumType (SumType (t0, t1), t2) -> IAssoc (t0, t1, t2)
-      | _ -> failwith "Can't convert right rotation to inter_op"
-    end
-  | TreeLeftApply trans' -> begin
-      match t with
-      | SumType (t0, t1) ->
-          IDirsum (inter_op_of_tree_transformation stop trans' t0, IIdentity t1)
-      | _ -> failwith "Can't convert left apply to inter_op"
-    end
-  | TreeRightApply trans' -> begin
-      match t with
-      | SumType (t0, t1) ->
-          IDirsum (IIdentity t0, inter_op_of_tree_transformation stop trans' t1)
-      | _ -> failwith "Can't convert right apply to inter_op"
-    end
-  | TreeSequence (trans0, trans1) ->
-      ISequence
-        ( inter_op_of_tree_transformation stop trans0 t,
-          inter_op_of_tree_transformation stop trans1
-            (transform_type_as_tree stop trans0 t) )
-
-let balance_dirsum_tree_op (stop : exprtype) (t : exprtype) : inter_op =
-  inter_op_of_tree_transformation stop
-    (balance_tree (binary_tree_of_type stop t))
-    t
 
 let rec big_distr_right_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype)
     : exprtype =

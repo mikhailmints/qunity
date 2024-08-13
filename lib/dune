@@ -9,7 +9,6 @@
   semantics
   extended_syntax
   gate
-  binary_tree
   compilation
   parser
   lexer
