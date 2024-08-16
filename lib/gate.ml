@@ -4,7 +4,7 @@ open Matrix
 
 (*
 Low-level representation of a quantum circuit. Describes unitary gates (or
-reset operations) acting on qubits specified by integer labels.
+reset or measurement operations) acting on qubits specified by integer labels.
 *)
 type gate =
   | Identity
@@ -19,6 +19,8 @@ type gate =
   | Sequence of (gate * gate)
 
 let ( @& ) a b = Sequence (a, b)
+
+type classical_prop_state = Classical of bool | Quantum
 
 (* Simple utility gate definitions *)
 let gate_paulix (i : int) : gate = U3Gate (i, Pi, Const 0, Pi)
@@ -95,6 +97,10 @@ let rec gate_qubits_used (u : gate) : IntSet.t =
       IntSet.union (IntSet.of_list l) (gate_qubits_used u0)
   | Sequence (u0, u1) ->
       IntSet.union (gate_qubits_used u0) (gate_qubits_used u1)
+
+let gate_num_qubits (u : gate) : int =
+  let max_index = List.fold_left max 0 (IntSet.to_list (gate_qubits_used u)) in
+    max_index + 1
 
 let rec gate_num_err_measurements (u : gate) : int =
   match u with
@@ -271,12 +277,17 @@ let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
           (Complex.polar 1. (float_of_real theta))
           (mat_identity qdim)
     | U3Gate (i, theta, phi, lambda) -> begin
-        mat_tensor
-          (mat_identity (1 lsl i))
-          (mat_tensor
-             (mat_from_u3 (float_of_real theta) (float_of_real phi)
-                (float_of_real lambda))
-             (mat_identity (1 lsl (nqubits - i - 1))))
+        let single_qubit_gate =
+          if u = gate_paulix i then
+            mat_xgate
+          else
+            mat_from_u3 (float_of_real theta) (float_of_real phi)
+              (float_of_real lambda)
+        in
+          mat_tensor
+            (mat_identity (1 lsl i))
+            (mat_tensor single_qubit_gate
+               (mat_identity (1 lsl (nqubits - i - 1))))
       end
     | Swap (a, b) ->
         gate_unitary_semantics (gate_cnot a b @& gate_cnot b a @& gate_cnot a b)
@@ -440,6 +451,70 @@ let rec gate_list_shift_deletion_labels_left (ul : gate list) : gate list =
     else
       ul
 
+let rec gate_classical_propagation (ul : gate list)
+    (cl : classical_prop_state array) : gate list =
+  match ul with
+  | [] -> []
+  | u :: ul' -> begin
+      let u' =
+        match u with
+        | Identity
+        | GphaseGate _
+        | MeasureAsErr _
+        | PotentialDeletionLabel _
+        | Annotation _ ->
+            u
+        | Sequence _ -> failwith "Sequences should not be present"
+        | U3Gate (i, _, _, _) when u = gate_paulix i -> begin
+            match cl.(i) with
+            | Classical b ->
+                cl.(i) <- Classical (not b);
+                u
+            | Quantum -> u
+          end
+        | U3Gate (i, _, _, _) ->
+            cl.(i) <- Quantum;
+            u
+        | Reset i ->
+            cl.(i) <- Classical false;
+            u
+        | Swap (i, j) -> begin
+            let temp = cl.(i) in
+              cl.(i) <- cl.(j);
+              cl.(j) <- temp;
+              u
+          end
+        | Controlled (l, bl, u0) -> begin
+            let l_states = List.map (fun i -> cl.(i)) l in
+            let is_active =
+              List.for_all
+                (fun (state, b) -> state = Quantum || state = Classical b)
+                (List.combine l_states bl)
+            in
+              if not is_active then
+                Identity
+              else if List.for_all (fun state -> state <> Quantum) l_states
+              then
+                List.hd (gate_classical_propagation [u0] cl)
+              else begin
+                let to_keep =
+                  List.filter
+                    (fun (state, (_, b)) -> state <> Classical b)
+                    (List.combine l_states (List.combine l bl))
+                in
+                let l', bl' = List.split (List.map snd to_keep) in
+                  IntSet.iter
+                    (fun i -> cl.(i) <- Quantum)
+                    (gate_qubits_used u0);
+                  Controlled (l', bl', u0)
+              end
+          end
+      in
+        match u' with
+        | Identity -> gate_classical_propagation ul' cl
+        | _ -> u' :: gate_classical_propagation ul' cl
+    end
+
 let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
     gate list * int list * bool =
   match ul with
@@ -547,19 +622,24 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
 let optimization_print = ref false
 let optimization_max_length = 10000
 
-let rec gate_list_optimize (ul : gate list) (out_reg : int list) :
-    gate list * int list =
+let rec gate_list_optimize (ul : gate list) (out_reg : int list)
+    (nqubits : int) : gate list * int list =
   if !optimization_print then
     Printf.printf ".%!";
+  let ul =
+    gate_classical_propagation ul
+      (Array.of_list (List.map (fun _ -> Classical false) (range nqubits)))
+  in
   let ul = gate_list_shift_deletion_labels_left ul in
   let ul_opt, out_reg', changes_made = gate_optimization_pass ul out_reg in
     if changes_made then
-      gate_list_optimize ul_opt out_reg'
+      gate_list_optimize ul_opt out_reg' nqubits
     else
       (ul, out_reg')
 
 let gate_optimize (u : gate) (out_reg : int list) : gate * int list =
   let ul = gate_to_list u in
+  let nqubits = gate_num_qubits u in
     if List.length ul > optimization_max_length then begin
       if !optimization_print then
         Printf.printf "Circuit too large - not optimizing\n%!";
@@ -568,7 +648,7 @@ let gate_optimize (u : gate) (out_reg : int list) : gate * int list =
     else begin
       if !optimization_print then
         Printf.printf "Optimizing\n%!";
-      let ul, out_reg = gate_list_optimize ul out_reg in
+      let ul, out_reg = gate_list_optimize ul out_reg nqubits in
         if !optimization_print then
           Printf.printf "\n%!";
         (gate_of_list ul, out_reg)

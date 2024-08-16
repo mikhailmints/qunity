@@ -9,7 +9,6 @@
 #mod_use "lib/semantics.ml";;
 #mod_use "lib/extended_syntax.ml";;
 #mod_use "lib/gate.ml";;
-#mod_use "lib/binary_tree.ml";;
 #mod_use "lib/compilation.ml";;
 
 open Util
@@ -20,6 +19,5 @@ open Matrix
 open Semantics
 open Extended_syntax
 open Gate
-open Binary_tree
 open Compilation
 ;;

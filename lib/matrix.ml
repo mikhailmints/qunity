@@ -373,6 +373,16 @@ let mat_from_u3 (theta : float) (phi : float) (lambda : float) : matrix =
           end);
   }
 
+let mat_xgate : matrix =
+  {
+    r = 2;
+    c = 2;
+    ent =
+      Sparse
+        (Int2Map.of_seq
+           (List.to_seq [((0, 1), Complex.one); ((1, 0), Complex.one)]));
+  }
+
 let mat_zero (r : int) (c : int) = { r; c; ent = Sparse Int2Map.empty }
 let vec_zero (dim : int) = mat_zero dim 1
 
