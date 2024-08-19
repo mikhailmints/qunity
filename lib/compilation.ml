@@ -73,6 +73,7 @@ type inter_op =
   | IContextShare of context
   | IAdjoint of inter_op
   | ISequence of inter_op * inter_op
+  | ITensor of inter_op * inter_op
   | IDirsum of inter_op * inter_op
   | IAssoc of
       exprtype * exprtype * exprtype (* (T0 + T1) + T2 -> T0 + (T1 + T2) *)
@@ -628,6 +629,44 @@ let circuit_sequence (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
       end;
   }
 
+let circuit_tensor (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
+  let s0, s1, s0', s1' =
+    match (cs0.in_sizes, cs1.in_sizes, cs0.out_sizes, cs1.out_sizes) with
+    | [in_size0], [in_size1], [out_size0], [out_size1] ->
+        (in_size0, in_size1, out_size0, out_size1)
+    | _ -> failwith "Expected single-register inputs and outputs"
+  in
+    {
+      in_sizes = [s0 + s1];
+      out_sizes = [s0' + s1'];
+      circ_fun =
+        begin
+          fun in_regs used_wires settings ->
+            let in_reg =
+              expect_single_in_reg "circuit_tensor" in_regs (s0 + s1)
+            in
+            let in_reg0, in_reg1 = list_split_at_i in_reg s0 in
+            let circ0, used_wires =
+              build_circuit cs0 [in_reg0] used_wires settings
+            in
+            let circ1, used_wires =
+              build_circuit cs1 [in_reg1] used_wires settings
+            in
+              ( {
+                  name = "tensor";
+                  in_regs;
+                  prep_reg =
+                    int_list_union circ0.prep_reg
+                      (int_list_diff circ1.prep_reg (List.flatten in_regs));
+                  out_regs = [List.hd circ0.out_regs @ List.hd circ1.out_regs];
+                  flag_reg = int_list_union circ0.flag_reg circ1.flag_reg;
+                  garb_reg = int_list_union circ0.garb_reg circ1.garb_reg;
+                  gate = circ0.gate @& circ1.gate;
+                },
+                used_wires )
+        end;
+    }
+
 (*
 Circuit implementing the direct sum of two circuits.
 *)
@@ -637,7 +676,7 @@ let rec circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec
     match (cs0.in_sizes, cs1.in_sizes, cs0.out_sizes, cs1.out_sizes) with
     | [in_size0], [in_size1], [out_size0], [out_size1] ->
         (in_size0, in_size1, out_size0, out_size1)
-    | _ -> assert false
+    | _ -> failwith "Expected single-register inputs and outputs"
   in
   let in_size = 1 + max s0 s1 in
   let out_size = 1 + max s0' s1' in
@@ -1461,6 +1500,10 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
       circuit_sequence
         (compile_inter_op_to_circuit op0)
         (compile_inter_op_to_circuit op1)
+  | ITensor (op0, op1) ->
+      circuit_tensor
+        (compile_inter_op_to_circuit op0)
+        (compile_inter_op_to_circuit op1)
   | IDirsum (op0, op1) ->
       circuit_dirsum
         (compile_inter_op_to_circuit op0)
@@ -1562,12 +1605,6 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
             end;
         }
     end
-
-let make_pure_op_take_one_reg (g : context) (d : context) (t : exprtype)
-    (op : inter_op) =
-  let gsize = context_size g in
-  let tsize = type_size t in
-    IAdjoint (IContextMerge (g, d)) @&& op @&& ISizePair (gsize, tsize)
 
 let rec dirsum_op_list (tree : binary_tree) (l : inter_op list) : inter_op =
   match (tree, l) with
@@ -1890,42 +1927,17 @@ classical and quantum contexts.
 let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
     =
   let t = type_of_pure_expr_proof tp in
-  let g_whole, d_whole = context_of_pure_expr_proof tp in
-  let gsize = context_size g_whole in
+  let d_whole = context_of_pure_expr_proof tp in
   let dsize = context_size d_whole in
   let tsize = type_size t in
     match tp with
-    | TUnit _ -> begin
-        inter_lambda "TUnit" true
-          [("g", gsize); ("d", dsize)]
-          []
-          [("g", gsize); ("d", tsize)]
-      end
-    | TCvar (t, g, x) -> begin
-        let xreg, grest = map_partition g (StringSet.singleton x) in
-          inter_lambda "TCvar" true
-            [("g", gsize); ("d", dsize)]
-            [
-              inter_letapp ["x"; "rest"]
-                (IContextPartition (g, StringSet.singleton x))
-                ["g"];
-              inter_letapp [] (IAdjoint IEmpty) ["d"];
-              inter_letapp ["x"; "res"] (IShare t) ["x"];
-              inter_letapp ["g"] (IContextMerge (xreg, grest)) ["x"; "rest"];
-            ]
-            [("g", gsize); ("res", tsize)]
-      end
-    | TQvar _ -> begin
-        inter_lambda "TQvar" true
-          [("g", gsize); ("d", dsize)]
-          []
-          [("g", gsize); ("d", tsize)]
-      end
-    | TPurePair (t0, t1, _, d, d0, d1, e0, e1, iso) -> begin
+    | TUnit -> IIdentity Qunit
+    | TQvar _ -> IIdentity t
+    | TPurePair (t0, t1, d, d0, d1, e0, e1, iso) -> begin
         let op0 = compile_pure_expr_to_inter_op e0 in
         let op1 = compile_pure_expr_to_inter_op e1 in
           inter_lambda "TPurePair" iso
-            [("g", gsize); ("dd0d1", dsize)]
+            [("dd0d1", dsize)]
             [
               inter_letapp ["d"; "d0d1"]
                 (IContextPartition (d_whole, map_dom d))
@@ -1936,124 +1948,147 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
               inter_letapp ["d"; "d*"] (IContextShare d) ["d"];
               inter_letapp ["dd0"] (IContextMerge (d, d0)) ["d"; "d0"];
               inter_letapp ["d*d1"] (IContextMerge (d, d1)) ["d*"; "d1"];
-              inter_letapp ["g"; "t0"] op0 ["g"; "dd0"];
-              inter_letapp ["g"; "t1"] op1 ["g"; "d*d1"];
+              inter_letapp ["t0"] op0 ["dd0"];
+              inter_letapp ["t1"] op1 ["d*d1"];
               inter_letapp ["res"] (IPair (t0, t1)) ["t0"; "t1"];
             ]
-            [("g", gsize); ("res", tsize)]
+            [("res", tsize)]
       end
-    | TCtrl (t0, t1, g, g', d, d', e, l, orp, erp_map, iso) -> begin
+    | TCtrl (t0, t1, d, d', e, l, orp, erp_map, iso) -> begin
         let n = List.length l in
-        let gg'dd' = map_merge_noopt false g_whole d_whole in
+        let dd' = d_whole in
           if n = 0 then
             inter_lambda "TCtrl_Void" iso
-              [("gg*", gsize); ("dd*", dsize)]
+              [("dd*", dsize)]
               [
                 inter_letapp [] (IAlwaysErr dsize) ["dd*"];
                 inter_letapp ["res"] IEmpty [];
               ]
-              [("gg*", gsize); ("res", 0)]
+              [("res", 0)]
           else
             let e_op = compile_mixed_expr_to_inter_op e in
-            let gjs = List.map fst3 l in
-            let ejs = List.map snd3 l in
-            let ej's = List.map trd3 l in
+            let djs = List.map fst4 l in
+            let dj's = List.map snd4 l in
+            let djdj's =
+              List.map
+                (fun (dj, dj') -> map_merge_noopt false dj dj')
+                (List.combine djs dj's)
+            in
+            let ejs = List.map trd4 l in
+            let ej's = List.map fth4 l in
             let ortho_op, ortho_type = compile_ortho_to_inter_op t0 orp in
             let ortho_tree = binary_tree_of_type t0 ortho_type in
             let ej_adj_sum_op =
               dirsum_op_list ortho_tree
                 (List.map
-                   (fun (ej, gj) ->
-                     IAdjoint
-                       (make_pure_op_take_one_reg StringMap.empty gj t0
-                          (compile_pure_expr_to_inter_op ej)))
-                   (List.combine ejs gjs))
+                   (fun ej -> IAdjoint (compile_pure_expr_to_inter_op ej))
+                   ejs)
             in
             let ej_sum_op =
               dirsum_op_list ortho_tree
-                (List.map
-                   (fun (ej, gj) ->
-                     make_pure_op_take_one_reg StringMap.empty gj t0
-                       (compile_pure_expr_to_inter_op ej))
-                   (List.combine ejs gjs))
+                (List.map (fun ej -> compile_pure_expr_to_inter_op ej) ejs)
             in
             let ej'_sum_op =
               dirsum_op_list ortho_tree
-                (List.map
-                   (fun (ej', gj) ->
-                     make_pure_op_take_one_reg
-                       (map_merge_noopt false g_whole gj)
-                       d_whole t1
-                       (compile_pure_expr_to_inter_op ej'))
-                   (List.combine ej's gjs))
+                begin
+                  List.map
+                    begin
+                      fun (ej', (dj, dj')) ->
+                        ITensor
+                          ( IIdentity
+                              (fake_type_of_context
+                                 (map_merge_noopt false dj dj')),
+                            compile_pure_expr_to_inter_op ej' )
+                    end
+                    (List.combine ej's (List.combine djs dj's))
+                end
+            in
+            let share_relevant_sum_op =
+              dirsum_op_list ortho_tree
+                begin
+                  List.map
+                    begin
+                      fun (dj, dj') ->
+                        let djdj' = map_merge_noopt false dj dj' in
+                          inter_lambda "share_dj" true
+                            [
+                              ( "djdj*dd*",
+                                context_size djdj' + context_size dd' );
+                            ]
+                            [
+                              inter_letapp ["djdj*"; "dd*"]
+                                (IAdjoint (IContextMerge (djdj', dd')))
+                                ["djdj*dd*"];
+                              inter_letapp ["dj"; "dj*"]
+                                (IAdjoint (IContextMerge (dj, dj')))
+                                ["djdj*"];
+                              inter_letapp ["dj"; "dj0"] (IContextShare dj)
+                                ["dj"];
+                              inter_letapp ["djdj*"]
+                                (IContextMerge (dj, dj'))
+                                ["dj"; "dj*"];
+                              inter_letapp ["dd*dj0"]
+                                (IContextMerge (dd', dj))
+                                ["dd*"; "dj0"];
+                              inter_letapp ["djdj*,dd*dj0"]
+                                (ISizePair
+                                   ( context_size djdj',
+                                     context_size dd' + context_size dj ))
+                                ["djdj*"; "dd*dj0"];
+                            ]
+                            [
+                              ( "djdj*,dd*dj0",
+                                context_size djdj' + context_size dd'
+                                + context_size dj );
+                            ]
+                    end
+                    (List.combine djs dj's)
+                end
             in
             let erase_op =
               compile_erasure_to_inter_op d t1 (StringMap.bindings erp_map)
             in
             let fake_context_sumtype =
-              fake_type_of_context_list ortho_tree
-                (List.map (fun gj -> map_merge_noopt false g_whole gj) gjs)
+              fake_type_of_context_list ortho_tree djdj's
             in
               inter_lambda "TCtrl" iso
-                [("gg*", gsize); ("dd*", dsize)]
+                [("dd*", dsize)]
                 [
-                  inter_letapp ["g"; "g*"]
-                    (IContextPartition (g_whole, map_dom g))
-                    ["gg*"];
                   inter_letapp ["d"; "d*"]
                     (IContextPartition (d_whole, map_dom d))
                     ["dd*"];
-                  inter_letapp ["g"; "g0"] (IContextShare g) ["g"];
                   inter_letapp ["d"; "d0"] (IContextShare d) ["d"];
-                  inter_letapp ["g0d0"] (IContextMerge (g, d)) ["g0"; "d0"];
-                  inter_letapp ["t0"; "garb"] (IPurify e_op) ["g0d0"];
+                  inter_letapp ["t0"; "garb"] (IPurify e_op) ["d0"];
                   inter_letapp ["t0^(+n)"] ortho_op ["t0"];
-                  inter_letapp ["sum(gj)"] ej_adj_sum_op ["t0^(+n)"];
-                  inter_letapp ["gg*"] (IContextMerge (g, g')) ["g"; "g*"];
+                  inter_letapp ["sum(djdj*)"] ej_adj_sum_op ["t0^(+n)"];
                   inter_letapp ["dd*"] (IContextMerge (d, d')) ["d"; "d*"];
-                  inter_letapp ["gg*dd*"]
-                    (IContextMerge (g_whole, d_whole))
-                    ["gg*"; "dd*"];
-                  inter_letapp ["sum(gg*gjdd*)"]
-                    (big_context_distr_op ortho_tree gjs gg'dd')
-                    ["sum(gj)"; "gg*dd*"];
-                  inter_letapp ["sum(gg*gj*t1)"] ej'_sum_op ["sum(gg*gjdd*)"];
-                  inter_letapp ["sum(gg*gj)*t1"]
+                  inter_letapp ["sum(djdj*dd*)"]
+                    (big_context_distr_op ortho_tree djdj's dd')
+                    ["sum(djdj*)"; "dd*"];
+                  inter_letapp ["sum(djdj*,dd*dj)"] share_relevant_sum_op
+                    ["sum(djdj*dd*)"];
+                  inter_letapp ["sum(djdj*t1)"] ej'_sum_op ["sum(djdj*,dd*dj)"];
+                  inter_letapp ["sum(djdj*),t1"]
                     (IAdjoint
                        (big_distr_right_op Qunit fake_context_sumtype t1))
-                    ["sum(gg*gj*t1)"];
-                  inter_letapp ["sum(gg*gj)"; "t1"]
+                    ["sum(djdj*t1)"];
+                  inter_letapp ["sum(djdj*)"; "t1"]
                     (IAdjoint (IPair (fake_context_sumtype, t1)))
-                    ["sum(gg*gj)*t1"];
-                  inter_letapp ["sum(gj)"; "gg*"]
-                    (IAdjoint (big_context_distr_op ortho_tree gjs g_whole))
-                    ["sum(gg*gj)"];
-                  inter_letapp ["g"; "g*"]
-                    (IContextPartition (g_whole, map_dom g))
-                    ["gg*"];
-                  inter_letapp ["t0^(+n)"] ej_sum_op ["sum(gj)"];
+                    ["sum(djdj*),t1"];
+                  inter_letapp ["t0^(+n)"] ej_sum_op ["sum(djdj*)"];
                   inter_letapp ["t0"] (IAdjoint ortho_op) ["t0^(+n)"];
-                  inter_letapp ["g0d0"] (IAdjoint (IPurify e_op))
-                    ["t0"; "garb"];
-                  inter_letapp ["g0"; "d0"]
-                    (IAdjoint (IContextMerge (g, d)))
-                    ["g0d0"];
-                  inter_letapp ["g"] (IAdjoint (IContextShare g)) ["g"; "g0"];
+                  inter_letapp ["d0"] (IAdjoint (IPurify e_op)) ["t0"; "garb"];
                   inter_letapp ["t1"] erase_op ["d0"; "t1"];
-                  inter_letapp ["gg*"] (IContextMerge (g, g')) ["g"; "g*"];
                 ]
-                [("gg*", gsize); ("t1", tsize)]
+                [("t1", tsize)]
       end
-    | TPureApp (_, _, _, _, f, e', iso) -> begin
+    | TPureApp (_, _, _, f, e', iso) -> begin
         let e'_op = compile_pure_expr_to_inter_op e' in
         let f_op = compile_pure_prog_to_inter_op f in
           inter_lambda "TPureApp" iso
-            [("g", gsize); ("d", dsize)]
-            [
-              inter_letapp ["g"; "t*"] e'_op ["g"; "d"];
-              inter_letapp ["res"] f_op ["t*"];
-            ]
-            [("g", gsize); ("res", tsize)]
+            [("d", dsize)]
+            [inter_letapp ["t*"] e'_op ["d"]; inter_letapp ["res"] f_op ["t*"]]
+            [("res", tsize)]
       end
 
 (*
@@ -2067,17 +2102,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
   let dsize = context_size d_whole in
   let tsize = type_size t in
     match tp with
-    | TMix tp' -> begin
-        let tp'_op = compile_pure_expr_to_inter_op tp' in
-          inter_lambda "TMix" false
-            [("d", dsize)]
-            [
-              inter_letapp ["g"] IEmpty [];
-              inter_letapp ["g"; "res"] tp'_op ["g"; "d"];
-              inter_letapp [] (IAdjoint IEmpty) ["g"];
-            ]
-            [("res", tsize)]
-      end
+    | TMix tp' -> compile_pure_expr_to_inter_op tp'
     | TMixedPair (t0, t1, d, d0, d1, e0, e1, iso) -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
@@ -2175,18 +2200,14 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
         inter_lambda "TPureAbs" iso
           [("t", type_size t)]
           [
-            inter_letapp ["g"] IEmpty [];
-            inter_letapp ["g"; "d"] (IAdjoint e_op) ["g"; "t"];
-            inter_letapp ["g"; "res"] e'_op ["g"; "d"];
-            inter_letapp [] (IAdjoint IEmpty) ["g"];
+            inter_letapp ["d"] (IAdjoint e_op) ["t"];
+            inter_letapp ["res"] e'_op ["d"];
           ]
           [("res", type_size t')]
     end
   | TRphase (t, e, r0, r1) -> begin
-      let _, d = context_of_pure_expr_proof e in
       let e_op = compile_pure_expr_to_inter_op e in
-      let e_op_no_g = make_pure_op_take_one_reg StringMap.empty d t e_op in
-        IMarkAsIso (true, IRphase (t, e_op_no_g, r0, r1))
+        IMarkAsIso (true, IRphase (t, e_op, r0, r1))
     end
 
 (*
@@ -2199,12 +2220,11 @@ and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
       let dd0 = map_merge_noopt false d d0 in
       let fve' = map_dom d in
       let e_op = compile_pure_expr_to_inter_op e in
-      let e_op_no_g = make_pure_op_take_one_reg StringMap.empty dd0 t e_op in
       let e'_op = compile_mixed_expr_to_inter_op e' in
         inter_lambda "TMixedAbs" iso
           [("t", type_size t)]
           [
-            inter_letapp ["d"] (IAdjoint e_op_no_g) ["t"];
+            inter_letapp ["d"] (IAdjoint e_op) ["t"];
             inter_letapp ["d*"; "d0"] (IContextPartition (dd0, fve')) ["d"];
             inter_letapp ["res"] e'_op ["d*"];
             inter_letapp [] (IContextDiscard d0) ["d0"];
