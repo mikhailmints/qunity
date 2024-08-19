@@ -3,13 +3,11 @@ open Reals
 open Syntax
 
 type pure_expr_typing_proof =
-  | TUnit of context (* Γ *)
-  | TCvar of exprtype * context * string (* T, ΓΓ', x *)
-  | TQvar of exprtype * context * string (* Γ, x, T *)
+  | TUnit
+  | TQvar of exprtype * context * string (* T, Δ, x *)
   | TPurePair of
       exprtype (* T0 *)
       * exprtype (* T1 *)
-      * context (* Γ *)
       * context (* Δ *)
       * context (* Δ0 *)
       * context (* Δ1 *)
@@ -19,20 +17,18 @@ type pure_expr_typing_proof =
   | TCtrl of
       exprtype (* T *)
       * exprtype (* T' *)
-      * context (* Γ *)
-      * context (* Γ' *)
       * context (* Δ *)
       * context (* Δ' *)
       * mixed_expr_typing_proof (* e : T *)
-      * (context * pure_expr_typing_proof * pure_expr_typing_proof) list
-      (* Γj, ej : T, ej' : T' *)
+      * (context * context * pure_expr_typing_proof * pure_expr_typing_proof)
+        list
+      (* Δj, Δj', ej : T, ej' : T' *)
       * ortho_proof
       * erasure_proof StringMap.t
       * bool (* iso *)
   | TPureApp of
       exprtype (* T *)
       * exprtype (* T' *)
-      * context (* Γ *)
       * context (* Δ *)
       * pure_prog_typing_proof (* f : T -> T' *)
       * pure_expr_typing_proof (* e : T *)
@@ -121,12 +117,11 @@ and ortho_proof =
 
 let type_of_pure_expr_proof (tp : pure_expr_typing_proof) : exprtype =
   match tp with
-  | TUnit _ -> Qunit
-  | TCvar (t, _, _) -> t
+  | TUnit -> Qunit
   | TQvar (t, _, _) -> t
-  | TPurePair (t0, t1, _, _, _, _, _, _, _) -> ProdType (t0, t1)
-  | TCtrl (_, t, _, _, _, _, _, _, _, _, _) -> t
-  | TPureApp (_, t, _, _, _, _, _) -> t
+  | TPurePair (t0, t1, _, _, _, _, _, _) -> ProdType (t0, t1)
+  | TCtrl (_, t, _, _, _, _, _, _, _) -> t
+  | TPureApp (_, t, _, _, _, _) -> t
 
 let type_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : exprtype =
   match tp with
@@ -151,21 +146,18 @@ let progtype_of_prog_proof (tp : prog_typing_proof) : progtype =
     | PureProg _ -> Coherent (t, t')
     | MixedProg _ -> Channel (t, t')
 
-let context_of_pure_expr_proof (tp : pure_expr_typing_proof) :
-    context * context =
+let context_of_pure_expr_proof (tp : pure_expr_typing_proof) : context =
   match tp with
-  | TUnit g -> (g, StringMap.empty)
-  | TCvar (_, g, _) -> (g, StringMap.empty)
-  | TQvar (_, d, _) -> (StringMap.empty, d)
-  | TPurePair (_, _, g, d, d0, d1, _, _, _) ->
-      (g, map_merge_noopt false d (map_merge_noopt false d0 d1))
-  | TCtrl (_, _, g, g', d, d', _, _, _, _, _) ->
-      (map_merge_noopt false g g', map_merge_noopt false d d')
-  | TPureApp (_, _, g, d, _, _, _) -> (g, d)
+  | TUnit -> StringMap.empty
+  | TQvar (_, d, _) -> d
+  | TPurePair (_, _, d, d0, d1, _, _, _) ->
+      map_merge_noopt false d (map_merge_noopt false d0 d1)
+  | TCtrl (_, _, d, d', _, _, _, _, _) -> map_merge_noopt false d d'
+  | TPureApp (_, _, d, _, _, _) -> d
 
 let context_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : context =
   match tp with
-  | TMix tp' -> snd (context_of_pure_expr_proof tp')
+  | TMix tp' -> context_of_pure_expr_proof tp'
   | TMixedPair (_, _, d, d0, d1, _, _, _) ->
       map_merge_noopt false d (map_merge_noopt false d0 d1)
   | TTry (_, d0, d1, _, _, _) -> map_merge_noopt false d0 d1
@@ -173,13 +165,12 @@ let context_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : context =
 
 let is_iso_pure_expr_proof (tp : pure_expr_typing_proof) : bool =
   match tp with
-  | TUnit _
-  | TCvar _
+  | TUnit
   | TQvar _ ->
       true
-  | TPurePair (_, _, _, _, _, _, _, _, iso) -> iso
-  | TCtrl (_, _, _, _, _, _, _, _, _, _, iso) -> iso
-  | TPureApp (_, _, _, _, _, _, iso) -> iso
+  | TPurePair (_, _, _, _, _, _, _, iso) -> iso
+  | TCtrl (_, _, _, _, _, _, _, _, iso) -> iso
+  | TPureApp (_, _, _, _, _, iso) -> iso
 
 let is_iso_mixed_expr_proof (tp : mixed_expr_typing_proof) : bool =
   match tp with
@@ -453,40 +444,37 @@ let ortho_check (t : exprtype) (l : expr list) : ortho_proof option =
   | None -> None
 
 (*
-In T-CTRL, given a classical context g and a pair ej, ej', the quantum
-context of ej has to be some gj with no classical context - then,
-with the classical context g ++ gj, this finds the quantum context of ej'.
+In T-CTRL, given a pair ej, ej', the quantum
+context of ej has to be some dj, dj' - then, this finds the part of the context
+of ej' that is not in dj, dj' and thus is the context of the entire expression.
 *)
-let rec first_pattern_context_check (g : context) (t : exprtype)
-    (t' : exprtype) (ej : expr) (ej' : expr) : context optionE =
-  match context_check StringMap.empty t ej with
-  | NoneE err -> NoneE err
-  | SomeE gj -> begin
-      match map_merge false g gj with
-      | SomeE ggj -> context_check ggj t' ej'
-      | NoneE err -> NoneE err
-    end
+let rec first_pattern_context_check (t : exprtype) (t' : exprtype) (ej : expr)
+    (ej' : expr) : context optionE =
+  match (context_check t ej, context_check t' ej') with
+  | NoneE err, _
+  | _, NoneE err ->
+      NoneE err
+  | SomeE djdj', SomeE dd'dj -> SomeE (map_exclusion dd'dj (map_dom djdj'))
 
 (*
 In T-CTRL, checks the type of an expression on the right-hand side of a
 control block under the contexts obtained from the first pattern in the block.
 *)
-and pattern_type_check (g : context) (d : context) (t : exprtype)
-    (t' : exprtype) ((ej, ej') : expr * expr) :
-    (context * pure_expr_typing_proof * pure_expr_typing_proof) option =
-  match context_check StringMap.empty t ej with
-  | NoneE _ -> None
-  | SomeE gj -> begin
-      match map_merge false g gj with
-      | SomeE ggj -> begin
-          match
-            (pure_type_check StringMap.empty gj ej, pure_type_check ggj d ej')
-          with
-          | SomeE tpej, SomeE tpej' when type_of_pure_expr_proof tpej' = t' ->
-              Some (gj, tpej, tpej')
-          | _ -> None
-        end
-      | NoneE _ -> None
+and pattern_type_check (dd' : context) (t : exprtype) (t' : exprtype)
+    ((ej, ej') : expr * expr) :
+    (context * context * pure_expr_typing_proof * pure_expr_typing_proof)
+    option =
+  match (context_check t ej, context_check t' ej') with
+  | NoneE _, _
+  | _, NoneE _ ->
+      None
+  | SomeE djdj', SomeE dd'dj -> begin
+      let dj = map_exclusion dd'dj (map_dom dd') in
+      let dj' = map_exclusion djdj' (map_dom dj) in
+        match (pure_type_check djdj' ej, pure_type_check dd'dj ej') with
+        | SomeE tpej, SomeE tpej' when type_of_pure_expr_proof tpej' = t' ->
+            Some (dj, dj', tpej, tpej')
+        | _ -> None
     end
 
 (*
@@ -579,47 +567,31 @@ and mixed_type_check (d : context) (e : expr) : mixed_expr_typing_proof optionE
           NoneE (err ^ "\nin mixed Apply")
     end
   | _ -> begin
-      match pure_type_check StringMap.empty d e with
+      match pure_type_check d e with
       | SomeE tp -> SomeE (TMix tp)
       | NoneE err -> NoneE (err ^ "\nin Mix")
     end
 
 (*
-Finds the type of a pure expression e with a classical context g and a
-quantum context d
+Finds the type of a pure expression e with a quantum context d
 *)
-and pure_type_check (g : context) (d : context) (e : expr) :
-    pure_expr_typing_proof optionE =
+and pure_type_check (d : context) (e : expr) : pure_expr_typing_proof optionE =
   match e with
   (* T-UNIT *)
   | Null -> begin
       match StringMap.bindings d with
-      | [] -> SomeE (TUnit g)
+      | [] -> SomeE TUnit
       | _ -> NoneE "Irrelevant variables in quantum context in Null"
     end
   | Var x -> begin
       match StringMap.bindings d with
-      | [] -> begin
-          (* T-CVAR *)
-          match StringMap.find_opt x g with
-          | Some t -> SomeE (TCvar (t, g, x))
-          | None -> NoneE (Printf.sprintf "Unbound variable %s in Var" x)
-        end
       | [(x', t)] ->
           if x' <> x then
             NoneE
               (Printf.sprintf
                  "Irrelevant variable %s in quantum context in Var" x')
-          else begin (* T-QVAR *)
-            match StringMap.find_opt x g with
-            | Some _ ->
-                NoneE
-                  (Printf.sprintf
-                     "Variable %s appears in both classical and quantum \
-                      context in Var"
-                     x)
-            | None -> SomeE (TQvar (t, d, x))
-          end
+          else
+            SomeE (TQvar (t, d, x))
       | _ -> NoneE "Irrelevant variables in quantum context in Var"
     end
   (* T-PUREPAIR *)
@@ -636,15 +608,14 @@ and pure_type_check (g : context) (d : context) (e : expr) :
           let d', d_xor = map_partition d (StringSet.inter fv0 fv1) in
           let d0, d1 = map_partition d_xor fv0 in
             match
-              ( pure_type_check g (map_restriction d (free_vars e0)) e0,
-                pure_type_check g (map_restriction d (free_vars e1)) e1 )
+              ( pure_type_check (map_restriction d (free_vars e0)) e0,
+                pure_type_check (map_restriction d (free_vars e1)) e1 )
             with
             | SomeE tp0, SomeE tp1 ->
                 SomeE
                   (TPurePair
                      ( type_of_pure_expr_proof tp0,
                        type_of_pure_expr_proof tp1,
-                       g,
                        d',
                        d0,
                        d1,
@@ -660,61 +631,45 @@ and pure_type_check (g : context) (d : context) (e : expr) :
   | Ctrl (e', t0, l, t1) -> begin
       let l = List.sort (fun (e0, _) (e1, _) -> expr_compare e0 e1) l in
       let fve' = free_vars e' in
-      let g0, g' = map_partition g fve' in
-      let d0, d' = map_partition d fve' in
+      let d_whole = d in
+      let d, d' = map_partition d fve' in
       let ej, ej' = List.split l in
-        match map_merge false g0 d0 with
-        | NoneE err -> NoneE (err ^ "\nin Ctrl")
-        | SomeE g0d0 -> begin
-            match mixed_type_check g0d0 e' with
-            | SomeE tpe' when type_of_mixed_expr_proof tpe' = t0 -> begin
-                match ortho_check t0 ej with
-                | None -> NoneE "Ortho check failed in Ctrl"
-                | Some orp -> begin
+        match mixed_type_check d e' with
+        | SomeE tpe' when type_of_mixed_expr_proof tpe' = t0 -> begin
+            match ortho_check t0 ej with
+            | None -> NoneE "Ortho check failed in Ctrl"
+            | Some orp -> begin
+                match
+                  map_all_or_nothing
+                    (StringMap.mapi (fun x _ -> erases_check x ej' t1) d)
+                with
+                | None -> NoneE "Erasure check failed in Ctrl"
+                | Some erp -> begin
                     match
-                      map_all_or_nothing
-                        (StringMap.mapi (fun x _ -> erases_check x ej' t1) d0)
+                      all_or_nothing
+                        (List.map (pattern_type_check d_whole t0 t1) l)
                     with
-                    | None -> NoneE "Erasure check failed in Ctrl"
-                    | Some erp -> begin
-                        match
-                          all_or_nothing
-                            (List.map (pattern_type_check g d t0 t1) l)
-                        with
-                        | Some l' ->
-                            let iso =
-                              expr_is_classical e'
-                              && is_iso_mixed_expr_proof tpe'
-                              && is_spanning_ortho_proof orp
-                              && List.for_all
-                                   (fun (_, _, pf) ->
-                                     is_iso_pure_expr_proof pf)
-                                   l'
-                            in
-                              SomeE
-                                (TCtrl
-                                   ( t0,
-                                     t1,
-                                     g0,
-                                     g',
-                                     d0,
-                                     d',
-                                     tpe',
-                                     l',
-                                     orp,
-                                     erp,
-                                     iso ))
-                        | _ -> NoneE "Type mismatch in Ctrl"
-                      end
+                    | Some l' ->
+                        let iso =
+                          expr_is_classical e'
+                          && is_iso_mixed_expr_proof tpe'
+                          && is_spanning_ortho_proof orp
+                          && List.for_all
+                               (fun (_, _, _, pf) -> is_iso_pure_expr_proof pf)
+                               l'
+                        in
+                          SomeE
+                            (TCtrl (t0, t1, d, d', tpe', l', orp, erp, iso))
+                    | _ -> NoneE "Type mismatch in Ctrl"
                   end
               end
-            | _ -> NoneE "Type mismatch in Ctrl"
           end
+        | _ -> NoneE "Type mismatch in Ctrl"
     end
   | Try _ -> NoneE "Try is not a pure expression"
   (* T-PUREAPP *)
   | Apply (f, e') -> begin
-      match (pure_type_check g d e', prog_type_check f) with
+      match (pure_type_check d e', prog_type_check f) with
       | SomeE tpe', SomeE tpf -> begin
           match (tpf, type_of_prog_proof tpf) with
           | MixedProg _, _ ->
@@ -726,7 +681,6 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                     (TPureApp
                        ( t0,
                          t1,
-                         g,
                          d,
                          tpf,
                          tpe',
@@ -776,30 +730,20 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
         end
       | NoneE err -> NoneE (err ^ "\nin mixed Apply")
     end
-  | _, _ -> context_check StringMap.empty t e
+  | _, _ -> context_check t e
 
 (*
-Given a pure expression e expected to be of type t with classical context g,
+Given a pure expression e expected to be of type t,
 find the quantum context of the expression.
 *)
-and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
+and context_check (t : exprtype) (e : expr) : context optionE =
   match (e, t) with
   (* T-UNIT *)
   | Null, Qunit -> SomeE StringMap.empty
-  | Var x, _ -> begin
-      match StringMap.find_opt x g with
-      (* T-CVAR *)
-      | Some t' ->
-          if t = t' then
-            SomeE StringMap.empty
-          else
-            NoneE "Type mismatch in classical context in Var"
-      (* T-QVAR *)
-      | None -> SomeE (StringMap.singleton x t)
-    end
+  | Var x, _ -> SomeE (StringMap.singleton x t)
   (* T-PUREPAIR *)
   | Qpair (e0, e1), ProdType (t0, t1) -> begin
-      match (context_check g t0 e0, context_check g t1 e1) with
+      match (context_check t0 e0, context_check t1 e1) with
       | SomeE d0, SomeE d1 -> map_merge true d0 d1
       | NoneE err, _
       | _, NoneE err ->
@@ -810,38 +754,10 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
       match (mixed_context_check t0 e', l) with
       | NoneE err, _ -> NoneE (err ^ "\nin Ctrl")
       | SomeE d, [] -> SomeE d
-      | SomeE d, (e0, e0') :: _ -> begin
-          match first_pattern_context_check g t0 t1 e0 e0' with
+      | SomeE _, (e0, e0') :: _ -> begin
+          match first_pattern_context_check t0 t1 e0 e0' with
           | NoneE err -> NoneE (err ^ "\nin Ctrl")
-          | SomeE d0 -> begin
-              (* d is Γ, Δ
-                 g is Γ, Γ'
-                 d0 is Δ, Δ' *)
-              match map_merge false g d0 with
-              | NoneE err -> NoneE (err ^ "\nin Ctrl")
-              | SomeE gd0 ->
-                  let ej, ej' = List.split l in
-                    if not (map_inclusion d gd0) then
-                      NoneE "Context inclusion failed in Ctrl"
-                    else if ortho_check t0 ej = None then
-                      NoneE "Ortho check failed in Ctrl"
-                    else if
-                      not
-                        (List.for_all
-                           (fun x -> pattern_type_check g d0 t0 t1 x <> None)
-                           l)
-                    then
-                      NoneE "Type mismatch in Ctrl"
-                    else if
-                      not
-                        (StringMap.for_all
-                           (fun x _ -> erases_check x ej' t1 <> None)
-                           d)
-                    then
-                      NoneE "Erasure check failed in Ctrl"
-                    else
-                      SomeE d0
-            end
+          | SomeE d0 -> SomeE d0
         end
     end
   | Try _, _ -> NoneE "Try is not a pure expression"
@@ -851,7 +767,7 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
       | SomeE (PureProg tpf) -> begin
           let t0, t1 = type_of_prog_proof (PureProg tpf) in
             if t = t1 then
-              context_check g t0 e'
+              context_check t0 e'
             else
               NoneE "Type mismatch in pure Apply"
         end
@@ -877,13 +793,10 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
           | _ -> false
         end
       in
-        match context_check StringMap.empty t e with
+        match context_check t e with
         | NoneE err -> NoneE (err ^ "\nin Lambda")
         | SomeE d -> begin
-            match
-              ( pure_type_check StringMap.empty d e,
-                pure_type_check StringMap.empty d e' )
-            with
+            match (pure_type_check d e, pure_type_check d e') with
             (* T-PUREABS *)
             | SomeE tpe, SomeE tpe' ->
                 let iso = is_iso_pure_expr_proof tpe' && is_e_spanning in
@@ -893,10 +806,7 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
                           (t, type_of_pure_expr_proof tpe', d, tpe, tpe', iso)))
             | _ -> begin
                 let d', d0 = map_partition d (free_vars e') in
-                  match
-                    ( pure_type_check StringMap.empty d e,
-                      mixed_type_check d' e' )
-                  with
+                  match (pure_type_check d e, mixed_type_check d' e') with
                   | NoneE err, _
                   | _, NoneE err ->
                       NoneE (err ^ "\nin Lambda")
@@ -920,10 +830,10 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
     end
   (* T-RPHASE *)
   | Rphase (t, e', r, r') -> begin
-      match context_check StringMap.empty t e' with
+      match context_check t e' with
       | NoneE err -> NoneE (err ^ "\nin Rphase")
       | SomeE d -> begin
-          match pure_type_check StringMap.empty d e' with
+          match pure_type_check d e' with
           | NoneE err -> NoneE (err ^ "\nin Rphase")
           | SomeE tpe' when type_of_pure_expr_proof tpe' = t ->
               SomeE (PureProg (TRphase (t, tpe', r, r')))
@@ -932,7 +842,7 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
     end
 
 let pure_type_check_noopt (e : expr) : pure_expr_typing_proof =
-  match pure_type_check StringMap.empty StringMap.empty e with
+  match pure_type_check StringMap.empty e with
   | SomeE t -> t
   | NoneE err -> failwith err
 
