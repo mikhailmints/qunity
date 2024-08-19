@@ -101,7 +101,7 @@ let () =
 
     expect_pure_prog_sem "qid_bit_sem" (qid bit) [[c1; c0]; [c0; c1]];
 
-    expect_pure_expr_sem "half_bell_sem"
+    expect_pure_expr_sem "bell_sem"
       (Ctrl
          ( Apply (had, bit0),
            bit,

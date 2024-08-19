@@ -57,7 +57,7 @@ let expect_expr_puretype (testname : string) (e : expr) (t : exprtype) : unit =
   test_equality_optionE testname
     begin
       fun () ->
-        match pure_type_check StringMap.empty e with
+        match pure_type_check StringMap.empty StringMap.empty e with
         | SomeE tp -> SomeE (type_of_pure_expr_proof tp)
         | NoneE err -> NoneE err
     end
@@ -67,7 +67,7 @@ let expect_expr_puretype_err (testname : string) (e : expr) : unit =
   expect_noneE testname
     begin
       fun () ->
-        match pure_type_check StringMap.empty e with
+        match pure_type_check StringMap.empty StringMap.empty e with
         | SomeE tp -> SomeE (type_of_pure_expr_proof tp)
         | NoneE err -> NoneE err
     end
@@ -199,7 +199,7 @@ let () =
       (span_list (ProdType (bit, bit)) [Qpair (bit0, bit0)])
       (Some [Qpair (bit0, bit0); Qpair (bit0, bit1); Qpair (bit1, Var "$0")]);
 
-    expect_expr_puretype "half_bell_type"
+    expect_expr_puretype "bell_type"
       (Ctrl
          ( Apply (had, bit0),
            bit,
