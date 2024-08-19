@@ -821,7 +821,7 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
               | NoneE err -> NoneE (err ^ "\nin Ctrl")
               | SomeE gd0 ->
                   let ej, ej' = List.split l in
-                    if not (map_inclusion d gd0) then
+                    if not (map_is_inclusion d gd0) then
                       NoneE "Context inclusion failed in Ctrl"
                     else if ortho_check t0 ej = None then
                       NoneE "Ortho check failed in Ctrl"

@@ -142,15 +142,13 @@ let () =
         "walk_1d.qunity";
       ]
     in
-    let _ =
-      Array.map
+      Array.iter
         begin
-          fun filename ->
+          fun (filename : string) ->
             if not (List.mem filename skipped_files) then
               test_compilation_correctness_file ("examples/" ^ filename)
         end
-        example_files
-    in
+        example_files;
       if !all_passed then
         Printf.printf "\nALL COMPILATION TESTS PASSED\n\n"
       else begin

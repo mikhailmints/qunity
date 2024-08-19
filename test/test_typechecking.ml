@@ -2,6 +2,7 @@ open Qunity
 open Util
 open Syntax
 open Typechecking
+open Parsing
 
 let all_passed = ref true
 
@@ -84,16 +85,6 @@ let expect_expr_mixedtype (testname : string) (e : expr) (t : exprtype) : unit
     end
     t string_of_type
 
-(* let expect_expr_mixedtype_err (testname : string) (e : expr) : unit =
-   expect_noneE testname
-     begin
-       fun () ->
-         match mixed_type_check StringMap.empty e with
-         | SomeE tp -> SomeE (type_of_mixed_expr_proof tp)
-         | NoneE err -> NoneE err
-     end
-     string_of_type *)
-
 let expect_prog_type (testname : string) (f : prog) (ft : progtype) : unit =
   test_equality_optionE testname
     begin
@@ -104,15 +95,23 @@ let expect_prog_type (testname : string) (f : prog) (ft : progtype) : unit =
     end
     ft string_of_progtype
 
-(* let expect_prog_type_err (testname : string) (f : prog) : unit =
-   expect_noneE testname
-     begin
-       fun () ->
-         match prog_type_check f with
-         | SomeE tp -> SomeE (progtype_of_prog_proof tp)
-         | NoneE err -> NoneE err
-     end
-     string_of_progtype *)
+let typecheck_file (testname : string) (filename : string) : unit =
+  Printf.printf "%s: %!" testname;
+  try
+    match get_expr_from_file filename with
+    | NoneE err -> failwith err
+    | SomeE e -> begin
+        match mixed_type_check StringMap.empty e with
+        | SomeE _ -> Printf.printf "passed\n"
+        | NoneE err -> failwith err
+      end
+  with
+  | Failure err
+  | Invalid_argument err
+  | Sys_error err -> begin
+      Printf.printf "FAILED\nWith error: %s\n" err;
+      all_passed := false
+    end
 
 let deutsch (f : prog) : expr =
   Apply
@@ -174,6 +173,8 @@ let () =
        RUNNING TYPECHECKING TESTS\n\
        ==========================\n";
 
+    Unix.chdir "..";
+
     expect_expr_puretype "qunit_type" Null Qunit;
     expect_expr_puretype "bit0_type" bit0 bit;
     expect_expr_puretype "bit1_type" bit1 bit;
@@ -199,7 +200,7 @@ let () =
       (span_list (ProdType (bit, bit)) [Qpair (bit0, bit0)])
       (Some [Qpair (bit0, bit0); Qpair (bit0, bit1); Qpair (bit1, Var "$0")]);
 
-    expect_expr_puretype "bell_type"
+    expect_expr_puretype "half_bell_type"
       (Ctrl
          ( Apply (had, bit0),
            bit,
@@ -217,10 +218,18 @@ let () =
     expect_expr_puretype_err "deutsch_fail_ortho_err"
       (deutsch_fail_ortho (qid bit));
 
-    if !all_passed then
-      Printf.printf "\nALL TYPECHECKING TESTS PASSED\n\n"
-    else begin
-      Printf.printf "\nSOME TYPECHECKING TESTS FAILED\n\n";
-      exit 1
-    end
+    let example_files = Sys.readdir "examples" in
+      Array.iter
+        begin
+          fun (filename : string) ->
+            typecheck_file ("typecheck_" ^ filename) ("examples/" ^ filename)
+        end
+        example_files;
+
+      if !all_passed then
+        Printf.printf "\nALL TYPECHECKING TESTS PASSED\n\n"
+      else begin
+        Printf.printf "\nSOME TYPECHECKING TESTS FAILED\n\n";
+        exit 1
+      end
   end

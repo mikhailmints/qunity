@@ -108,7 +108,7 @@ let map_merge_noopt (allow_dup : bool) (d0 : 'a StringMap.t)
   | NoneE err -> failwith err
 
 (* Whether a map is included in another map *)
-let map_inclusion (d0 : 'a StringMap.t) (d1 : 'a StringMap.t) : bool =
+let map_is_inclusion (d0 : 'a StringMap.t) (d1 : 'a StringMap.t) : bool =
   StringMap.for_all (fun x t -> StringMap.find_opt x d1 = Some t) d0
 
 let map_dom (d : 'a StringMap.t) : StringSet.t =
@@ -118,10 +118,14 @@ let map_dom (d : 'a StringMap.t) : StringSet.t =
 let map_restriction (d : 'a StringMap.t) (s : StringSet.t) : 'a StringMap.t =
   StringMap.filter (fun x _ -> StringSet.mem x s) d
 
+(* Restrict map to include only variables not in a given set *)
+let map_exclusion (d : 'a StringMap.t) (s : StringSet.t) : 'a StringMap.t =
+  StringMap.filter (fun x _ -> not (StringSet.mem x s)) d
+
 (* Partition map d into part belonging to s and part not belonging to s *)
 let map_partition (d : 'a StringMap.t) (s : StringSet.t) :
     'a StringMap.t * 'a StringMap.t =
-  (map_restriction d s, StringMap.filter (fun x _ -> not (StringSet.mem x s)) d)
+  (map_restriction d s, map_exclusion d s)
 
 let int_map_find_or_keep (m : int IntMap.t) (i : int) : int =
   match IntMap.find_opt i m with

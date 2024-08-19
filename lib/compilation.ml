@@ -1479,7 +1479,7 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
       circuit_mark_as_iso iso (compile_inter_op_to_circuit op')
   | IContextPartition (d, fv) -> circuit_context_partition d fv
   | IContextMerge (d0, d1) -> circuit_context_merge d0 d1
-  | ILambda (name, args, iel, ret) -> begin
+  | ILambda (name, args, icl, ret) -> begin
       let arg_names = List.map fst args in
       let arg_sizes = List.map snd args in
       let ret_names = List.map fst ret in
@@ -1515,7 +1515,7 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
                   }
                 in
                 let circ, used_wires, iv =
-                  compile_inter_com_list_to_circuit init_circ used_wires iv iel
+                  compile_inter_com_list_to_circuit init_circ used_wires iv icl
                     settings
                 in
                   if
