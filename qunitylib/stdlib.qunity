@@ -115,7 +115,7 @@ def Append <N, T> :=
         if N = [0] then
             lambda (y, x) {qunit * T} -> (x, y)
         else
-            lambda ((y0, y1), x) {NTensorT <[N], T> * T} ->
+            lambda ((y0, y1), x) {NTensorT <N, T> * T} ->
                 (y0, Append <[N - 1], T> of (y1, x))
         endif
     endif
@@ -128,7 +128,7 @@ def Reverse <N, T> :=
         if N = [0] then
             Qid <qunit>
         else
-            lambda (x, y) {NTensorT <[N], T>} ->
+            lambda (x, y) {NTensorT <N, T>} ->
                 Append <[N - 1], T> of (Reverse <[N - 1], T> of y, x)
         endif
     endif
@@ -189,7 +189,7 @@ end
 Big-endian encoding of number N as a quantum state
 */
 def NumToStateBE <N, Nbits> :=
-    NumToStateLE <[N], [Nbits]> |> Reverse <[Nbits], Bit>
+    NumToStateLE <N, [Nbits]> |> Reverse <[Nbits], Bit>
 end
 
 /*
@@ -202,16 +202,16 @@ def IncrementLE <N> :=
         if N = [0] then
             Qid <qunit>
         else
-            lambda (x0, x') {NTensorT <[N], Bit>} ->
-                ctrl {Bit, Bit * NTensorT <[N], Bit>} x0 [
+            lambda (x0, x') {NTensorT <N, Bit>} ->
+                ctrl {Bit, Bit * NTensorT <N, Bit>} x0 [
                     Bit0 -> (x0, (Bit1, x'));
                     Bit1 -> (x0, (Bit0, x' |> IncrementLE <[N - 1]>))
                 ] |> lambda (
-                    ctrl {NTensorT <[N], Bit>, Bit * NTensorT <[N], Bit>} y [
+                    ctrl {NTensorT <N, Bit>, Bit * NTensorT <N, Bit>} y [
                         (Bit0, _) -> (Bit1, y);
                         (Bit1, _) -> (Bit0, y)
                     ]
-                ) {Bit * NTensorT <[N], Bit>} -> y
+                ) {Bit * NTensorT <N, Bit>} -> y
         endif
     endif
 end
@@ -220,22 +220,22 @@ end
 Decrement a little-endian N-bit number
 */
 def DecrementLE <N> :=
-    Adjoint <IncrementLE <[N]>, NTensorT <[N], Bit>>
+    Adjoint <IncrementLE <N>, NTensorT <N, Bit>>
 end
 
 /*
 Increment a big-endian N-bit number
 */
 def IncrementBE <N> :=
-    lambda x {NTensorT <[N], Bit>} ->
-    x |> Reverse <[N], Bit> |> IncrementLE <[N]> |> Reverse <[N], Bit>
+    lambda x {NTensorT <N, Bit>} ->
+    x |> Reverse <N, Bit> |> IncrementLE <N> |> Reverse <N, Bit>
 end
 
 /*
 Decrement a big-endian N-bit number
 */
 def DecrementBE <N> :=
-    Adjoint <IncrementBE <[N]>, NTensorT <[N], Bit>>
+    Adjoint <IncrementBE <N>, NTensorT <N, Bit>>
 end
 
 /*
@@ -315,9 +315,9 @@ def Gate1Q <N, I, F> :=
         fail
     else
         if I = [0] then
-            lambda (x, y) {NTensorT <[N], Bit>} -> (F of x, y)
+            lambda (x, y) {NTensorT <N, Bit>} -> (F of x, y)
         else
-            lambda (x, y) {NTensorT <[N], Bit>} ->
+            lambda (x, y) {NTensorT <N, Bit>} ->
                 (x, Gate1Q <[N - 1], [I - 1], F> of y)
         endif
     endif
@@ -325,28 +325,28 @@ end
 
 def Controlled1Q <N, I, J, F> :=
     if I gt J then
-        lambda x {NTensorT <[N], Bit>} -> x
-        |> Reverse <[N], Bit>
-        |> Controlled1Q <[N], [N - 1 - I], [N - 1 - J], F>
-        |> Reverse <[N], Bit>
+        lambda x {NTensorT <N, Bit>} -> x
+        |> Reverse <N, Bit>
+        |> Controlled1Q <N, [N - 1 - I], [N - 1 - J], F>
+        |> Reverse <N, Bit>
     else
         if I = [0] then
             if J leq [0] then
                 fail
             else
-                lambda (x, y) {NTensorT <[N], Bit>} ->
-                    ctrl {Bit, NTensorT <[N], Bit>} x [
+                lambda (x, y) {NTensorT <N, Bit>} ->
+                    ctrl {Bit, NTensorT <N, Bit>} x [
                         Bit0 -> (x, y);
                         Bit1 -> (x, Gate1Q <[N - 1], [J - 1], F> of y)
                     ]
             endif
         else
-            lambda (x, y) {NTensorT <[N], Bit>} ->
+            lambda (x, y) {NTensorT <N, Bit>} ->
                 (x, Cnot <[N - 1], [I - 1], [J - 1]> of y)
         endif
     endif
 end
 
 def Cnot <N, I, J> :=
-    Controlled1Q <[N], [I], [J], Qnot>
+    Controlled1Q <N, I, J, Qnot>
 end

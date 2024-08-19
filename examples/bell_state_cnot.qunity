@@ -2,6 +2,6 @@
 
 def N := [2] end
 
-NTensorE <[N], Bit0>
-|> Gate1Q <[N], [0], Had>
-|> Cnot <[N], [0], [1]>
+NTensorE <N, Bit0>
+|> Gate1Q <N, [0], Had>
+|> Cnot <N, [0], [1]>

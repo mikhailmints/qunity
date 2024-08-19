@@ -22,16 +22,16 @@ Type: Vertex <[N + 1]>
 Empty list that can contain up to N elements
 */
 def Root <N> :=
-    left {qunit, Vertex <[N]> * Child} of ()
+    left {qunit, Vertex <N> * Child} of ()
 end
 
 /*
-E : Vertex <[N]>
+E : Vertex <N>
 E0 : Child
 Type: Vertex <[N + 1]>
 */
 def Qcons <E, N, E0> :=
-    right {qunit, Vertex <[N]> * Child} of (E, E0)
+    right {qunit, Vertex <N> * Child} of (E, E0)
 end
 
 /*
@@ -70,7 +70,7 @@ def U'State <N> :=
 end
 
 /*
-Vertex <[N + 2]> -> Leaf <[N]>
+Vertex <[N + 2]> -> Leaf <N>
 */
 def AsLeaf <N> :=
     if N = [0] then
@@ -82,41 +82,41 @@ def AsLeaf <N> :=
 end
 
 /*
-Vertex <[N + 1]> -> Vertex <[N]>
+Vertex <[N + 1]> -> Vertex <N>
 */
 def Downcast <N> :=
     if N = [0] then
         lambda v {Vertex <[1]>} -> ctrl {Vertex <[1]>, Vertex <[0]>} v []
     else
         lambda v {Vertex <[N + 1]>} ->
-            ctrl {Vertex <[N + 1]>, Vertex <[N + 1]> * Vertex <[N]>} v [
-                Root <[N]> -> (v, Root <[N - 1]>);
-                Qcons <v', [N], x> ->
+            ctrl {Vertex <[N + 1]>, Vertex <[N + 1]> * Vertex <N>} v [
+                Root <N> -> (v, Root <[N - 1]>);
+                Qcons <v', N, x> ->
                     (v, Qcons <Downcast <[N - 1]> of v', [N - 1], x>)
             ]
             |> lambda (
-                ctrl {Vertex <[N]>, Vertex <[N + 1]> * Vertex <[N]>} v [
-                    Root <[N - 1]> -> (Root <[N]>, v);
+                ctrl {Vertex <N>, Vertex <[N + 1]> * Vertex <N>} v [
+                    Root <[N - 1]> -> (Root <N>, v);
                     Qcons <v', [N - 1], x> ->
                         (Qcons <Adjoint <Downcast <[N - 1]>,
-                        Vertex <[N - 1]>> of v', [N], x>, v)
+                        Vertex <[N - 1]>> of v', N, x>, v)
                 ]
-            ) {Vertex <[N + 1]> * Vertex <[N]>} -> v
+            ) {Vertex <[N + 1]> * Vertex <N>} -> v
     endif
 end
 
 /*
-Vertex <[N]> -> Vertex <[N]>
+Vertex <N> -> Vertex <N>
 */
 def LeftChild <N> :=
-    lambda v {Vertex <N>} -> Downcast <N> of Qcons <v, [N], Vleft>
+    lambda v {Vertex <N>} -> Downcast <N> of Qcons <v, N, Vleft>
 end
 
 /*
-Vertex <[N]> -> Vertex <[N]>
+Vertex <N> -> Vertex <N>
 */
 def RightChild <N> :=
-    lambda v {Vertex <N>} -> Downcast <N> of Qcons <v, [N], Vright>
+    lambda v {Vertex <N>} -> Downcast <N> of Qcons <v, N, Vright>
 end
 
 /*
@@ -127,11 +127,11 @@ reflect the coin over the U' state.
 def Diffusion <N, F> :=
     lambda (c, v) {Coin * Vertex <[N + 2]>} ->
         ctrl {Vertex <[N + 2]>, Coin * Vertex <[N + 2]>} v [
-            Qcons <Qcons <v', [N], x>, [N + 1], x'> ->
+            Qcons <Qcons <v', N, x>, [N + 1], x'> ->
                 ctrl {Maybe <Leaf <N>>, Coin * Vertex <[N + 2]>} (
                     try
-                        Qcons <Qcons <v', [N], x>, [N + 1], x'>
-                        |> AsLeaf <[N]> |> Just <Leaf <N>>
+                        Qcons <Qcons <v', N, x>, [N + 1], x'>
+                        |> AsLeaf <N> |> Just <Leaf <N>>
                     catch
                         Nothing <Leaf <N>>
                 ) [
@@ -143,7 +143,7 @@ def Diffusion <N, F> :=
                                 (c, v) |> gphase {Coin * Vertex <[N + 2]>, pi}
                         ]
                 ];
-            Root' <[N]> -> (c |> Reflect <Coin, U'State <[N]>>, v);
+            Root' <N> -> (c |> Reflect <Coin, U'State <N>>, v);
             Root <[N + 1]> -> (c, v)
         ]
 end
@@ -169,7 +169,7 @@ effectively flipping the direction of the given edge.
 */
 def Walk <N> :=
     lambda x {Coin * Vertex <[N + 2]>} ->
-        x |> NextCoin <[N]>
+        x |> NextCoin <N>
         |> lambda ((c, v), c') {(Coin * Vertex <[N + 2]>) * Coin} ->
             ctrl {Coin * Coin, (Coin * Vertex <[N + 2]>) * Coin} (c, c') [
                 (Cdown, Cleft) ->
@@ -179,7 +179,7 @@ def Walk <N> :=
                 (Cleft, Cdown) -> ((c', LeftChild <[N + 2]> of v), c);
                 (Cright, Cdown) -> ((c', RightChild <[N + 2]> of v), c)
             ]
-        |> Adjoint <NextCoin <[N]>, (Coin * Vertex <[N + 2]>) * Coin>
+        |> Adjoint <NextCoin <N>, (Coin * Vertex <[N + 2]>) * Coin>
 end
 
 def RunQuantumWalk <N, F, Niter> :=
@@ -187,8 +187,8 @@ def RunQuantumWalk <N, F, Niter> :=
         Qid <Coin * Vertex <[N + 2]>>
     else
         lambda x {Coin * Vertex <[N + 2]>} ->
-            x |> Diffusion <[N], F> |> Walk <[N]>
-            |> RunQuantumWalk <[N], F, [Niter - 1]>
+            x |> Diffusion <N, F> |> Walk <N>
+            |> RunQuantumWalk <N, F, [Niter - 1]>
     endif
 end
 
@@ -222,7 +222,7 @@ def ControlledWalk <Tbits, N, F> :=
                 Bit0 -> ((t0, trest), (c, v));
                 Bit1 -> (
                     (t0, trest),
-                    (c, v) |> RunQuantumWalk <[N], F, [2 ^ (Tbits - 1)]>
+                    (c, v) |> RunQuantumWalk <N, F, [2 ^ (Tbits - 1)]>
                 )
             ]
             |> lambda ((t0, trest), (c, v))
@@ -239,7 +239,7 @@ Perform phase estimation on the quantum walk using a register of Tbits bits.
 */
 def QuantumWalkAlgorithm <Tbits, N, F> :=
     (InitialTState <[Tbits]>, (Cleft, Root <[N + 1]>))
-    |> ControlledWalk <[Tbits], [N], F>
+    |> ControlledWalk <[Tbits], N, F>
     |> Fst <NTensorT <[Tbits], Bit>, (Coin * Vertex <[N + 2]>)>
     |> Adjoint <Qft <[Tbits]>, NTensorT <[Tbits], Bit>>
     |> lambda (x, x0) {NTensorT <[Tbits], Bit>} ->
@@ -255,7 +255,7 @@ def Tbits := [2] end
 def N := [1] end
 
 def F :=
-    lambda (c0, ()) {Leaf <[N]>} -> Bit1
+    lambda (c0, ()) {Leaf <N>} -> Bit1
 end
 
-QuantumWalkAlgorithm <[Tbits], [N], F>
+QuantumWalkAlgorithm <[Tbits], N, F>

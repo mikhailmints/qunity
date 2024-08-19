@@ -473,20 +473,25 @@ control block under the contexts obtained from the first pattern in the block.
 *)
 and pattern_type_check (g : context) (d : context) (t : exprtype)
     (t' : exprtype) ((ej, ej') : expr * expr) :
-    (context * pure_expr_typing_proof * pure_expr_typing_proof) option =
+    (context * pure_expr_typing_proof * pure_expr_typing_proof) optionE =
   match context_check StringMap.empty t ej with
-  | NoneE _ -> None
+  | NoneE err -> NoneE err
   | SomeE gj -> begin
       match map_merge false g gj with
       | SomeE ggj -> begin
           match
             (pure_type_check StringMap.empty gj ej, pure_type_check ggj d ej')
           with
-          | SomeE tpej, SomeE tpej' when type_of_pure_expr_proof tpej' = t' ->
-              Some (gj, tpej, tpej')
-          | _ -> None
+          | SomeE tpej, SomeE tpej' ->
+              if type_of_pure_expr_proof tpej' = t' then
+                SomeE (gj, tpej, tpej')
+              else
+                NoneE "Type mismatch in pattern type check"
+          | NoneE err, _
+          | _, NoneE err ->
+              NoneE err
         end
-      | NoneE _ -> None
+      | NoneE err -> NoneE err
     end
 
 (*
@@ -677,34 +682,45 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                     with
                     | None -> NoneE "Erasure check failed in Ctrl"
                     | Some erp -> begin
-                        match
-                          all_or_nothing
-                            (List.map (pattern_type_check g d t0 t1) l)
-                        with
-                        | Some l' ->
-                            let iso =
-                              expr_is_classical e'
-                              && is_iso_mixed_expr_proof tpe'
-                              && is_spanning_ortho_proof orp
-                              && List.for_all
-                                   (fun (_, _, pf) ->
-                                     is_iso_pure_expr_proof pf)
-                                   l'
-                            in
-                              SomeE
-                                (TCtrl
-                                   ( t0,
-                                     t1,
-                                     g0,
-                                     g',
-                                     d0,
-                                     d',
-                                     tpe',
-                                     l',
-                                     orp,
-                                     erp,
-                                     iso ))
-                        | _ -> NoneE "Type mismatch in Ctrl"
+                        let pattern_result =
+                          List.map (pattern_type_check g d t0 t1) l
+                        in
+                          match
+                            all_or_nothing
+                              (List.map option_of_optionE pattern_result)
+                          with
+                          | Some l' ->
+                              let iso =
+                                expr_is_classical e'
+                                && is_iso_mixed_expr_proof tpe'
+                                && is_spanning_ortho_proof orp
+                                && List.for_all
+                                     (fun (_, _, pf) ->
+                                       is_iso_pure_expr_proof pf)
+                                     l'
+                              in
+                                SomeE
+                                  (TCtrl
+                                     ( t0,
+                                       t1,
+                                       g0,
+                                       g',
+                                       d0,
+                                       d',
+                                       tpe',
+                                       l',
+                                       orp,
+                                       erp,
+                                       iso ))
+                          | _ -> begin
+                              match
+                                List.find
+                                  (fun x -> option_of_optionE x = None)
+                                  pattern_result
+                              with
+                              | NoneE err -> NoneE (err ^ "\nin Ctrl")
+                              | _ -> failwith "unreachable"
+                            end
                       end
                   end
               end
@@ -828,7 +844,10 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
                     else if
                       not
                         (List.for_all
-                           (fun x -> pattern_type_check g d0 t0 t1 x <> None)
+                           (fun x ->
+                             option_of_optionE
+                               (pattern_type_check g d0 t0 t1 x)
+                             <> None)
                            l)
                     then
                       NoneE "Type mismatch in Ctrl"

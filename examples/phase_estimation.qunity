@@ -2,7 +2,7 @@ def ApplyPhase <N, P> :=
     if N = [0] then
         Qid <qunit>
     else
-        lambda (x0, x') {NTensorT <[N], Bit>} ->
+        lambda (x0, x') {NTensorT <N, Bit>} ->
             (ctrl {Bit, Bit} x0 [
                 Bit0 -> x0;
                 Bit1 -> x0 |> gphase {Bit, 2 * pi * P};
@@ -11,10 +11,10 @@ def ApplyPhase <N, P> :=
 end
 
 def PhaseEstimation <N, P> :=
-    NTensorE <[N], BitPlus>
-    |> ApplyPhase <[N], [P]>
-    |> Adjoint <Qft <[N]>, NTensorT <[N], Bit>>
-    |> Reverse <[N], Bit>
+    NTensorE <N, BitPlus>
+    |> ApplyPhase <N, P>
+    |> Adjoint <Qft <N>, NTensorT <N, Bit>>
+    |> Reverse <N, Bit>
 end
 
 PhaseEstimation <[2], [1/3]>
