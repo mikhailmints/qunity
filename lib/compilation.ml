@@ -289,7 +289,7 @@ let expect_sizes (name : string) (expected : int list) (regs : int list list) :
 (*
 A circuit that takes in nothing and outputs an empty register.
 *)
-let circuit_empty =
+let circuit_empty : circuit_spec =
   {
     in_sizes = [];
     out_sizes = [0];
@@ -314,7 +314,7 @@ let circuit_empty =
 A circuit that takes in nothing and outputs an zeroed register corresponding
 to a given type (used for debugging purposes).
 *)
-let circuit_testreg (size : int) =
+let circuit_testreg (size : int) : circuit_spec =
   {
     in_sizes = [];
     out_sizes = [size];
@@ -1375,7 +1375,12 @@ let rec compile_inter_com_to_circuit (circ : circuit) (used_wires : IntSet.t)
           (fun x ->
             match StringMap.find_opt x iv with
             | Some reg -> reg
-            | None -> failwith (Printf.sprintf "Variable %s not found" x))
+            | None ->
+                failwith
+                  (Printf.sprintf
+                     "Variable %s not found: target = %s, args = %s" x
+                     (string_of_list (fun s -> s) target)
+                     (string_of_list (fun s -> s) args)))
           args
       in
       let op_cs = compile_inter_op_to_circuit op in
@@ -1456,7 +1461,6 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | ISizePair (s0, s1) -> circuit_pair s0 s1
   | IShare t -> circuit_share (type_size t)
   | IContextShare d -> circuit_share (context_size d)
-  | IAdjoint op' -> circuit_adjoint (compile_inter_op_to_circuit op')
   | ISequence (op0, op1) ->
       circuit_sequence
         (compile_inter_op_to_circuit op0)
@@ -1479,6 +1483,21 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
       circuit_mark_as_iso iso (compile_inter_op_to_circuit op')
   | IContextPartition (d, fv) -> circuit_context_partition d fv
   | IContextMerge (d0, d1) -> circuit_context_merge d0 d1
+  | IAdjoint (ISequence (op0, op1)) ->
+      compile_inter_op_to_circuit (ISequence (IAdjoint op1, IAdjoint op0))
+  | IAdjoint (IDirsum (op0, op1)) ->
+      compile_inter_op_to_circuit (IDirsum (IAdjoint op0, IAdjoint op1))
+  | IAdjoint (IMarkAsIso (_, op')) ->
+      compile_inter_op_to_circuit (IAdjoint op')
+  | IAdjoint (ILambda (name, args, icl, ret)) -> begin
+      let icl' =
+        List.rev_map
+          (fun (target, op', args) -> (args, IAdjoint op', target))
+          icl
+      in
+        compile_inter_op_to_circuit (ILambda (name, ret, icl', args))
+    end
+  | IAdjoint op' -> circuit_adjoint (compile_inter_op_to_circuit op')
   | ILambda (name, args, icl, ret) -> begin
       let arg_names = List.map fst args in
       let arg_sizes = List.map snd args in

@@ -595,22 +595,18 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
           let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
             (newgate :: ul'', out_reg', true)
     end
-  (* Commuting controlled gates *)
+  (* Commuting CNOT gates *)
   | Controlled (l0, bl0, u0) :: Controlled (l1, bl1, u1) :: ul'
-    when let gph0 = IntSet.cardinal (gate_qubits_used u0) = 0 in
-         let gph1 = IntSet.cardinal (gate_qubits_used u1) = 0 in
-           begin
-             IntSet.for_all
-               (fun x -> not (List.mem x l1))
-               (gate_qubits_used u0)
-             && IntSet.for_all
-                  (fun x -> not (List.mem x l0))
-                  (gate_qubits_used u1)
-           end
-           && ((gph0 && not gph1)
-              || (not (gph1 && not gph0))
-                 && List.hd (List.sort ( - ) l1) < List.hd (List.sort ( - ) l0)
-              ) ->
+    when gate_is_x u0 && gate_is_x u1
+         && begin
+              IntSet.for_all
+                (fun x -> not (List.mem x l1))
+                (gate_qubits_used u0)
+              && IntSet.for_all
+                   (fun x -> not (List.mem x l0))
+                   (gate_qubits_used u1)
+            end
+         && List.hd (List.sort ( - ) l1) < List.hd (List.sort ( - ) l0) ->
       let ul'', out_reg', _ =
         gate_optimization_pass (Controlled (l0, bl0, u0) :: ul') out_reg
       in

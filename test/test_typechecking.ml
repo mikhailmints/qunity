@@ -222,7 +222,8 @@ let () =
       Array.iter
         begin
           fun (filename : string) ->
-            typecheck_file ("typecheck_" ^ filename) ("examples/" ^ filename)
+            let filename = "examples/" ^ filename in
+              typecheck_file ("typecheck_file " ^ filename) filename
         end
         example_files;
 

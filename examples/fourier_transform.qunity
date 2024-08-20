@@ -1,1 +1,2 @@
-Qft <[3]> of (BitPlus |> u3 {0, pi / 4, 0}, (Bit0, (Bit1, ())))
+Qft <[6]> of (Bit0, (BitPlus, (BitPlus, (Bit0, (Bit0, (Bit0, ()))))))
+|> Reverse <[6], Bit>
