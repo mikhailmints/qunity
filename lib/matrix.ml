@@ -402,10 +402,13 @@ let mat_sum r c : matrix list -> matrix =
   List.fold_left mat_plus (mat_zero r c)
 
 let mat_from_list (l : Complex.t list list) : matrix =
-  let r = List.length l in
-  let c = List.length (List.hd l) in
-    mat_evaluate_dense
-      { r; c; ent = Dense (fun i j -> List.nth (List.nth l i) j) }
+  if l = [] then
+    { r = 0; c = 0; ent = Sparse Int2Map.empty }
+  else
+    let r = List.length l in
+    let c = List.length (List.hd l) in
+      mat_evaluate_dense
+        { r; c; ent = Dense (fun i j -> List.nth (List.nth l i) j) }
 
 let string_of_complex (z : Complex.t) = Printf.sprintf "%.3f%+.3fi" z.re z.im
 

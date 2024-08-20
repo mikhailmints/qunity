@@ -10,6 +10,7 @@
 #mod_use "lib/extended_syntax.ml";;
 #mod_use "lib/gate.ml";;
 #mod_use "lib/compilation.ml";;
+#mod_use "lib/gate_semantics.ml";;
 
 open Util
 open Reals
@@ -20,4 +21,5 @@ open Semantics
 open Extended_syntax
 open Gate
 open Compilation
+open Gate_semantics
 ;;

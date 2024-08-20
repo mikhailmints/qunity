@@ -1,6 +1,5 @@
 open Util
 open Reals
-open Matrix
 
 (*
 Low-level representation of a quantum circuit. Describes unitary gates (or
@@ -264,96 +263,6 @@ let rec gate_label_reg_for_potential_deletion (reg : int list) : gate =
   | h :: t ->
       PotentialDeletionLabel h @& gate_label_reg_for_potential_deletion t
 
-let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
-  let qdim = 1 lsl nqubits in
-  let rec gate_unitary_semantics (u : gate) : matrix =
-    match u with
-    | Identity
-    | Annotation _
-    | PotentialDeletionLabel _ ->
-        mat_identity qdim
-    | GphaseGate theta ->
-        mat_scalar_mul
-          (Complex.polar 1. (float_of_real theta))
-          (mat_identity qdim)
-    | U3Gate (i, theta, phi, lambda) -> begin
-        let single_qubit_gate =
-          if u = gate_paulix i then
-            mat_xgate
-          else
-            mat_from_u3 (float_of_real theta) (float_of_real phi)
-              (float_of_real lambda)
-        in
-          mat_tensor
-            (mat_identity (1 lsl i))
-            (mat_tensor single_qubit_gate
-               (mat_identity (1 lsl (nqubits - i - 1))))
-      end
-    | Swap (a, b) ->
-        gate_unitary_semantics (gate_cnot a b @& gate_cnot b a @& gate_cnot a b)
-    | Controlled (l, bl, u0) -> begin
-        let u0mat = gate_unitary_semantics u0 in
-          mat_from_basis_action qdim qdim
-            begin
-              fun i ->
-                if
-                  List.fold_left ( && ) true
-                    (List.map
-                       (fun (j, bj) ->
-                         i land (1 lsl (nqubits - 1 - j)) <> 0 == bj)
-                       (List.combine l bl))
-                then
-                  mat_column u0mat i
-                else
-                  mat_column (mat_identity qdim) i
-            end
-      end
-    | Sequence (u0, u1) ->
-        gate_unitary_semantics u1 *@ gate_unitary_semantics u0
-    | Reset _ -> failwith "Reset is not a unitary gate"
-    | MeasureAsErr _ -> failwith "Measurement is not a unitary gate"
-  in
-  let rec gate_semantics_helper (u : gate) (state : matrix) : matrix =
-    match u with
-    | MeasureAsErr a ->
-        mat_from_fun qdim qdim
-          begin
-            fun i j ->
-              let abit = 1 lsl (nqubits - 1 - a) in
-                if i land abit <> 0 || j land abit <> 0 then
-                  Complex.zero
-                else
-                  mat_entry state i j
-          end
-    | Reset a ->
-        mat_from_fun qdim qdim
-          begin
-            fun i j ->
-              let abit = 1 lsl (nqubits - 1 - a) in
-                if i land abit <> 0 || j land abit <> 0 then
-                  Complex.zero
-                else
-                  Complex.add (mat_entry state i j)
-                    (mat_entry state (i + abit) (j + abit))
-          end
-    | Sequence (u0, u1) ->
-        gate_semantics_helper u1 (gate_semantics_helper u0 state)
-    | _ -> begin
-        let umat = gate_unitary_semantics u in
-          umat *@ state *@ mat_adjoint umat
-      end
-  in
-  let l = List.length out_reg in
-  let final =
-    gate_semantics_helper
-      (u
-      @& gate_permute (range nqubits)
-           (out_reg @ int_list_diff (range nqubits) out_reg))
-      (basis_column_vec qdim 0 *@ basis_row_vec qdim 0)
-  in
-    mat_from_fun (1 lsl l) (1 lsl l) (fun i j ->
-        mat_entry final (i lsl (nqubits - l)) (j lsl (nqubits - l)))
-
 let rec split_first_consecutive_measurements (ul : gate list) (i : int) :
     gate list * gate list =
   match ul with
@@ -452,7 +361,8 @@ let rec gate_list_shift_deletion_labels_left (ul : gate list) : gate list =
       ul
 
 let rec gate_classical_propagation (ul : gate list)
-    (cl : classical_prop_state array) : gate list =
+    (cl : classical_prop_state array) (err : classical_prop_state ref) :
+    gate list =
   match ul with
   | [] -> []
   | u :: ul' -> begin
@@ -460,9 +370,16 @@ let rec gate_classical_propagation (ul : gate list)
         match u with
         | Identity
         | GphaseGate _
-        | MeasureAsErr _
         | PotentialDeletionLabel _
         | Annotation _ ->
+            u
+        | MeasureAsErr i ->
+            begin
+              match (cl.(i), !err) with
+              | Classical true, _ -> err := Classical true
+              | Quantum, Classical false -> err := Quantum
+              | _ -> ()
+            end;
             u
         | Sequence _ -> failwith "Sequences should not be present"
         | U3Gate (i, _, _, _) when u = gate_paulix i -> begin
@@ -495,7 +412,7 @@ let rec gate_classical_propagation (ul : gate list)
                 Identity
               else if List.for_all (fun state -> state <> Quantum) l_states
               then
-                List.hd (gate_classical_propagation [u0] cl)
+                List.hd (gate_classical_propagation [u0] cl err)
               else begin
                 let to_keep =
                   List.filter
@@ -511,8 +428,8 @@ let rec gate_classical_propagation (ul : gate list)
           end
       in
         match u' with
-        | Identity -> gate_classical_propagation ul' cl
-        | _ -> u' :: gate_classical_propagation ul' cl
+        | Identity -> gate_classical_propagation ul' cl err
+        | _ -> u' :: gate_classical_propagation ul' cl err
     end
 
 let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
@@ -625,6 +542,7 @@ let rec gate_list_optimize (ul : gate list) (out_reg : int list)
   let ul =
     gate_classical_propagation ul
       (Array.of_list (List.map (fun _ -> Classical false) (range nqubits)))
+      (ref (Classical false))
   in
   let ul = gate_list_shift_deletion_labels_left ul in
   let ul_opt, out_reg', changes_made = gate_optimization_pass ul out_reg in

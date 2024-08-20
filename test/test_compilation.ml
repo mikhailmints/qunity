@@ -5,7 +5,7 @@ open Typechecking
 open Semantics
 open Compilation
 open Matrix
-open Gate
+open Gate_semantics
 
 let all_passed = ref true
 
