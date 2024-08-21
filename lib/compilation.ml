@@ -1795,7 +1795,7 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
           binary_tree_of_type (ProdType (t0, t1)) t_res )
     end
 
-let rec ortho_select_op (stop : exprtype) (t : exprtype) (tree : binary_tree)
+let rec ortho_select_op (t : exprtype) (tree : binary_tree)
     (selection : bool list) : inter_op * binary_tree =
   let n = List.length selection in
   let n' = List.length (List.filter (fun x -> x) selection) in
@@ -1810,19 +1810,16 @@ let rec ortho_select_op (stop : exprtype) (t : exprtype) (tree : binary_tree)
       | _ -> begin
           match (t, tree) with
           | SumType (t0, t1), Node (tree0, tree1) -> begin
-              let sel0, sel1 =
-                list_split_at_i selection
-                  (tree_size (binary_tree_of_type stop t0))
-              in
+              let sel0, sel1 = list_split_at_i selection (tree_size tree0) in
                 if not (List.mem true sel0) then
-                  let op1, tree1' = ortho_select_op stop t1 tree sel1 in
+                  let op1, tree1' = ortho_select_op t1 tree sel1 in
                     (IAdjoint (IRight (t0, t1)) @&& op1, tree1')
                 else if not (List.mem true sel1) then
-                  let op0, tree0' = ortho_select_op stop t0 tree0 sel0 in
+                  let op0, tree0' = ortho_select_op t0 tree0 sel0 in
                     (IAdjoint (ILeft (t0, t1)) @&& op0, tree0')
                 else
-                  let op0, tree0' = ortho_select_op stop t0 tree0 sel0 in
-                  let op1, tree1' = ortho_select_op stop t1 tree1 sel1 in
+                  let op0, tree0' = ortho_select_op t0 tree0 sel0 in
+                  let op1, tree1' = ortho_select_op t1 tree1 sel1 in
                     (IDirsum (op0, op1), Node (tree0', tree1'))
             end
           | _ -> failwith "Expected sum type"
@@ -1834,7 +1831,7 @@ let compile_ortho_to_inter_op (t : exprtype) (orp : ortho_proof) :
   let span_op, span_tree = compile_spanning_to_inter_op sp in
   let selection = List.map (fun e -> List.mem e ortho_list) span_list in
   let select_op, ortho_tree =
-    ortho_select_op t (dirsum_type_by_tree span_tree t) span_tree selection
+    ortho_select_op (dirsum_type_by_tree span_tree t) span_tree selection
   in
     (span_op @&& select_op, ortho_tree)
 
