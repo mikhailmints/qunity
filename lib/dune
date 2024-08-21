@@ -14,7 +14,8 @@
   parser
   lexer
   parser_messages
-  parsing)
+  parsing
+  random_gen)
  (libraries num menhirLib))
 
 (menhir

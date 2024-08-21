@@ -32,15 +32,25 @@ let map_all_or_nothing (d : 'a option StringMap.t) : 'a StringMap.t option =
     | Some l -> Some (StringMap.of_seq (List.to_seq (List.combine keys l)))
     | _ -> None
 
-let fresh_string (prefix : string) (s : StringSet.t) : string =
-  let rec fresh_string_helper (i : int) =
+let fresh_string_list (prefix : string) (s : StringSet.t) (n : int) :
+    string list =
+  let rec fresh_string_list_helper (i : int) (curlist : string list)
+      (curset : StringSet.t) (n : int) =
     let candidate = prefix ^ string_of_int i in
-      if StringSet.mem candidate s then
-        fresh_string_helper (i + 1)
+      if n <= 0 then
+        (curlist, curset)
+      else if StringSet.mem candidate curset then
+        fresh_string_list_helper (i + 1) curlist curset n
       else
-        candidate
+        fresh_string_list_helper (i + 1) (candidate :: curlist)
+          (StringSet.add candidate curset)
+          (n - 1)
   in
-    fresh_string_helper 0
+  let res, _ = fresh_string_list_helper 0 [] s n in
+    List.rev res
+
+let fresh_string (prefix : string) (s : StringSet.t) : string =
+  List.hd (fresh_string_list prefix s 1)
 
 let fresh_int_list (s : IntSet.t) (n : int) : int list * IntSet.t =
   let rec fresh_int_list_helper (i : int) (curlist : int list)
@@ -65,8 +75,8 @@ let rec fresh_int_lists (s : IntSet.t) (l : int list) :
         (cur :: rest, s'')
 
 let fresh_int (s : IntSet.t) : int * IntSet.t =
-  let i, res = fresh_int_list s 1 in
-    (List.hd i, res)
+  let i, s' = fresh_int_list s 1 in
+    (List.hd i, s')
 
 (*
 Combine two maps into one. If allow_dup is false: fails if

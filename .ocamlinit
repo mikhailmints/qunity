@@ -11,6 +11,7 @@
 #mod_use "lib/gate.ml";;
 #mod_use "lib/compilation.ml";;
 #mod_use "lib/gate_semantics.ml";;
+#mod_use "lib/random_gen.ml";;
 
 open Util
 open Reals
@@ -22,4 +23,5 @@ open Extended_syntax
 open Gate
 open Compilation
 open Gate_semantics
+open Random_gen
 ;;
