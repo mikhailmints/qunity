@@ -440,6 +440,10 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
   | u :: u' :: ul' when gate_is_unitary u && gate_equal u' (gate_adjoint u) ->
       let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
         (ul'', out_reg', true)
+  (* Remove global phases *)
+  | GphaseGate _ :: ul' ->
+      let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
+        (ul'', out_reg', true)
   (* Check if deletion can occur on labeled wire segment *)
   | PotentialDeletionLabel i :: ul' -> begin
       let ul0, ul1 = split_up_to_first_measurements ul i in

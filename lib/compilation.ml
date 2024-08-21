@@ -1717,17 +1717,15 @@ let rec big_context_distr_op (tree : binary_tree) (l : context list)
     end
 
 let rec compile_spanning_to_inter_op (sp : spanning_proof) :
-    inter_op * exprtype =
+    inter_op * binary_tree =
   match sp with
   | SVoid
   | SUnit ->
-      (IIdentity Qunit, Qunit)
-  | SVar t -> (IIdentity t, t)
+      (IIdentity Qunit, Leaf)
+  | SVar t -> (IIdentity t, Leaf)
   | SSum (t0, t1, sp0, sp1, _, _) -> begin
-      let sp0_op, spt0 = compile_spanning_to_inter_op sp0 in
-      let sp1_op, spt1 = compile_spanning_to_inter_op sp1 in
-      let tree0 = binary_tree_of_type t0 spt0 in
-      let tree1 = binary_tree_of_type t1 spt1 in
+      let sp0_op, tree0 = compile_spanning_to_inter_op sp0 in
+      let sp1_op, tree1 = compile_spanning_to_inter_op sp1 in
       let res_type =
         dirsum_type_by_tree (Node (tree0, tree1)) (SumType (t0, t1))
       in
@@ -1744,18 +1742,19 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
                 ["t0^(+n0)+t1^(+n1)"];
             ]
             [("res", type_size res_type)],
-          res_type )
+          binary_tree_of_type (SumType (t0, t1)) res_type )
     end
   | SPair (t0, t1, sp0, l, _, _) -> begin
-      let op0, spt0 = compile_spanning_to_inter_op sp0 in
-      let l_op, l_spt1 =
+      let op0, tree0 = compile_spanning_to_inter_op sp0 in
+      let l_op, l_tree1 =
         List.split (List.map compile_spanning_to_inter_op l)
       in
-      let tree0 = binary_tree_of_type t0 spt0 in
-      let l_tree1 = List.map (binary_tree_of_type t1) l_spt1 in
       let t_res =
         dirsum_type_list tree0
-          (List.map (fun spt1 -> big_distr_left_type t1 t0 spt1) l_spt1)
+          (List.map
+             (fun tree1 ->
+               big_distr_left_type t1 t0 (dirsum_type_by_tree tree1 t1))
+             l_tree1)
       in
       let tensor_with_id_t0 (op, tree) =
         inter_lambda "tensor_with_id_t0" false
@@ -1793,49 +1792,51 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
                 ["sum(t0*t1^(+nj))"];
             ]
             [("res", type_size t_res)],
-          t_res )
+          binary_tree_of_type (ProdType (t0, t1)) t_res )
     end
 
-let rec ortho_select_op (stop : exprtype) (t : exprtype)
-    (selection : bool list) : inter_op * exprtype =
+let rec ortho_select_op (stop : exprtype) (t : exprtype) (tree : binary_tree)
+    (selection : bool list) : inter_op * binary_tree =
   let n = List.length selection in
   let n' = List.length (List.filter (fun x -> x) selection) in
     if n = n' then
-      (IIdentity t, t)
+      (IIdentity t, tree)
     else if n' = 0 then
       failwith "Expected at least one true"
     else
       match selection with
       | [] -> failwith "Expected nonempty list"
-      | [true] -> (IIdentity t, t)
+      | [true] -> (IIdentity t, tree)
       | _ -> begin
-          match t with
-          | SumType (t0, t1) -> begin
+          match (t, tree) with
+          | SumType (t0, t1), Node (tree0, tree1) -> begin
               let sel0, sel1 =
                 list_split_at_i selection
                   (tree_size (binary_tree_of_type stop t0))
               in
                 if not (List.mem true sel0) then
-                  let op1, t1' = ortho_select_op stop t1 sel1 in
-                    (IAdjoint (IRight (t0, t1)) @&& op1, t1')
+                  let op1, tree1' = ortho_select_op stop t1 tree sel1 in
+                    (IAdjoint (IRight (t0, t1)) @&& op1, tree1')
                 else if not (List.mem true sel1) then
-                  let op0, t0' = ortho_select_op stop t0 sel0 in
-                    (IAdjoint (ILeft (t0, t1)) @&& op0, t0')
+                  let op0, tree0' = ortho_select_op stop t0 tree0 sel0 in
+                    (IAdjoint (ILeft (t0, t1)) @&& op0, tree0')
                 else
-                  let op0, t0' = ortho_select_op stop t0 sel0 in
-                  let op1, t1' = ortho_select_op stop t1 sel1 in
-                    (IDirsum (op0, op1), SumType (t0', t1'))
+                  let op0, tree0' = ortho_select_op stop t0 tree0 sel0 in
+                  let op1, tree1' = ortho_select_op stop t1 tree1 sel1 in
+                    (IDirsum (op0, op1), Node (tree0', tree1'))
             end
           | _ -> failwith "Expected sum type"
         end
 
 let compile_ortho_to_inter_op (t : exprtype) (orp : ortho_proof) :
-    inter_op * exprtype =
+    inter_op * binary_tree =
   let sp, span_list, ortho_list = orp in
-  let span_op, sum_t = compile_spanning_to_inter_op sp in
+  let span_op, span_tree = compile_spanning_to_inter_op sp in
   let selection = List.map (fun e -> List.mem e ortho_list) span_list in
-  let select_op, sum_t' = ortho_select_op t sum_t selection in
-    (span_op @&& select_op, sum_t')
+  let select_op, ortho_tree =
+    ortho_select_op t (dirsum_type_by_tree span_tree t) span_tree selection
+  in
+    (span_op @&& select_op, ortho_tree)
 
 let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     (erp : erasure_proof) =
@@ -1977,8 +1978,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             let gjs = List.map fst3 l in
             let ejs = List.map snd3 l in
             let ej's = List.map trd3 l in
-            let ortho_op, ortho_type = compile_ortho_to_inter_op t0 orp in
-            let ortho_tree = binary_tree_of_type t0 ortho_type in
+            let ortho_op, ortho_tree = compile_ortho_to_inter_op t0 orp in
             let ej_adj_sum_op =
               dirsum_op_list ortho_tree
                 (List.map
