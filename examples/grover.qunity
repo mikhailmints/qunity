@@ -24,7 +24,7 @@ def Grover <N, F, Niter> :=
 end
 
 def N := [3] end
-def Answer := (Bit0, (Bit1, (Bit1, ()))) end
+def Answer := (Bit0, (Bit1, (Bit0, ()))) end
 
 /*
 Quantum oracle representing a function acting on N bits that outputs
@@ -39,4 +39,4 @@ def F :=
 end
 
 Grover <N, F, [2]>
-
+// F of (BitPlus, (BitPlus, (BitPlus, ())))

@@ -141,6 +141,8 @@ let () =
   let prog_filename = Sys.argv.(1) in
   let out_filename = Sys.argv.(2) in
   let annotate = bool_of_string Sys.argv.(3) in
-    optimization_print := true;
-    annotation_mode := annotate;
+  let post_optimize = bool_of_string Sys.argv.(4) in
+    Gate.optimization_print := true;
+    Compilation.annotation_mode := annotate;
+    Compilation.post_optimize := post_optimize;
     compile_file prog_filename out_filename

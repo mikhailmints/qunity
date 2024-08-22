@@ -6,6 +6,7 @@ open Gate
 
 let debug_mode = false
 let annotation_mode = ref false
+let post_optimize = ref true
 
 (*
 A circuit is a wrapper around a gate that labels the qubits by their roles as
@@ -59,7 +60,7 @@ registers, storing them as variables in its body.
 *)
 type inter_op =
   | IEmpty
-  | ITestReg of int (* create empty test register for debugging purposes *)
+  | IPrepReg of int
   | IIdentity of exprtype
   | ISizeIdentity of int
   | IAnnotation of int * string
@@ -112,6 +113,21 @@ let rec tree_size (tree : binary_tree) : int =
   match tree with
   | Leaf -> 1
   | Node (l, r) -> tree_size l + tree_size r
+
+let rec tree_height (tree : binary_tree) : int =
+  match tree with
+  | Leaf -> 0
+  | Node (l, r) -> 1 + max (tree_height l) (tree_height r)
+
+let rec tree_multiply (tree0 : binary_tree) (l_tree1 : binary_tree list) :
+    binary_tree =
+  match (tree0, l_tree1) with
+  | Leaf, [tree1] -> tree1
+  | Leaf, _ -> failwith "Mismatch when multiplying trees"
+  | Node (tree0_l, tree0_r), _ -> begin
+      let l_tree1_l, l_tree1_r = list_split_at_i l_tree1 (tree_size tree0_l) in
+        Node (tree_multiply tree0_l l_tree1_l, tree_multiply tree0_r l_tree1_r)
+    end
 
 (* Alias for ILambda. *)
 let inter_lambda (name : string) (iso : bool) (arglist : (string * int) list)
@@ -314,7 +330,7 @@ let circuit_empty : circuit_spec =
 A circuit that takes in nothing and outputs an zeroed register corresponding
 to a given type (used for debugging purposes).
 *)
-let circuit_testreg (size : int) : circuit_spec =
+let circuit_prep_reg (size : int) : circuit_spec =
   {
     in_sizes = [];
     out_sizes = [size];
@@ -1445,7 +1461,7 @@ for the user-defined ILambda case.
 and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   match op with
   | IEmpty -> circuit_empty
-  | ITestReg size -> circuit_testreg size
+  | IPrepReg size -> circuit_prep_reg size
   | ISizeIdentity size -> circuit_identity size
   | IIdentity t -> circuit_identity (type_size t)
   | IAnnotation (size, s) -> circuit_annotation size s
@@ -1603,6 +1619,23 @@ let rec dirsum_op_list (tree : binary_tree) (l : inter_op list) : inter_op =
 let dirsum_op_by_tree (tree : binary_tree) (op : inter_op) =
   dirsum_op_list tree (List.map (fun _ -> op) (range (tree_size tree)))
 
+let rec dirsum_op_list_leveled (tree : binary_tree) (h : int)
+    (l : inter_op list) : inter_op =
+  match (tree, h, l) with
+  | _, _, [] -> failwith "Expected nonempty list"
+  | Leaf, 0, [op] -> op
+  | Leaf, h, [op] ->
+      IDirsum (dirsum_op_list_leveled Leaf (h - 1) [op], IIdentity Qunit)
+  | Leaf, _, _ -> failwith "Expected non-leaf"
+  | _, _, [_] -> failwith "Expected leaf"
+  | Node (t_left, t_right), h, _ -> begin
+      let n_left = tree_size t_left in
+      let l_left, l_right = list_split_at_i l n_left in
+        IDirsum
+          ( dirsum_op_list_leveled t_left (h - 1) l_left,
+            dirsum_op_list_leveled t_right (h - 1) l_right )
+    end
+
 let rec dirsum_type_list (tree : binary_tree) (l : exprtype list) : exprtype =
   match (tree, l) with
   | _, [] -> failwith "Expected nonempty list"
@@ -1716,83 +1749,204 @@ let rec big_context_distr_op (tree : binary_tree) (l : context list)
               )
     end
 
+let rec tree_level_op (tree : binary_tree) (h : int) (l : int list) : inter_op
+    =
+  match (tree, l) with
+  | Leaf, [s] -> begin
+      inter_lambda "tree_level" true
+        [("t", s)]
+        [
+          inter_letapp ["padding"] (IPrepReg h) [];
+          inter_letapp ["res"] (ISizePair (h, s)) ["padding"; "t"];
+        ]
+        [("res", s + h)]
+    end
+  | Leaf, _ -> failwith "Expected non-leaf"
+  | Node (tree0, tree1), _ ->
+      let l0, l1 = list_split_at_i l (tree_size tree0) in
+        IDirsum (tree_level_op tree0 (h - 1) l0, tree_level_op tree1 (h - 1) l1)
+
 let rec compile_spanning_to_inter_op (sp : spanning_proof) :
-    inter_op * binary_tree =
+    inter_op * binary_tree * context list =
   match sp with
-  | SVoid
-  | SUnit ->
-      (IIdentity Qunit, Leaf)
-  | SVar t -> (IIdentity t, Leaf)
-  | SSum (t0, t1, sp0, sp1, _, _) -> begin
-      let sp0_op, tree0 = compile_spanning_to_inter_op sp0 in
-      let sp1_op, tree1 = compile_spanning_to_inter_op sp1 in
-      let res_type =
-        dirsum_type_by_tree (Node (tree0, tree1)) (SumType (t0, t1))
-      in
-        ( inter_lambda "SSum" false
-            [("t0+t1", type_size (SumType (t0, t1)))]
-            [
-              inter_letapp ["t0^(+n0)+t1^(+n1)"]
-                (IDirsum (sp0_op, sp1_op))
-                ["t0+t1"];
-              inter_letapp ["res"]
-                (IDirsum
-                   ( dirsum_op_by_tree tree0 (ILeft (t0, t1)),
-                     dirsum_op_by_tree tree1 (IRight (t0, t1)) ))
-                ["t0^(+n0)+t1^(+n1)"];
-            ]
-            [("res", type_size res_type)],
-          binary_tree_of_type (SumType (t0, t1)) res_type )
+  | SVoid -> (IIdentity Void, Leaf, [])
+  | SUnit -> (IIdentity Qunit, Leaf, [StringMap.empty])
+  | SVar (x, t) -> (IIdentity t, Leaf, [StringMap.singleton x t])
+  | SSum (_, _, sp0, sp1, _, _) -> begin
+      let sp0_op, tree0, gl0 = compile_spanning_to_inter_op sp0 in
+      let sp1_op, tree1, gl1 = compile_spanning_to_inter_op sp1 in
+        (IDirsum (sp0_op, sp1_op), Node (tree0, tree1), gl0 @ gl1)
     end
   | SPair (t0, t1, sp0, l, _, _) -> begin
-      let op0, tree0 = compile_spanning_to_inter_op sp0 in
-      let l_op, l_tree1 =
-        List.split (List.map compile_spanning_to_inter_op l)
+      let op0, tree0, gl0 = compile_spanning_to_inter_op sp0 in
+      let l_op1, l_tree1, l_gl1 =
+        list_split3 (List.map compile_spanning_to_inter_op l)
       in
+      let l_gl_res =
+        List.map
+          (fun (g0, gl1) ->
+            List.map (fun g1 -> map_merge_noopt false g0 g1) gl1)
+          (List.combine gl0 l_gl1)
+      in
+      let gl_res = List.flatten l_gl_res in
+      let tree_res = tree_multiply tree0 l_tree1 in
       let t_res =
-        dirsum_type_list tree0
-          (List.map
-             (fun tree1 ->
-               big_distr_left_type t1 t0 (dirsum_type_by_tree tree1 t1))
-             l_tree1)
+        dirsum_type_list tree_res (List.map fake_type_of_context gl_res)
       in
-      let tensor_with_id_t0 (op, tree) =
-        inter_lambda "tensor_with_id_t0" false
-          [("t0*t1", type_size (ProdType (t0, t1)))]
-          [
-            inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t0*t1"];
-            inter_letapp ["t1^(+nj)"] op ["t1"];
-            inter_letapp ["res"]
-              (IPair (t0, dirsum_type_by_tree tree t1))
-              ["t0"; "t1^(+nj)"];
-          ]
-          [("res", type_size (ProdType (t0, dirsum_type_by_tree tree t1)))]
+      let tree0_height = tree_height tree0 in
+      let l_op1_sum = dirsum_op_list_leveled tree0 tree0_height l_op1 in
+      let level_op0 =
+        tree_level_op tree0 (tree_height tree0) (List.map context_size gl0)
       in
-      let l_op_sum =
+      let gl0_max_size = int_list_max (List.map context_size gl0) in
+      let gl1_max_size =
+        int_list_max (List.map context_size (List.flatten l_gl1))
+      in
+      let tree1_max_height = int_list_max (List.map tree_height l_tree1) in
+      let l_level_op1 =
+        List.map
+          (fun (tree1, gl1) ->
+            tree_level_op tree1 tree1_max_height (List.map context_size gl1))
+          (List.combine l_tree1 l_gl1)
+      in
+      let level_op1_sum =
+        dirsum_op_list_leveled tree0 tree0_height l_level_op1
+      in
+      let l_adj_level_op1 =
+        List.map
+          (fun (tree1, gl1) ->
+            IAdjoint
+              (tree_level_op tree1 tree1_max_height
+                 (List.map (fun _ -> gl0_max_size + gl1_max_size) gl1)))
+          (List.combine l_tree1 l_gl1)
+      in
+      let adj_level_op1 =
+        dirsum_op_list_leveled tree0 tree0_height l_adj_level_op1
+      in
+      let adj_level_op0 =
+        IAdjoint
+          (tree_level_op tree0 (tree_height tree0)
+             (List.map
+                (fun tree1 -> tree_height tree1 + gl0_max_size + gl1_max_size)
+                l_tree1))
+      in
+      let l_final_merge_op =
+        List.map
+          (fun (g0, gl1) ->
+            List.map
+              (fun g1 ->
+                begin
+                  let g0_size = context_size g0 in
+                  let g1_size = context_size g1 in
+                    inter_lambda "SPair_final_merge" true
+                      [("g0,blank0,g1,blank1", gl0_max_size + gl1_max_size)]
+                      [
+                        inter_letapp ["g0,blank0"; "g1,blank1"]
+                          (IAdjoint (ISizePair (gl0_max_size, gl1_max_size)))
+                          ["g0,blank0,g1,blank1"];
+                        inter_letapp ["g0"; "blank0"]
+                          (IAdjoint
+                             (ISizePair (g0_size, gl0_max_size - g0_size)))
+                          ["g0,blank0"];
+                        inter_letapp ["g1"; "blank1"]
+                          (IAdjoint
+                             (ISizePair (g1_size, gl1_max_size - g1_size)))
+                          ["g1,blank1"];
+                        inter_letapp []
+                          (IAdjoint (IPrepReg (gl0_max_size - g0_size)))
+                          ["blank0"];
+                        inter_letapp []
+                          (IAdjoint (IPrepReg (gl1_max_size - g1_size)))
+                          ["blank1"];
+                        inter_letapp ["g0g1"]
+                          (IContextMerge (g0, g1))
+                          ["g0"; "g1"];
+                      ]
+                      [("g0g1", g0_size + g1_size)]
+                end)
+              gl1)
+          (List.combine gl0 l_gl1)
+      in
+      let final_merge_op =
         dirsum_op_list tree0
-          (List.map tensor_with_id_t0 (List.combine l_op l_tree1))
+          (List.map
+             (fun (tree1, l_op) -> dirsum_op_list tree1 l_op)
+             (List.combine l_tree1 l_final_merge_op))
       in
-      let mt0 = dirsum_type_by_tree tree0 t0 in
-        ( inter_lambda "SPair" false
-            [("t0*t1", type_size (ProdType (t0, t1)))]
+        (* if gl0_max_size = 0 then begin
+             let adj_level_op0_alt =
+               IAdjoint
+                 (tree_level_op tree0 (tree_height tree0)
+                    (List.map
+                       (fun (tree1, gl1) ->
+                         type_size
+                           (dirsum_type_list tree1
+                              (List.map fake_type_of_context gl1)))
+                       (List.combine l_tree1 l_gl1)))
+             in
+               ( inter_lambda "SPair" true
+                   [("t0,t1", type_size (ProdType (t0, t1)))]
+                   [
+                     inter_letapp ["t0"; "t1"]
+                       (IAdjoint (IPair (t0, t1)))
+                       ["t0,t1"];
+                     inter_letapp ["LR0_index"] op0 ["t0"];
+                     inter_letapp ["LR0_index,t1"]
+                       (ISizePair (tree0_height, type_size t1))
+                       ["LR0_index"; "t1"];
+                     inter_letapp ["sumLR0(sumR1(g1))"] l_op1_sum ["LR0_index,t1"];
+                     inter_letapp ["sumR0(sumR1(g1))"] adj_level_op0_alt
+                       ["sumLR0(sumR1(g1))"];
+                   ]
+                   [("sumR0(sumR1(g1))", type_size t_res)],
+                 tree_res,
+                 gl_res )
+           end
+           else *)
+        ( inter_lambda "SPair" true
+            [("t0,t1", type_size (ProdType (t0, t1)))]
             [
-              inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t0*t1"];
-              inter_letapp ["t0^(+m)"] op0 ["t0"];
-              inter_letapp ["t0^(+m)*t1"] (IPair (mt0, t1)) ["t0^(+m)"; "t1"];
-              inter_letapp ["(t0*t1)^(+m)"]
-                (big_distr_right_op t0 mt0 t1)
-                ["t0^(+m)*t1"];
-              inter_letapp ["sum(t0*t1^(+nj))"] l_op_sum ["(t0*t1)^(+m)"];
-              inter_letapp ["res"]
-                (dirsum_op_list tree0
-                   (List.map
-                      (fun tree1 ->
-                        big_distr_left_op t1 t0 (dirsum_type_by_tree tree1 t1))
-                      l_tree1))
-                ["sum(t0*t1^(+nj))"];
+              inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t0,t1"];
+              inter_letapp ["sumR0(g0)"] op0 ["t0"];
+              inter_letapp ["sumLR0(g0)"] level_op0 ["sumR0(g0)"];
+              inter_letapp ["LR0_index"; "LR0_data"]
+                (IAdjoint (ISizePair (tree0_height, gl0_max_size)))
+                ["sumLR0(g0)"];
+              inter_letapp ["LR0_index,t1"]
+                (ISizePair (tree0_height, type_size t1))
+                ["LR0_index"; "t1"];
+              inter_letapp ["sumLR0(sumR1(g1))"] l_op1_sum ["LR0_index,t1"];
+              inter_letapp ["sumLR0(sumLR1(g1))"] level_op1_sum
+                ["sumLR0(sumR1(g1))"];
+              inter_letapp
+                ["LR0_index,LR1_index"; "LR1_data"]
+                (IAdjoint
+                   (ISizePair (tree0_height + tree1_max_height, gl1_max_size)))
+                ["sumLR0(sumLR1(g1))"];
+              inter_letapp
+                ["LR0_index,LR1_index,LR0_data"]
+                (ISizePair (tree0_height + tree1_max_height, gl0_max_size))
+                ["LR0_index,LR1_index"; "LR0_data"];
+              inter_letapp
+                ["sumLR0(sumLR1(g0,_,g1,_))"]
+                (ISizePair
+                   ( tree0_height + tree1_max_height + gl0_max_size,
+                     gl1_max_size ))
+                ["LR0_index,LR1_index,LR0_data"; "LR1_data"];
+              inter_letapp
+                ["sumLR0(sumR1(g0,_,g1,_))"]
+                adj_level_op1
+                ["sumLR0(sumLR1(g0,_,g1,_))"];
+              inter_letapp
+                ["sumR0(sumR1(g0,_,g1,_))"]
+                adj_level_op0
+                ["sumLR0(sumR1(g0,_,g1,_))"];
+              inter_letapp ["sumR0(sumR1(g0g1))"] final_merge_op
+                ["sumR0(sumR1(g0,_,g1,_))"];
             ]
-            [("res", type_size t_res)],
-          binary_tree_of_type (ProdType (t0, t1)) t_res )
+            [("sumR0(sumR1(g0g1))", type_size t_res)],
+          tree_res,
+          gl_res )
     end
 
 let rec ortho_select_op (t : exprtype) (tree : binary_tree)
@@ -1825,13 +1979,14 @@ let rec ortho_select_op (t : exprtype) (tree : binary_tree)
           | _ -> failwith "Expected sum type"
         end
 
-let compile_ortho_to_inter_op (t : exprtype) (orp : ortho_proof) :
-    inter_op * binary_tree =
+let compile_ortho_to_inter_op (orp : ortho_proof) : inter_op * binary_tree =
   let sp, span_list, ortho_list = orp in
-  let span_op, span_tree = compile_spanning_to_inter_op sp in
+  let span_op, span_tree, gl = compile_spanning_to_inter_op sp in
   let selection = List.map (fun e -> List.mem e ortho_list) span_list in
   let select_op, ortho_tree =
-    ortho_select_op (dirsum_type_by_tree span_tree t) span_tree selection
+    ortho_select_op
+      (dirsum_type_list span_tree (List.map fake_type_of_context gl))
+      span_tree selection
   in
     (span_op @&& select_op, ortho_tree)
 
@@ -1959,7 +2114,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             ]
             [("g", gsize); ("res", tsize)]
       end
-    | TCtrl (t0, t1, g, g', d, d', e, l, orp, erp_map, iso) -> begin
+    | TCtrl (_, t1, g, g', d, d', e, l, orp, erp_map, iso) -> begin
         let n = List.length l in
         let gg'dd' = map_merge_noopt false g_whole d_whole in
           if n = 0 then
@@ -1973,26 +2128,8 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
           else
             let e_op = compile_mixed_expr_to_inter_op e in
             let gjs = List.map fst3 l in
-            let ejs = List.map snd3 l in
             let ej's = List.map trd3 l in
-            let ortho_op, ortho_tree = compile_ortho_to_inter_op t0 orp in
-            let ej_adj_sum_op =
-              dirsum_op_list ortho_tree
-                (List.map
-                   (fun (ej, gj) ->
-                     IAdjoint
-                       (make_pure_op_take_one_reg StringMap.empty gj t0
-                          (compile_pure_expr_to_inter_op ej)))
-                   (List.combine ejs gjs))
-            in
-            let ej_sum_op =
-              dirsum_op_list ortho_tree
-                (List.map
-                   (fun (ej, gj) ->
-                     make_pure_op_take_one_reg StringMap.empty gj t0
-                       (compile_pure_expr_to_inter_op ej))
-                   (List.combine ejs gjs))
-            in
+            let ortho_op, ortho_tree = compile_ortho_to_inter_op orp in
             let ej'_sum_op =
               dirsum_op_list ortho_tree
                 (List.map
@@ -2023,8 +2160,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                   inter_letapp ["d"; "d0"] (IContextShare d) ["d"];
                   inter_letapp ["g0d0"] (IContextMerge (g, d)) ["g0"; "d0"];
                   inter_letapp ["t0"; "garb"] (IPurify e_op) ["g0d0"];
-                  inter_letapp ["t0^(+n)"] ortho_op ["t0"];
-                  inter_letapp ["sum(gj)"] ej_adj_sum_op ["t0^(+n)"];
+                  inter_letapp ["sum(gj)"] ortho_op ["t0"];
                   inter_letapp ["gg*"] (IContextMerge (g, g')) ["g"; "g*"];
                   inter_letapp ["dd*"] (IContextMerge (d, d')) ["d"; "d*"];
                   inter_letapp ["gg*dd*"]
@@ -2047,8 +2183,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                   inter_letapp ["g"; "g*"]
                     (IContextPartition (g_whole, map_dom g))
                     ["gg*"];
-                  inter_letapp ["t0^(+n)"] ej_sum_op ["sum(gj)"];
-                  inter_letapp ["t0"] (IAdjoint ortho_op) ["t0^(+n)"];
+                  inter_letapp ["t0"] (IAdjoint ortho_op) ["sum(gj)"];
                   inter_letapp ["g0d0"] (IAdjoint (IPurify e_op))
                     ["t0"; "garb"];
                   inter_letapp ["g0"; "d0"]
@@ -2247,10 +2382,14 @@ let expr_compile (e : expr) : gate * int * int list =
     | [out_reg] -> out_reg
     | _ -> failwith "Expected single out reg"
   in
+  let gate =
+    gate_combine_and_distribute_controls (gate_remove_identities circ.gate)
+  in
   let gate, out_reg =
-    gate_optimize
-      (gate_combine_and_distribute_controls (gate_remove_identities circ.gate))
-      out_reg
+    if !post_optimize then
+      gate_optimize gate out_reg
+    else
+      (gate, out_reg)
   in
   let circ = { circ with out_regs = [out_reg] } in
   let qubits_used =

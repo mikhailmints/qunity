@@ -104,7 +104,7 @@ and erasure_proof =
 and spanning_proof =
   | SVoid
   | SUnit
-  | SVar of exprtype
+  | SVar of string * exprtype
   | SSum of exprtype * exprtype * spanning_proof * spanning_proof * int * int
   | SPair of
       exprtype
@@ -364,8 +364,10 @@ let missing_span (t : exprtype) (l : expr list) :
     | Void, [] -> Some ([], SVoid)
     | Qunit, [] -> Some ([Null], SUnit)
     | Qunit, [Null] -> Some ([], SUnit)
-    | _, [] -> Some ([Var (fresh_string "$" fv)], SVar t)
-    | _, [Var x] -> if StringSet.mem x fv then None else Some ([], SVar t)
+    | _, [] ->
+        let x = fresh_string "$" fv in
+          Some ([Var x], SVar (x, t))
+    | _, [Var x] -> if StringSet.mem x fv then None else Some ([], SVar (x, t))
     | SumType (t0, t1), _ -> begin
         match split_sum_list t0 t1 l with
         | None -> None

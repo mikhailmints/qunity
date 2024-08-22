@@ -191,6 +191,13 @@ let list_split_at_i (l : 'a list) (i : int) : 'a list * 'a list =
   let l0, l1 = iter [] l i in
     (List.rev l0, l1)
 
+let rec list_split3 (l : ('a * 'b * 'c) list) : 'a list * 'b list * 'c list =
+  match l with
+  | [] -> ([], [], [])
+  | (a, b, c) :: l' ->
+      let la, lb, lc = list_split3 l' in
+        (a :: la, b :: lb, c :: lc)
+
 let range (i : int) : int list =
   let rec iter i = if i <= 0 then [] else (i - 1) :: iter (i - 1) in
     List.rev (iter i)

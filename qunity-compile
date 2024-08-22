@@ -8,6 +8,7 @@ NC="\033[0m"
 dobuild=true
 analyze=false
 annotate=false
+optimize=true
 in_filename=$1
 out_filename="qasm_out/$(basename $in_filename ".qunity").qasm"
 shift
@@ -22,6 +23,9 @@ while :; do
             ;;
         --annotate)
             annotate=true
+            ;;
+        --noopt)
+            optimize=false
             ;;
         -o)
             out_filename=$2
@@ -41,7 +45,7 @@ if $dobuild; then
 fi
 
 echo "Compiling to QASM"
-./_build/default/bin/qunity_compile_qasm.exe $in_filename $out_filename $annotate
+./_build/default/bin/qunity_compile_qasm.exe $in_filename $out_filename $annotate $optimize
 status=$?
 if [ $status -eq 1 ]; then
     echo -e "${YELLOW}Invalid program${NC}"
