@@ -114,10 +114,7 @@ and spanning_proof =
       * int
       * int list
 
-and ortho_proof =
-  spanning_proof
-  * expr list (* spanning list *)
-  * expr list (* ortho list, subsequence of spanning list *)
+and ortho_proof = spanning_proof * bool list (* selection *)
 
 let type_of_pure_expr_proof (tp : pure_expr_typing_proof) : exprtype =
   match tp with
@@ -232,8 +229,8 @@ and prog_is_classical (f : prog) : bool =
   | Lambda (e0, _, e1) -> expr_is_classical e0 && expr_is_classical e1
 
 let is_spanning_ortho_proof (orp : ortho_proof) : bool =
-  let _, span_list, ortho_list = orp in
-    span_list = ortho_list
+  let _, selection = orp in
+    List.for_all (fun x -> x) selection
 
 (*
 Finds the free variables in an expression e.
@@ -351,6 +348,8 @@ and expr_compare (e0 : expr) (e1 : expr) =
   | Null, Null -> 0
   | Apply (Left _, _), Apply (Right _, _) -> -1
   | Apply (Right _, _), Apply (Left _, _) -> 1
+  | Apply (Left _, e0), Apply (Left _, e1) -> expr_compare e0 e1
+  | Apply (Right _, e0), Apply (Right _, e1) -> expr_compare e0 e1
   | Qpair (e00, e01), Qpair (e10, e11) ->
       let c0 = expr_compare e00 e10 in
         if c0 = 0 then expr_compare e01 e11 else c0
@@ -446,12 +445,16 @@ type t, extends the list to one "spanning" t.
 *)
 let span_list (t : exprtype) (l : expr list) : expr list option =
   match missing_span t l with
-  | Some (l', _) -> Some (l @ l')
+  | Some (l', _) -> Some (List.sort expr_compare (l @ l'))
   | None -> None
 
 let ortho_check (t : exprtype) (l : expr list) : ortho_proof option =
   match missing_span t l with
-  | Some (l', sp) -> Some (sp, l @ l', l)
+  | Some (l', sp) ->
+      let span_list = List.sort expr_compare (l @ l') in
+      let ortho_list = List.sort expr_compare l in
+      let selection = List.map (fun e -> List.mem e ortho_list) span_list in
+        Some (sp, selection)
   | None -> None
 
 (*

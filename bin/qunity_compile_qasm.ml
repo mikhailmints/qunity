@@ -81,7 +81,7 @@ let rec gate_to_qasm_str (u : gate) (err_num : int) : string * int =
           (s0 ^ s1, err_num)
     | Annotation (l, s) ->
         if l = [] then
-          ("", err_num)
+          (Printf.sprintf "// %s\n" s, err_num)
         else
           ( Printf.sprintf "// %s %s\n" s (string_of_list string_of_int l),
             err_num )
@@ -140,9 +140,11 @@ let compile_file (prog_filename : string) (out_filename : string) : unit =
 let () =
   let prog_filename = Sys.argv.(1) in
   let out_filename = Sys.argv.(2) in
-  let annotate = bool_of_string Sys.argv.(3) in
-  let post_optimize = bool_of_string Sys.argv.(4) in
+  let debug_mode = bool_of_string Sys.argv.(3) in
+  let annotation_mode = bool_of_string Sys.argv.(4) in
+  let post_optimize = bool_of_string Sys.argv.(5) in
     Gate.optimization_print := true;
-    Compilation.annotation_mode := annotate;
+    Compilation.debug_mode := debug_mode;
+    Compilation.annotation_mode := annotation_mode;
     Compilation.post_optimize := post_optimize;
     compile_file prog_filename out_filename

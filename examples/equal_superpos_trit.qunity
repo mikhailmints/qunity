@@ -1,0 +1,23 @@
+def Child := Bit end
+def Vleft := Bit0 end
+def Vright := Bit1 end
+def Coin := Maybe <Child> end
+def Cdown := Nothing <Child> end
+def Cleft := Just <Child> of Vleft end
+def Cright := Just <Child> of Vright end
+
+def UState :=
+    Bit0
+    |> u3 {2 * arccos(sqrt(1 / 3)), 0, 0}
+    |> lambda x {Bit} -> ctrl {Bit, Bit * Bit} x [
+        Bit0 -> (x, Bit0);
+        Bit1 -> (x, BitPlus)
+    ]
+    |> pmatch {Bit * Bit, Coin} [
+        (Bit0, Bit0) -> Cdown;
+        (Bit1, Bit0) -> Cleft;
+        (Bit1, Bit1) -> Cright
+    ]
+end
+
+UState

@@ -4,7 +4,7 @@ open Syntax
 open Typechecking
 open Gate
 
-let debug_mode = false
+let debug_mode = ref false
 let annotation_mode = ref false
 let post_optimize = ref true
 
@@ -59,11 +59,12 @@ user-defined operator can apply a number of operators in sequence to some
 registers, storing them as variables in its body.
 *)
 type inter_op =
+  | INothing
   | IEmpty
   | IPrepReg of int
   | IIdentity of exprtype
   | ISizeIdentity of int
-  | IAnnotation of int * string
+  | IAnnotation of int list * string
   | IU3 of real * real * real
   | IRphase of exprtype * inter_op * real * real
   | ILeft of exprtype * exprtype (* a {T0} -> left{T0, T1} a *)
@@ -139,7 +140,15 @@ let inter_letapp (target : string list) (op : inter_op) (args : string list) :
     inter_com =
   (target, op, args)
 
-(* Add annotations describing the roles of the registers to a circuit. *)
+let inter_comment (message : string) =
+  inter_letapp []
+    (if !annotation_mode then
+       IAnnotation ([], message)
+     else
+       INothing)
+    []
+
+(* Add annotations describing the (low-level) roles of the registers to a circuit. *)
 let annotate_circuit (circ : circuit) : circuit =
   if circ.name = "init" then
     circ
@@ -171,9 +180,8 @@ let build_circuit (cs : circuit_spec) (in_regs : int list list)
     (used_wires : IntSet.t) (settings : instantiation_settings) :
     circuit * IntSet.t =
   if
-    debug_mode
-    && IntSet.diff (IntSet.of_list (List.flatten in_regs)) used_wires
-       <> IntSet.empty
+    IntSet.diff (IntSet.of_list (List.flatten in_regs)) used_wires
+    <> IntSet.empty
   then
     failwith "Input regs contain unused wires";
   let circ, used_wires = cs.circ_fun in_regs used_wires settings in
@@ -229,10 +237,7 @@ let build_circuit (cs : circuit_spec) (in_regs : int list list)
            end;
     }
   in
-    if !annotation_mode then
-      (annotate_circuit circ, used_wires)
-    else
-      (circ, used_wires)
+    (circ, used_wires)
 
 (*
 To create a controlled version of something that is already provided as a
@@ -303,6 +308,30 @@ let expect_sizes (name : string) (expected : int list) (regs : int list list) :
          (string_of_list string_of_int (List.map List.length regs)))
 
 (*
+A circuit that takes in nothing and outputs nothing.
+*)
+let circuit_nothing : circuit_spec =
+  {
+    in_sizes = [];
+    out_sizes = [];
+    circ_fun =
+      begin
+        fun in_regs used_wires _ ->
+          expect_sizes "circuit_nothing" [] in_regs;
+          ( {
+              name = "nothing";
+              in_regs;
+              prep_reg = [];
+              out_regs = [];
+              flag_reg = [];
+              garb_reg = [];
+              gate = Identity;
+            },
+            used_wires )
+      end;
+  }
+
+(*
 A circuit that takes in nothing and outputs an empty register.
 *)
 let circuit_empty : circuit_spec =
@@ -327,8 +356,8 @@ let circuit_empty : circuit_spec =
   }
 
 (*
-A circuit that takes in nothing and outputs an zeroed register corresponding
-to a given type (used for debugging purposes).
+A circuit that takes in nothing and outputs an zeroed register of a
+given size.
 *)
 let circuit_prep_reg (size : int) : circuit_spec =
   {
@@ -375,15 +404,16 @@ let circuit_identity (size : int) : circuit_spec =
       end;
   }
 
-let circuit_annotation (size : int) (s : string) =
+let circuit_annotation (sizes : int list) (s : string) =
   {
-    in_sizes = [size];
-    out_sizes = [size];
+    in_sizes = sizes;
+    out_sizes = sizes;
     circ_fun =
       begin
         fun in_regs used_wires _ ->
+          expect_sizes "circuit_annotation" sizes in_regs;
           ( {
-              name = "annotation";
+              name = "annotation \"" ^ s ^ "\"";
               in_regs;
               prep_reg = [];
               out_regs = in_regs;
@@ -1386,7 +1416,7 @@ let rec compile_inter_com_to_circuit (circ : circuit) (used_wires : IntSet.t)
     then
       failwith "Attempted to store new value in existing variable"
     else
-      let ev_regs =
+      let in_regs =
         List.map
           (fun x ->
             match StringMap.find_opt x iv with
@@ -1399,42 +1429,48 @@ let rec compile_inter_com_to_circuit (circ : circuit) (used_wires : IntSet.t)
                      (string_of_list (fun s -> s) args)))
           args
       in
-      let op_cs = compile_inter_op_to_circuit op in
-      let op_circ, used_wires =
-        build_circuit op_cs ev_regs used_wires settings
-      in
-      let res_circ =
-        {
-          name = op_circ.name;
-          in_regs = circ.in_regs;
-          prep_reg =
-            int_list_union circ.prep_reg
-              (int_list_diff op_circ.prep_reg (List.flatten circ.in_regs));
-          out_regs = op_circ.out_regs;
-          flag_reg = int_list_union circ.flag_reg op_circ.flag_reg;
-          garb_reg = int_list_union circ.garb_reg op_circ.garb_reg;
-          gate = circ.gate @& op_circ.gate;
-        }
-      in
-        if debug_mode then
-          Printf.printf
-            "Apply: target = %s, args = %s, out_regs = %s, ev_regs = %s\n"
-            (string_of_list (fun s -> s) target)
+        if !debug_mode then
+          Printf.printf "(pre) Apply: args = %s, in_regs = %s, target = %s\n"
             (string_of_list (fun s -> s) args)
-            (string_of_list (string_of_list string_of_int) op_circ.out_regs)
-            (string_of_list (string_of_list string_of_int) ev_regs);
-        let iv' =
-          StringMap.filter (fun x _ -> not (StringSet.mem x argset)) iv
+            (string_of_list (string_of_list string_of_int) in_regs)
+            (string_of_list (fun s -> s) target);
+        let op_cs = compile_inter_op_to_circuit op in
+        let op_circ, used_wires =
+          build_circuit op_cs in_regs used_wires settings
         in
-        let iv_add = List.combine target op_circ.out_regs in
-        let iv'' =
-          match
-            map_merge false iv' (StringMap.of_seq (List.to_seq iv_add))
-          with
-          | SomeE iv'' -> iv''
-          | NoneE err -> failwith err
+        let res_circ =
+          {
+            name = op_circ.name;
+            in_regs = circ.in_regs;
+            prep_reg =
+              int_list_union circ.prep_reg
+                (int_list_diff op_circ.prep_reg (List.flatten circ.in_regs));
+            out_regs = op_circ.out_regs;
+            flag_reg = int_list_union circ.flag_reg op_circ.flag_reg;
+            garb_reg = int_list_union circ.garb_reg op_circ.garb_reg;
+            gate = circ.gate @& op_circ.gate;
+          }
         in
-          (res_circ, used_wires, iv'')
+          if !debug_mode then
+            Printf.printf
+              "Apply %s: args = %s, in_regs = %s, target = %s, out_regs = %s\n"
+              op_circ.name
+              (string_of_list (fun s -> s) args)
+              (string_of_list (string_of_list string_of_int) in_regs)
+              (string_of_list (fun s -> s) target)
+              (string_of_list (string_of_list string_of_int) op_circ.out_regs);
+          let iv' =
+            StringMap.filter (fun x _ -> not (StringSet.mem x argset)) iv
+          in
+          let iv_add = List.combine target op_circ.out_regs in
+          let iv'' =
+            match
+              map_merge false iv' (StringMap.of_seq (List.to_seq iv_add))
+            with
+            | SomeE iv'' -> iv''
+            | NoneE err -> failwith err
+          in
+            (res_circ, used_wires, iv'')
 
 (*
 Applies a list of intermediate representation commands, in series, to a circuit,
@@ -1460,11 +1496,12 @@ for the user-defined ILambda case.
 *)
 and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   match op with
+  | INothing -> circuit_nothing
   | IEmpty -> circuit_empty
   | IPrepReg size -> circuit_prep_reg size
   | ISizeIdentity size -> circuit_identity size
   | IIdentity t -> circuit_identity (type_size t)
-  | IAnnotation (size, s) -> circuit_annotation size s
+  | IAnnotation (sizes, s) -> circuit_annotation sizes s
   | IU3 (theta, phi, lambda) -> circuit_u3 theta phi lambda
   | IRphase (t, op, r0, r1) ->
       if r0 = r1 then
@@ -1525,7 +1562,7 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
           circ_fun =
             begin
               fun in_regs used_wires settings ->
-                if debug_mode then
+                if !debug_mode then
                   Printf.printf
                     "ILambda %s: arg_names = %s, in_regs = %s, arg_sizes = \
                      %s, ret_sizes = %s\n"
@@ -1572,13 +1609,12 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
                     List.map (fun x -> StringMap.find x iv) ret_names
                   in
                     if
-                      debug_mode
-                      && (int_list_intersection (List.flatten ret_regs)
-                            circ.flag_reg
-                          <> []
-                         || int_list_intersection (List.flatten ret_regs)
-                              circ.garb_reg
-                            <> [])
+                      int_list_intersection (List.flatten ret_regs)
+                        circ.flag_reg
+                      <> []
+                      || int_list_intersection (List.flatten ret_regs)
+                           circ.garb_reg
+                         <> []
                     then begin
                       Printf.printf
                         "ILambda %s:\n\
@@ -1966,7 +2002,7 @@ let rec ortho_select_op (t : exprtype) (tree : binary_tree)
           | SumType (t0, t1), Node (tree0, tree1) -> begin
               let sel0, sel1 = list_split_at_i selection (tree_size tree0) in
                 if not (List.mem true sel0) then
-                  let op1, tree1' = ortho_select_op t1 tree sel1 in
+                  let op1, tree1' = ortho_select_op t1 tree1 sel1 in
                     (IAdjoint (IRight (t0, t1)) @&& op1, tree1')
                 else if not (List.mem true sel1) then
                   let op0, tree0' = ortho_select_op t0 tree0 sel0 in
@@ -1980,9 +2016,8 @@ let rec ortho_select_op (t : exprtype) (tree : binary_tree)
         end
 
 let compile_ortho_to_inter_op (orp : ortho_proof) : inter_op * binary_tree =
-  let sp, span_list, ortho_list = orp in
+  let sp, selection = orp in
   let span_op, span_tree, gl = compile_spanning_to_inter_op sp in
-  let selection = List.map (fun e -> List.mem e ortho_list) span_list in
   let select_op, ortho_tree =
     ortho_select_op
       (dirsum_type_list span_tree (List.map fake_type_of_context gl))
@@ -2099,6 +2134,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
           inter_lambda "TPurePair" iso
             [("g", gsize); ("dd0d1", dsize)]
             [
+              inter_comment "Starting TPurePair";
               inter_letapp ["d"; "d0d1"]
                 (IContextPartition (d_whole, map_dom d))
                 ["dd0d1"];
@@ -2111,6 +2147,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
               inter_letapp ["g"; "t0"] op0 ["g"; "dd0"];
               inter_letapp ["g"; "t1"] op1 ["g"; "d*d1"];
               inter_letapp ["res"] (IPair (t0, t1)) ["t0"; "t1"];
+              inter_comment "Finished TPurePair";
             ]
             [("g", gsize); ("res", tsize)]
       end
@@ -2121,8 +2158,10 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             inter_lambda "TCtrl_Void" iso
               [("gg*", gsize); ("dd*", dsize)]
               [
+                inter_comment "Starting TCtrl";
                 inter_letapp [] (IAlwaysErr dsize) ["dd*"];
                 inter_letapp ["res"] IEmpty [];
+                inter_comment "Finished TCtrl";
               ]
               [("gg*", gsize); ("res", 0)]
           else
@@ -2150,6 +2189,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
               inter_lambda "TCtrl" iso
                 [("gg*", gsize); ("dd*", dsize)]
                 [
+                  inter_comment "Starting TCtrl";
                   inter_letapp ["g"; "g*"]
                     (IContextPartition (g_whole, map_dom g))
                     ["gg*"];
@@ -2192,6 +2232,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                   inter_letapp ["g"] (IAdjoint (IContextShare g)) ["g"; "g0"];
                   inter_letapp ["t1"] erase_op ["d0"; "t1"];
                   inter_letapp ["gg*"] (IContextMerge (g, g')) ["g"; "g*"];
+                  inter_comment "Finished TCtrl";
                 ]
                 [("gg*", gsize); ("t1", tsize)]
       end
@@ -2201,8 +2242,10 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
           inter_lambda "TPureApp" iso
             [("g", gsize); ("d", dsize)]
             [
+              inter_comment "Starting TPureApp";
               inter_letapp ["g"; "t*"] e'_op ["g"; "d"];
               inter_letapp ["res"] f_op ["t*"];
+              inter_comment "Finished TPureApp";
             ]
             [("g", gsize); ("res", tsize)]
       end
@@ -2223,9 +2266,11 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
           inter_lambda "TMix" false
             [("d", dsize)]
             [
+              inter_comment "Starting TMix";
               inter_letapp ["g"] IEmpty [];
               inter_letapp ["g"; "res"] tp'_op ["g"; "d"];
               inter_letapp [] (IAdjoint IEmpty) ["g"];
+              inter_comment "Finished TMix";
             ]
             [("res", tsize)]
       end
@@ -2235,6 +2280,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
           inter_lambda "TMixedPair" iso
             [("dd0d1", dsize)]
             [
+              inter_comment "Starting TMixedPair";
               inter_letapp ["d"; "d0d1"]
                 (IContextPartition (d_whole, map_dom d))
                 ["dd0d1"];
@@ -2247,6 +2293,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
               inter_letapp ["t0"] op0 ["dd0"];
               inter_letapp ["t1"] op1 ["d*d1"];
               inter_letapp ["res"] (IPair (t0, t1)) ["t0"; "t1"];
+              inter_comment "Finished TMixedPair";
             ]
             [("res", tsize)]
       end
@@ -2261,6 +2308,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             inter_lambda "TTry" iso
               [("d", dsize)]
               [
+                inter_comment "Starting TTry";
                 inter_letapp ["d0"; "d1"]
                   (IContextPartition (d_whole, map_dom d0))
                   ["d"];
@@ -2271,12 +2319,14 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
                   (IAdjoint (IDistrLeft (t, t, Qunit)))
                   ["t*t+t"];
                 inter_letapp [] (IDiscard (SumType (t, Qunit))) ["t+c"];
+                inter_comment "Finished TTry";
               ]
               [("t", tsize)]
           else
             inter_lambda "TTry" iso
               [("d", dsize)]
               [
+                inter_comment "Starting TTry";
                 inter_letapp ["d0"; "d1"]
                   (IContextPartition (d_whole, map_dom d0))
                   ["d"];
@@ -2300,6 +2350,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
                 inter_letapp []
                   (IDiscard (SumType (SumType (t, Qunit), Qunit)))
                   ["(t+c)+c"];
+                inter_comment "Finished TTry";
               ]
               [("t", tsize)]
       end
@@ -2308,7 +2359,12 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
         let f_op = compile_mixed_prog_to_inter_op f in
           inter_lambda "TMixedApp" iso
             [("d", dsize)]
-            [inter_letapp ["t*"] e_op ["d"]; inter_letapp ["res"] f_op ["t*"]]
+            [
+              inter_comment "Starting TMixedApp";
+              inter_letapp ["t*"] e_op ["d"];
+              inter_letapp ["res"] f_op ["t*"];
+              inter_comment "Finished TMixedApp";
+            ]
             [("res", tsize)]
       end
 
@@ -2326,10 +2382,12 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
         inter_lambda "TPureAbs" iso
           [("t", type_size t)]
           [
+            inter_comment "Starting TPureAbs";
             inter_letapp ["g"] IEmpty [];
             inter_letapp ["g"; "d"] (IAdjoint e_op) ["g"; "t"];
             inter_letapp ["g"; "res"] e'_op ["g"; "d"];
             inter_letapp [] (IAdjoint IEmpty) ["g"];
+            inter_comment "Finished TPureAbs";
           ]
           [("res", type_size t')]
     end

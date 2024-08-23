@@ -1,5 +1,25 @@
 #!/usr/bin/env bash
 
+analyze=false
+flags=()
+
+while :; do
+    case $1 in
+        --analyze)
+            analyze=true
+            ;;
+        --debug|--annotate|--noopt)
+            flags+=($1)
+            ;;
+        -?*)
+            printf "Unknown option: %s\n" "$1" >&2
+            exit
+            ;;
+        *) break
+    esac
+    shift
+done
+
 dune build
 rm -f qasm_out/*.qasm
 
@@ -11,7 +31,7 @@ fi
 for filename in examples/*.qunity; do
     echo ====================
     echo $filename
-    ./qunity-compile $filename --nobuild "$@"
+    ./qunity-compile $filename --nobuild ${flags[@]}
     echo
 done
 
