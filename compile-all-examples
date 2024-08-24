@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
 
 analyze=false
-annotate=false
-
-dune build
-rm -f qasm_out/*
+flags=()
 
 while :; do
     case $1 in
         --analyze)
             analyze=true
             ;;
-        --annotate)
-            annotate=true
+        --debug|--annotate|--noopt)
+            flags+=($1)
             ;;
         -?*)
             printf "Unknown option: %s\n" "$1" >&2
@@ -23,6 +20,7 @@ while :; do
     shift
 done
 
+dune build
 rm -f qasm_out/*.qasm
 
 if $analyze; then
@@ -33,11 +31,7 @@ fi
 for filename in examples/*.qunity; do
     echo ====================
     echo $filename
-    if $annotate; then
-        ./qunity-compile $filename --nobuild --annotate
-    else
-        ./qunity-compile $filename --nobuild
-    fi
+    ./qunity-compile $filename --nobuild ${flags[@]}
     echo
 done
 

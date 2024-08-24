@@ -9,8 +9,8 @@ ocamlstring=false
 
 while :; do
     case $1 in
-        --ocamlstring=*)
-            ocamlstring="${1#*=}"
+        --ocamlstring)
+            ocamlstring=true
             ;;
         -?*)
             printf "Unknown option: %s\n" "$1" >&2

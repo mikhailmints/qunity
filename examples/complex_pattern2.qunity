@@ -1,0 +1,8 @@
+(left {qunit, (qunit + Bit) * Bit} of ())
+|> lambda x {qunit + ((qunit + Bit) * Bit)} ->
+    ctrl {qunit + ((qunit + Bit) * Bit), qunit + ((qunit + Bit) * Bit)} x [
+        right {qunit, (qunit + Bit) * Bit} of (right {qunit, Bit} of a, b) -> x;
+        right {qunit, (qunit + Bit) * Bit} of (left {qunit, Bit} of (), Bit0) -> x;
+        right {qunit, (qunit + Bit) * Bit} of (left {qunit, Bit} of (), Bit1) -> x;
+        left {qunit, (qunit + Bit) * Bit} of () -> x;
+    ]

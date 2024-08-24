@@ -401,6 +401,9 @@ let rec gate_classical_propagation (ul : gate list)
               cl.(j) <- temp;
               u
           end
+        | Controlled (_, _, Swap (i, j))
+          when cl.(i) = cl.(j) && cl.(i) <> Quantum ->
+            Identity
         | Controlled (l, bl, u0) -> begin
             let l_states = List.map (fun i -> cl.(i)) l in
             let is_active =

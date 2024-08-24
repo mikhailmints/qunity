@@ -74,12 +74,30 @@ let test_compilation_correctness (testname : string) (e : expr) =
 
 let test_compilation_correctness_file (filename : string) =
   test_compilation_correctness_general
-    ("compile_file " ^ filename)
+    ("compile_file_correctness " ^ filename)
     begin
       fun () ->
         match get_expr_from_file filename with
         | NoneE err -> failwith err
         | SomeE e -> e
+    end
+
+let test_compilation_no_error_file (filename : string) =
+  Printf.printf "compile_file_no_error %s: %!" filename;
+  try
+    begin
+      match get_expr_from_file filename with
+      | NoneE err -> failwith err
+      | SomeE e ->
+          let _ = expr_compile e in
+            Printf.printf "passed\n"
+    end
+  with
+  | Failure err
+  | Invalid_argument err
+  | Sys_error err -> begin
+      Printf.printf "FAILED\nWith error: %s\n" err;
+      all_passed := false
     end
 
 let const0 = Lambda (Var "x", bit, bit0)
@@ -149,6 +167,12 @@ let () =
               test_compilation_correctness_file ("examples/" ^ filename)
         end
         example_files;
+      List.iter
+        begin
+          fun (filename : string) ->
+            test_compilation_no_error_file ("examples/" ^ filename)
+        end
+        skipped_files;
       if !all_passed then
         Printf.printf "\nALL COMPILATION TESTS PASSED\n\n"
       else begin
