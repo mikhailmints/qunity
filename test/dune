@@ -1,6 +1,6 @@
 (tests
- (names test_typechecking test_semantics test_compilation)
- (libraries qunity unix)
+ (names unit_test_util test_typechecking test_semantics test_compilation)
+ (libraries qunity unix alcotest testing_utils)
  (deps
   (glob_files ../qunitylib/*)
   (glob_files ../examples/*)))
@@ -8,4 +8,4 @@
 (env
  (dev
   (flags
-   (:standard -warn-error))))
+   (:standard -warn-error -A))))

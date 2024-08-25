@@ -21,7 +21,12 @@
  (name qunity)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune menhir num)
+ (depends
+  ocaml
+  dune
+  menhir
+  num
+  (alcotest :with-test))
  (tags
   (topics "to describe" your project)))
 
