@@ -1933,80 +1933,80 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
              (fun (tree1, l_op) -> dirsum_op_list tree1 l_op)
              (List.combine l_tree1 l_final_merge_op))
       in
-        (* if gl0_max_size = 0 then begin
-             let adj_level_op0_alt =
-               IAdjoint
-                 (tree_level_op tree0 (tree_height tree0)
-                    (List.map
-                       (fun (tree1, gl1) ->
-                         type_size
-                           (dirsum_type_list tree1
-                              (List.map fake_type_of_context gl1)))
-                       (List.combine l_tree1 l_gl1)))
-             in
-               ( inter_lambda "SPair" true
-                   [("t0,t1", type_size (ProdType (t0, t1)))]
-                   [
-                     inter_letapp ["t0"; "t1"]
-                       (IAdjoint (IPair (t0, t1)))
-                       ["t0,t1"];
-                     inter_letapp ["LR0_index"] op0 ["t0"];
-                     inter_letapp ["LR0_index,t1"]
-                       (ISizePair (tree0_height, type_size t1))
-                       ["LR0_index"; "t1"];
-                     inter_letapp ["sumLR0(sumR1(g1))"] l_op1_sum ["LR0_index,t1"];
-                     inter_letapp ["sumR0(sumR1(g1))"] adj_level_op0_alt
-                       ["sumLR0(sumR1(g1))"];
-                   ]
-                   [("sumR0(sumR1(g1))", type_size t_res)],
-                 tree_res,
-                 gl_res )
-           end
-           else *)
-        ( inter_lambda "SPair" true
-            [("t0,t1", type_size (ProdType (t0, t1)))]
-            [
-              inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t0,t1"];
-              inter_letapp ["sumR0(g0)"] op0 ["t0"];
-              inter_letapp ["sumLR0(g0)"] level_op0 ["sumR0(g0)"];
-              inter_letapp ["LR0_index"; "LR0_data"]
-                (IAdjoint (ISizePair (tree0_height, gl0_max_size)))
-                ["sumLR0(g0)"];
-              inter_letapp ["LR0_index,t1"]
-                (ISizePair (tree0_height, type_size t1))
-                ["LR0_index"; "t1"];
-              inter_letapp ["sumLR0(sumR1(g1))"] l_op1_sum ["LR0_index,t1"];
-              inter_letapp ["sumLR0(sumLR1(g1))"] level_op1_sum
-                ["sumLR0(sumR1(g1))"];
-              inter_letapp
-                ["LR0_index,LR1_index"; "LR1_data"]
-                (IAdjoint
-                   (ISizePair (tree0_height + tree1_max_height, gl1_max_size)))
-                ["sumLR0(sumLR1(g1))"];
-              inter_letapp
-                ["LR0_index,LR1_index,LR0_data"]
-                (ISizePair (tree0_height + tree1_max_height, gl0_max_size))
-                ["LR0_index,LR1_index"; "LR0_data"];
-              inter_letapp
-                ["sumLR0(sumLR1(g0,_,g1,_))"]
-                (ISizePair
-                   ( tree0_height + tree1_max_height + gl0_max_size,
-                     gl1_max_size ))
-                ["LR0_index,LR1_index,LR0_data"; "LR1_data"];
-              inter_letapp
-                ["sumLR0(sumR1(g0,_,g1,_))"]
-                adj_level_op1
-                ["sumLR0(sumLR1(g0,_,g1,_))"];
-              inter_letapp
-                ["sumR0(sumR1(g0,_,g1,_))"]
-                adj_level_op0
-                ["sumLR0(sumR1(g0,_,g1,_))"];
-              inter_letapp ["sumR0(sumR1(g0g1))"] final_merge_op
-                ["sumR0(sumR1(g0,_,g1,_))"];
-            ]
-            [("sumR0(sumR1(g0g1))", type_size t_res)],
-          tree_res,
-          gl_res )
+        if gl0_max_size = 0 then begin
+          let adj_level_op0_alt =
+            IAdjoint
+              (tree_level_op tree0 (tree_height tree0)
+                 (List.map
+                    (fun (tree1, gl1) ->
+                      type_size
+                        (dirsum_type_list tree1
+                           (List.map fake_type_of_context gl1)))
+                    (List.combine l_tree1 l_gl1)))
+          in
+            ( inter_lambda "SPair" true
+                [("t0,t1", type_size (ProdType (t0, t1)))]
+                [
+                  inter_letapp ["t0"; "t1"]
+                    (IAdjoint (IPair (t0, t1)))
+                    ["t0,t1"];
+                  inter_letapp ["LR0_index"] op0 ["t0"];
+                  inter_letapp ["LR0_index,t1"]
+                    (ISizePair (tree0_height, type_size t1))
+                    ["LR0_index"; "t1"];
+                  inter_letapp ["sumLR0(sumR1(g1))"] l_op1_sum ["LR0_index,t1"];
+                  inter_letapp ["sumR0(sumR1(g1))"] adj_level_op0_alt
+                    ["sumLR0(sumR1(g1))"];
+                ]
+                [("sumR0(sumR1(g1))", type_size t_res)],
+              tree_res,
+              gl_res )
+        end
+        else
+          ( inter_lambda "SPair" true
+              [("t0,t1", type_size (ProdType (t0, t1)))]
+              [
+                inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t0,t1"];
+                inter_letapp ["sumR0(g0)"] op0 ["t0"];
+                inter_letapp ["sumLR0(g0)"] level_op0 ["sumR0(g0)"];
+                inter_letapp ["LR0_index"; "LR0_data"]
+                  (IAdjoint (ISizePair (tree0_height, gl0_max_size)))
+                  ["sumLR0(g0)"];
+                inter_letapp ["LR0_index,t1"]
+                  (ISizePair (tree0_height, type_size t1))
+                  ["LR0_index"; "t1"];
+                inter_letapp ["sumLR0(sumR1(g1))"] l_op1_sum ["LR0_index,t1"];
+                inter_letapp ["sumLR0(sumLR1(g1))"] level_op1_sum
+                  ["sumLR0(sumR1(g1))"];
+                inter_letapp
+                  ["LR0_index,LR1_index"; "LR1_data"]
+                  (IAdjoint
+                     (ISizePair (tree0_height + tree1_max_height, gl1_max_size)))
+                  ["sumLR0(sumLR1(g1))"];
+                inter_letapp
+                  ["LR0_index,LR1_index,LR0_data"]
+                  (ISizePair (tree0_height + tree1_max_height, gl0_max_size))
+                  ["LR0_index,LR1_index"; "LR0_data"];
+                inter_letapp
+                  ["sumLR0(sumLR1(g0,_,g1,_))"]
+                  (ISizePair
+                     ( tree0_height + tree1_max_height + gl0_max_size,
+                       gl1_max_size ))
+                  ["LR0_index,LR1_index,LR0_data"; "LR1_data"];
+                inter_letapp
+                  ["sumLR0(sumR1(g0,_,g1,_))"]
+                  adj_level_op1
+                  ["sumLR0(sumLR1(g0,_,g1,_))"];
+                inter_letapp
+                  ["sumR0(sumR1(g0,_,g1,_))"]
+                  adj_level_op0
+                  ["sumLR0(sumR1(g0,_,g1,_))"];
+                inter_letapp ["sumR0(sumR1(g0g1))"] final_merge_op
+                  ["sumR0(sumR1(g0,_,g1,_))"];
+              ]
+              [("sumR0(sumR1(g0g1))", type_size t_res)],
+            tree_res,
+            gl_res )
     end
 
 let rec ortho_select_op (t : exprtype) (tree : binary_tree)
