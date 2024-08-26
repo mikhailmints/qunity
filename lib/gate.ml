@@ -19,6 +19,28 @@ type gate =
 
 let ( @& ) a b = Sequence (a, b)
 
+let rec string_of_gate (u : gate) : string =
+  match u with
+  | Identity -> "Identity"
+  | U3Gate (i, theta, phi, lambda) ->
+      Printf.sprintf "U3Gate (%d, %s, %s, %s)" i (string_of_real theta)
+        (string_of_real phi) (string_of_real lambda)
+  | GphaseGate theta -> Printf.sprintf "GphaseGate %s" (string_of_real theta)
+  | Reset i -> Printf.sprintf "Reset %d" i
+  | MeasureAsErr i -> Printf.sprintf "MeasureAsErr %d" i
+  | PotentialDeletionLabel i -> Printf.sprintf "PotentialDeletionLabel %d" i
+  | Swap (i, j) -> Printf.sprintf "Swap (%d, %d)" i j
+  | Annotation (l, s) ->
+      Printf.sprintf "Annotation (%s, %s)" (string_of_list string_of_int l) s
+  | Controlled (l, bl, u0) ->
+      Printf.sprintf "Controlled (%s, %s, %s)"
+        (string_of_list string_of_int l)
+        (string_of_list string_of_bool bl)
+        (string_of_gate u0)
+  | Sequence (u0, u1) ->
+      Printf.sprintf "Sequence (%s, %s)" (string_of_gate u0)
+        (string_of_gate u1)
+
 type classical_prop_state = Classical of bool | Quantum
 
 (* Simple utility gate definitions *)

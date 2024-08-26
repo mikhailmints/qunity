@@ -1,5 +1,10 @@
 (tests
- (names unit_test_util test_typechecking test_semantics test_compilation)
+ (names
+  unit_test_util
+  unit_test_compilation
+  test_typechecking
+  test_semantics
+  test_compilation)
  (libraries qunity unix alcotest testing_utils)
  (deps
   (glob_files ../qunitylib/*)

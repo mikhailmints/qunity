@@ -26,6 +26,23 @@ type circuit = {
   gate : gate;
 }
 
+let string_of_circuit (circ : circuit) : string =
+  Printf.sprintf
+    "name: %s\n\
+     in_regs: %s\n\
+     prep_reg: %s\n\
+     out_regs: %s\n\
+     flag_reg: %s\n\
+     garb_reg: %s\n\
+     gate: %s\n"
+    circ.name
+    (string_of_list (string_of_list string_of_int) circ.in_regs)
+    (string_of_list string_of_int circ.prep_reg)
+    (string_of_list (string_of_list string_of_int) circ.out_regs)
+    (string_of_list string_of_int circ.flag_reg)
+    (string_of_list string_of_int circ.garb_reg)
+    (string_of_gate circ.gate)
+
 type instantiation_settings = {
   reset_flag : bool;
   reset_garb : bool;
@@ -109,6 +126,13 @@ and inter_com = string list * inter_op * string list
 let ( @&& ) a b = ISequence (a, b)
 
 type binary_tree = Leaf | Node of binary_tree * binary_tree
+
+let rec string_of_tree (tree : binary_tree) : string =
+  match tree with
+  | Leaf -> "Leaf"
+  | Node (tree0, tree1) ->
+      Printf.sprintf "Node (%s, %s)" (string_of_tree tree0)
+        (string_of_tree tree1)
 
 let rec tree_size (tree : binary_tree) : int =
   match tree with
@@ -366,10 +390,10 @@ let circuit_prep_reg (size : int) : circuit_spec =
     circ_fun =
       begin
         fun in_regs used_wires _ ->
-          expect_sizes "circuit_testreg" [] in_regs;
+          expect_sizes "circuit_prep_reg" [] in_regs;
           let prep, used_wires = fresh_int_list used_wires size in
             ( {
-                name = "testreg";
+                name = "prep_reg";
                 in_regs;
                 prep_reg = prep;
                 out_regs = [prep];

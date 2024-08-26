@@ -1,6 +1,8 @@
 open Qunity
 open Util
 open Syntax
+open Gate
+open Compilation
 
 module Alcotest = struct
   include Alcotest
@@ -55,6 +57,29 @@ module Alcotest = struct
 
   let context = string_map exprtype
   let valuation = string_map expr
+
+  let binary_tree =
+    testable
+      (fun (ppf : Format.formatter) (tree : binary_tree) ->
+        Fmt.string ppf (string_of_tree tree))
+      ( = )
+
+  let gate =
+    testable
+      (fun (ppf : Format.formatter) (u : gate) ->
+        Fmt.string ppf (string_of_gate (u |> gate_remove_identities)))
+      (fun (u0 : gate) (u1 : gate) ->
+        u0 |> gate_remove_identities = (u1 |> gate_remove_identities))
+
+  let circuit =
+    testable
+      (fun (ppf : Format.formatter) (circ : circuit) ->
+        Fmt.string ppf
+          (string_of_circuit
+             { circ with gate = circ.gate |> gate_remove_identities }))
+      (fun (circ0 : circuit) (circ1 : circuit) ->
+        { circ0 with gate = circ0.gate |> gate_remove_identities }
+        = { circ1 with gate = circ1.gate |> gate_remove_identities })
 end
 
 let test title f = Alcotest.test_case title `Quick f
