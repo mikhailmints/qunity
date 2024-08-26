@@ -321,21 +321,95 @@ let rec is_valid_to_delete (ul : gate list) (i : int) =
       else begin
         match u with
         | _ when not (IntSet.mem i (gate_qubits_used u)) -> true
-        | Identity -> true
         | U3Gate _ when gate_equal u (gate_paulix i) -> true
         | U3Gate _ -> false
-        | GphaseGate _ -> true
-        | Reset _ -> true
-        | MeasureAsErr _ -> true
-        | PotentialDeletionLabel _ -> true
         | Swap _ -> false
-        | Annotation _ -> true
         | Controlled (_, _, GphaseGate _) -> false
         | Controlled (l, _, u0) ->
             if List.mem i l then false else is_valid_to_delete [u0] i
-        | Sequence (u0, u1) ->
-            is_valid_to_delete [u0] i && is_valid_to_delete [u1] i
+        | Sequence _ -> failwith "Sequences should not be present"
+        | _ -> true
       end
+
+let rec split_up_to_first_cnot (ul : gate list) (i : int) :
+    (int * gate list * gate list) option =
+  match ul with
+  | [] -> None
+  | Reset i' :: _ when i' = i -> None
+  | MeasureAsErr i' :: _ when i' = i -> None
+  | Controlled ([j], [true], u0) :: ul' when u0 = gate_paulix i ->
+      Some (j, [], ul')
+  | u :: ul' -> (
+      match split_up_to_first_cnot ul' i with
+      | None -> None
+      | Some (j, ul0, ul1) -> Some (j, u :: ul0, ul1))
+
+let rec is_valid_before_share (ul : gate list) (i : int) =
+  match ul with
+  | [] -> true
+  | u :: ul' ->
+      if is_valid_before_share ul' i = false then
+        false
+      else begin
+        match u with
+        | _ when not (IntSet.mem i (gate_qubits_used u)) -> true
+        | U3Gate _ -> false
+        | Swap _ -> false
+        | Controlled (l, _, _) -> List.mem i l
+        | Sequence _ -> failwith "Sequences should not be present"
+        | _ -> true
+      end
+
+let rec is_valid_during_share (ul : gate list) (i : int) (j : int)
+    (i_flipped : bool) (j_flipped : bool) =
+  match ul with
+  | [] -> (not i_flipped) && not j_flipped
+  | u :: ul' ->
+      let i_flipped, j_flipped =
+        match u with
+        | U3Gate _ when u = gate_paulix i -> (not i_flipped, j_flipped)
+        | U3Gate _ when u = gate_paulix j -> (i_flipped, not j_flipped)
+        | _ -> (i_flipped, j_flipped)
+      in
+        if is_valid_during_share ul' i j i_flipped j_flipped = false then
+          false
+        else begin
+          match u with
+          | _
+            when (not (IntSet.mem i (gate_qubits_used u)))
+                 && not (IntSet.mem j (gate_qubits_used u)) ->
+              true
+          | U3Gate _ when u = gate_paulix i || u = gate_paulix j -> true
+          | U3Gate _
+          | Reset _
+          | MeasureAsErr _
+          | Swap _ ->
+              false
+          | Controlled (_, _, u0) ->
+              (not (IntSet.mem i (gate_qubits_used u0)))
+              && not (IntSet.mem j (gate_qubits_used u0))
+          | Sequence _ -> failwith "Sequences should not be present"
+          | _ -> true
+        end
+
+let find_disentangling_region (ul : gate list) (i : int) :
+    (int * gate list * gate list * gate list) option =
+  match split_up_to_first_cnot ul i with
+  | None -> None
+  | Some (j, before, during_after) -> begin
+      match split_up_to_first_cnot during_after i with
+      | None -> None
+      | Some (j', during, after) -> begin
+          if
+            j = j'
+            && is_valid_before_share before i
+            && is_valid_during_share during i j false false
+          then
+            Some (j, before, during, after)
+          else
+            None
+        end
+    end
 
 let rec shift_deletion_labels_left_pass (ul : gate list) : gate list * bool =
   match ul with
@@ -452,8 +526,8 @@ let rec gate_classical_propagation (ul : gate list)
               end
           end
       in
-        match u' with
-        | Identity -> gate_classical_propagation ul' cl err
+        match (u', ul') with
+        | Identity, ul' -> gate_classical_propagation ul' cl err
         | _ -> u' :: gate_classical_propagation ul' cl err
     end
 
@@ -480,11 +554,25 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
             gate_optimization_pass (ul0' @ ul1) out_reg
           in
             (ul'', out_reg', true)
-        else
-          let ul'', out_reg', changes_made =
-            gate_optimization_pass ul' out_reg
-          in
-            (PotentialDeletionLabel i :: ul'', out_reg', changes_made)
+        else begin
+          match find_disentangling_region ul0 i with
+          | Some (j, before, during, after) -> begin
+              let ul0' =
+                before
+                @ List.map (fun x -> gate_rewire x [i] [j]) during
+                @ after
+              in
+              let ul'', out_reg', _ =
+                gate_optimization_pass (ul0' @ ul1) out_reg
+              in
+                (ul'', out_reg', true)
+            end
+          | None ->
+              let ul'', out_reg', changes_made =
+                gate_optimization_pass ul' out_reg
+              in
+                (PotentialDeletionLabel i :: ul'', out_reg', changes_made)
+        end
     end
   (* Removing physical swap gates and relabeling wires *)
   | Swap (i, j) :: ul' -> begin

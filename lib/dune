@@ -1,5 +1,6 @@
 (library
  (name qunity)
+ (public_name qunity)
  (modules
   util
   reals
