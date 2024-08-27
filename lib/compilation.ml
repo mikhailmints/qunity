@@ -16,7 +16,7 @@ let post_optimize = ref true
 
 type circuit = {
   name : string;
-      (** Name associated with circuit, used for debugging purposes. *)
+      (** Name associated with the circuit, used for debugging purposes. *)
   in_regs : int list list;  (** List of input registers. *)
   prep_reg : int list;  (** The prep register used by the circuit. *)
   out_regs : int list list;  (** List of output registers. *)
@@ -52,9 +52,9 @@ let string_of_circuit (circ : circuit) : string =
 
 type instantiation_settings = {
   reset_flag : bool;
-      (** Whether or not to measure and reset the flag qubits *)
+      (** Whether or not to measure and reset the flag qubits. *)
   reset_garb : bool;
-      (** Whether or not to measure and reset the garbage qubits *)
+      (** Whether or not to measure and reset the garbage qubits. *)
   iso : bool;
       (** Whether or not this circuit can be treated as an {e isometry}, in
           which case we can expect the flag registers to end in the
@@ -109,8 +109,9 @@ type inter_op =
   | IRight of exprtype * exprtype
       (** Right direct sum injection {m T_1 \rarr T_0 \oplus T_1}. *)
   | IPair of exprtype * exprtype
-      (** Takes in two registers of given types {m T_0} and {m T_1} and outputs
-          a register corresponding to their pair, of type {m T_0 \otimes T_1}. *)
+      (** Takes in two registers corresponding to types {m T_0} and {m T_1},
+          and combines them into one register corresponding to the type
+          {m T_0 \otimes T_1}. *)
   | ISizePair of int * int
       (** Combines two registers of given sizes into one. *)
   | IShare of exprtype  (** The share gate for a given type. *)
@@ -135,7 +136,7 @@ type inter_op =
       (** Discards the input register, associated with a type. *)
   | IContextDiscard of context
       (** Discards the input register, associated with a context. *)
-  | IPurify of inter_op  (** Purification of an operator *)
+  | IPurify of inter_op  (** Purification of an operator. *)
   | IMarkAsIso of bool * inter_op
       (** Marks an operator as an isometry, changing the corresponding
           instantiation settings. *)
@@ -158,6 +159,7 @@ and inter_com = string list * inter_op * string list
     input variables, and they also delete the input variables since the
     registers will overlap in an arbitrary way in the reassignment. *)
 
+(** Alias for [ISequence]. *)
 let ( @&& ) a b = ISequence (a, b)
 
 (** A simple binary tree data structure, used for representing direct sum
@@ -197,12 +199,12 @@ let rec tree_multiply (tree0 : binary_tree) (l_tree1 : binary_tree list) :
         Node (tree_multiply tree0_l l_tree1_l, tree_multiply tree0_r l_tree1_r)
     end
 
-(** Alias for ILambda, also adding an option to mark it as an isometry. *)
+(** Wrapper for [ILambda], also adding an option to mark it as an isometry. *)
 let inter_lambda (name : string) (iso : bool) (arglist : (string * int) list)
     (body : inter_com list) (ret : (string * int) list) : inter_op =
   IMarkAsIso (iso, ILambda (name, arglist, body, ret))
 
-(** Alias for construcing an [inter_com] for clarity. *)
+(** Alias for construcing an [inter_com]. *)
 let inter_letapp (target : string list) (op : inter_op) (args : string list) :
     inter_com =
   (target, op, args)
@@ -615,9 +617,7 @@ let circuit_share (size : int) : circuit_spec =
       end;
   }
 
-(** Circuit that takes in a value of type {m T_0} and a value of type {m T_1}
-    and outputs a value of type {m T_0 \otimes T_1} (functionally this is just
-    the identity circuit). *)
+(** Circuit that combines two registers of given sizes into one. *)
 let circuit_pair (size0 : int) (size1 : int) : circuit_spec =
   {
     in_sizes = [size0; size1];
