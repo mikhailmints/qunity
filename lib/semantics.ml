@@ -6,6 +6,7 @@ open Typechecking
 
 let memo_size = 1000
 
+(** The dimension of the vector space corresponding to the type [t]. *)
 let rec type_dimension (t : exprtype) : int =
   match t with
   | Void -> 0
@@ -13,10 +14,12 @@ let rec type_dimension (t : exprtype) : int =
   | SumType (t0, t1) -> type_dimension t0 + type_dimension t1
   | ProdType (t0, t1) -> type_dimension t0 * type_dimension t1
 
+(** The dimension of the vector space corresponding to the context [d]. *)
 let context_dimension (d : context) : int =
   List.fold_left ( * ) 1
     (List.map (fun (_, t) -> type_dimension t) (StringMap.bindings d))
 
+(** Converts a classical basis expression into a basis vector. *)
 let rec expr_to_basis_state (t : exprtype) (e : expr) : matrix =
   match (e, t) with
   | Null, Qunit -> mat_identity 1
@@ -28,9 +31,11 @@ let rec expr_to_basis_state (t : exprtype) (e : expr) : matrix =
       mat_tensor (expr_to_basis_state t0 e0) (expr_to_basis_state t1 e1)
   | _, _ -> failwith "Type mismatch"
 
+(** Memoization cache for [all_basis_exprs]. *)
 let all_basis_exprs_memo : (exprtype, expr array) Hashtbl.t =
   Hashtbl.create memo_size
 
+(** Returns all basis expressions of type [t]. *)
 let all_basis_exprs (t : exprtype) : expr array =
   let rec all_basis_exprs_calculate (t : exprtype) : expr list =
     match t with
@@ -59,9 +64,11 @@ let all_basis_exprs (t : exprtype) : expr array =
         Hashtbl.add all_basis_exprs_memo t res;
         res
 
+(** Memoization cache for [all_basis_states]. *)
 let all_basis_states_memo : (exprtype, matrix array) Hashtbl.t =
   Hashtbl.create memo_size
 
+(** Returns all basis states in the vector space corresponding to the type [t]. *)
 let all_basis_states (t : exprtype) : matrix array =
   if Hashtbl.mem all_basis_states_memo t then
     Hashtbl.find all_basis_states_memo t
@@ -73,12 +80,16 @@ let all_basis_states (t : exprtype) : matrix array =
       Hashtbl.add all_basis_states_memo t res;
       res
 
+(** Returns the [i]'th basis expression of type [t]. *)
 let index_to_basis_expr (t : exprtype) (i : int) : expr =
   (all_basis_exprs t).(i)
 
+(** Returns the [i]'th basis state of the vector space corresponding to type
+    [t]. *)
 let index_to_basis_state (t : exprtype) (i : int) : matrix =
   (all_basis_states t).(i)
 
+(** Converts a classical valuation into a basis vector. *)
 let valuation_to_basis_state (d : context) (tau : valuation) : matrix =
   List.fold_left
     (fun cur (x, e) ->
@@ -86,9 +97,11 @@ let valuation_to_basis_state (d : context) (tau : valuation) : matrix =
         mat_tensor cur (expr_to_basis_state t e))
     (mat_identity 1) (StringMap.bindings tau)
 
+(** Memoization cache for [all_context_basis_valuations]. *)
 let all_context_basis_valuations_memo : (context, valuation array) Hashtbl.t =
   Hashtbl.create memo_size
 
+(** Returns all basis valuations of the context [d]. *)
 let all_context_basis_valuations (d : context) : valuation array =
   let rec iter (bindings : (string * exprtype) list) (cur : valuation list) :
       valuation list =
@@ -113,9 +126,12 @@ let all_context_basis_valuations (d : context) : valuation array =
         Hashtbl.add all_context_basis_valuations_memo d res;
         res
 
+(** Memoization cache for [all_context_basis_states]. *)
 let all_context_basis_states_memo : (context, matrix array) Hashtbl.t =
   Hashtbl.create memo_size
 
+(** Returns all basis states in the vector space corresponding to the context
+    [d]. *)
 let all_context_basis_states (d : context) : matrix array =
   if Hashtbl.mem all_context_basis_states_memo d then
     Hashtbl.find all_context_basis_states_memo d
@@ -126,20 +142,23 @@ let all_context_basis_states (d : context) : matrix array =
       Hashtbl.add all_context_basis_states_memo d res;
       res
 
+(** Returns the [i]'th basis valuation of the context [d]. *)
 let index_to_context_basis_valuation (d : context) (i : int) : valuation =
   (all_context_basis_valuations d).(i)
 
+(** Returns the [i]'th basis state of the vector space corresponding to the
+    context [d]. *)
 let index_to_context_basis_state (d : context) (i : int) : matrix =
   (all_context_basis_states d).(i)
 
+(** Memoization cache for [basis_index_restriction]. *)
 let basis_index_restriction_memo : (context * StringSet.t * int, int) Hashtbl.t
     =
   Hashtbl.create memo_size
 
-(*
-Converts an index i of a basis state in the space associated with a context d
-to the index of the corresponding basis state in some restriction of the context
-*)
+(** Converts an index [i] of a basis state in the space associated with a
+    context [d] to the index of the corresponding basis state in the
+    restriction of the context to the variables in the set [fv]. *)
 let basis_index_restriction (d : context) (fv : StringSet.t) (i : int) : int =
   if Hashtbl.mem basis_index_restriction_memo (d, fv, i) then
     Hashtbl.find basis_index_restriction_memo (d, fv, i)
@@ -152,15 +171,15 @@ let basis_index_restriction (d : context) (fv : StringSet.t) (i : int) : int =
       Hashtbl.add basis_index_restriction_memo (d, fv, i) res;
       res
 
+(** Memoization cache for [basis_index_extension]. *)
 let basis_index_extension_memo :
     (context * valuation * context * int, int) Hashtbl.t =
   Hashtbl.create memo_size
 
-(*
-Converts an index i of a basis state in the space associated with a context d
-to the index of the corresponding basis state in some context obtained from
-merging d with another context g, given a valuation sigma of the context g.
-*)
+(** Converts an index [i] of a basis state in the space associated with a
+    context [d] to the index of the corresponding basis state in some context
+    obtained from merging [d] with another context [g], given a valuation
+    [sigma] of the context [g]. *)
 let basis_index_extension (g : context) (sigma : valuation) (d : context)
     (i : int) : int =
   if Hashtbl.mem basis_index_extension_memo (g, sigma, d, i) then
@@ -180,10 +199,8 @@ let basis_index_extension (g : context) (sigma : valuation) (d : context)
       Hashtbl.add basis_index_extension_memo (g, sigma, d, i) res;
       res
 
-(*
-In a density matrix m corresponding to the context d, traces out all variables
-that are not in the specified set fv.
-*)
+(** In a density matrix [m] corresponding to the context [d], traces out all
+    variables that are not in the specified set [fv]. *)
 let context_partial_trace (d : context) (fv : StringSet.t) (m : matrix) :
     matrix =
   let d', d0 = map_partition d fv in
@@ -216,19 +233,24 @@ let context_partial_trace (d : context) (fv : StringSet.t) (m : matrix) :
                     mat_zero d'_dim d'_dim))
              (Int2Map.bindings s))
 
+(** Memoization cache for [pure_expr_semantics]. *)
 let pure_expr_sem_memo : (pure_expr_typing_proof * valuation, matrix) Hashtbl.t
     =
   Hashtbl.create memo_size
 
+(** Memoization cache for [mixed_expr_semantics]. *)
 let mixed_expr_sem_memo : (mixed_expr_typing_proof, superoperator) Hashtbl.t =
   Hashtbl.create memo_size
 
+(** Memoization cache for [pure_prog_semantics]. *)
 let pure_prog_sem_memo : (pure_prog_typing_proof, matrix) Hashtbl.t =
   Hashtbl.create memo_size
 
+(** Memoization cache for [mixed_prog_semantics]. *)
 let mixed_prog_sem_memo : (mixed_prog_typing_proof, superoperator) Hashtbl.t =
   Hashtbl.create memo_size
 
+(** Computes the pure semantics of an expression as a matrix. *)
 let rec pure_expr_semantics (tp : pure_expr_typing_proof) (sigma : valuation) :
     matrix =
   if Hashtbl.mem pure_expr_sem_memo (tp, sigma) then
@@ -263,6 +285,7 @@ let rec pure_expr_semantics (tp : pure_expr_typing_proof) (sigma : valuation) :
       Hashtbl.add pure_expr_sem_memo (tp, sigma) res;
       res
 
+(** Computes the pure semantics of a control expression. *)
 and ctrl_semantics (tp : pure_expr_typing_proof) (sigma : valuation) : matrix =
   match tp with
   | TCtrl (t0, t1, g, _, d, d', e, l, _, _, _) -> begin
@@ -329,6 +352,7 @@ and ctrl_semantics (tp : pure_expr_typing_proof) (sigma : valuation) : matrix =
     end
   | _ -> failwith "Expected TCtrl"
 
+(** Computes the mixed semantics of an expression as a superoperator. *)
 and mixed_expr_semantics (tp : mixed_expr_typing_proof) : superoperator =
   if Hashtbl.mem mixed_expr_sem_memo tp then
     Hashtbl.find mixed_expr_sem_memo tp
@@ -392,6 +416,7 @@ and mixed_expr_semantics (tp : mixed_expr_typing_proof) : superoperator =
       Hashtbl.add mixed_expr_sem_memo tp res;
       res
 
+(** Computes the pure semantics of a program as a matrix. *)
 and pure_prog_semantics (tp : pure_prog_typing_proof) : matrix =
   if Hashtbl.mem pure_prog_sem_memo tp then
     Hashtbl.find pure_prog_sem_memo tp
@@ -438,6 +463,7 @@ and pure_prog_semantics (tp : pure_prog_typing_proof) : matrix =
       Hashtbl.add pure_prog_sem_memo tp res;
       res
 
+(** Computes the mixed semantics of a program as a superoperator. *)
 and mixed_prog_semantics (tp : mixed_prog_typing_proof) : superoperator =
   if Hashtbl.mem mixed_prog_sem_memo tp then
     Hashtbl.find mixed_prog_sem_memo tp
@@ -472,29 +498,35 @@ and mixed_prog_semantics (tp : mixed_prog_typing_proof) : superoperator =
       Hashtbl.add mixed_prog_sem_memo tp res;
       res
 
+(** Typechecks an expression and computes its pure semantics. *)
 let top_pure_expr_semantics (e : expr) : matrix =
   match pure_type_check StringMap.empty StringMap.empty e with
   | SomeE tp -> pure_expr_semantics tp StringMap.empty
   | NoneE err -> failwith err
 
+(** Typechecks an expression and computes its mixed semantics. *)
 let top_mixed_expr_semantics (e : expr) : matrix =
   match mixed_type_check StringMap.empty e with
   | SomeE tp ->
       superop_apply (mixed_expr_semantics tp) (expr_to_basis_state Qunit Null)
   | NoneE err -> failwith err
 
+(** Typechecks a program and computes its pure semantics. *)
 let top_pure_prog_semantics (f : prog) : matrix =
   match prog_type_check f with
   | SomeE (PureProg tp) -> pure_prog_semantics tp
   | SomeE (MixedProg _) -> failwith "Expected pure program"
   | NoneE err -> failwith err
 
+(** Typechecks a program and computes its mixed semantics. *)
 let top_mixed_prog_semantics (f : prog) : superoperator =
   match prog_type_check f with
   | SomeE (PureProg tp) -> mixed_prog_semantics (TChannel tp)
   | SomeE (MixedProg tp) -> mixed_prog_semantics tp
   | NoneE err -> failwith err
 
+(** Determines the possible measurement outcomes of an expression using the
+    Born rule. *)
 let measurement_outcomes (e : expr) : (expr * float) list =
   match mixed_type_check StringMap.empty e with
   | NoneE err -> failwith err

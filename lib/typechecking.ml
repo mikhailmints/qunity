@@ -2,10 +2,11 @@ open Util
 open Reals
 open Syntax
 
+(** A data structure representing a pure expression typing judgment proof. *)
 type pure_expr_typing_proof =
-  | TUnit of context (* Γ *)
-  | TCvar of exprtype * context * string (* T, ΓΓ', x *)
-  | TQvar of exprtype * context * string (* Γ, x, T *)
+  | TUnit of context  (** {m \Gamma} *)
+  | TCvar of exprtype * context * string  (** {m T, \Gamma \Gamma', x} *)
+  | TQvar of exprtype * context * string  (** {m T, \Gamma, x} *)
   | TPurePair of
       exprtype (* T0 *)
       * exprtype (* T1 *)
@@ -16,6 +17,7 @@ type pure_expr_typing_proof =
       * pure_expr_typing_proof (* e0 : T0 *)
       * pure_expr_typing_proof (* e1 : T1 *)
       * bool (* iso *)
+      (** {m T_0, T_1, \Gamma, \Delta, \Delta_0, \Delta_1, (e_0 : T_0), (e_1 : T_1), \mathrm{iso}} *)
   | TCtrl of
       exprtype (* T *)
       * exprtype (* T' *)
@@ -29,6 +31,7 @@ type pure_expr_typing_proof =
       * ortho_proof
       * erasure_proof StringMap.t
       * bool (* iso *)
+      (** {m T, T', \Gamma, \Gamma', \Delta, \Delta', (e : T), \{\Gamma_j, (e_j : T), (e_j' : T')\}, \mathrm{ortho, erases, iso}} *)
   | TPureApp of
       exprtype (* T *)
       * exprtype (* T' *)
@@ -37,7 +40,9 @@ type pure_expr_typing_proof =
       * pure_prog_typing_proof (* f : T -> T' *)
       * pure_expr_typing_proof (* e : T *)
       * bool (* iso *)
+      (** {m T, T', \Gamma, \Gamma', \Delta, (f : T \rightsquigarrow T'), (e : T), \mathrm{iso}} *)
 
+(** A data structure representing a mixed expression typing judgment proof. *)
 and mixed_expr_typing_proof =
   | TMix of pure_expr_typing_proof
   | TMixedPair of
@@ -49,6 +54,7 @@ and mixed_expr_typing_proof =
       * mixed_expr_typing_proof (* e0 : T0 *)
       * mixed_expr_typing_proof (* e1 : T1 *)
       * bool (* iso *)
+      (** {m T_0, T_1, \Delta, \Delta_0, \Delta_1, (e_0 : T_0), (e_1 : T_1), \mathrm{iso}} *)
   | TTry of
       exprtype (* T *)
       * context (* Δ0 *)
@@ -56,6 +62,7 @@ and mixed_expr_typing_proof =
       * mixed_expr_typing_proof (* e0 : T *)
       * mixed_expr_typing_proof (* e1 : T *)
       * bool (* iso *)
+      (** {m T, \Delta_0, \Delta_1, (e_0 : T), (e_1 : T), \mathrm{iso}} *)
   | TMixedApp of
       exprtype (* T *)
       * exprtype (* T' *)
@@ -63,7 +70,9 @@ and mixed_expr_typing_proof =
       * mixed_prog_typing_proof (* f : T -> T' *)
       * mixed_expr_typing_proof (* e : T *)
       * bool (* iso *)
+      (** {m T, T', \Delta, (f : T \rightsquigarrow T'), (e : T), \mathrm{iso}} *)
 
+(** A data structure representing a pure program typing judgment proof. *)
 and pure_prog_typing_proof =
   | TGate of real * real * real
   | TLeft of exprtype * exprtype
@@ -75,12 +84,14 @@ and pure_prog_typing_proof =
       * pure_expr_typing_proof (* e : T *)
       * pure_expr_typing_proof (* e' : T' *)
       * bool (* iso *)
+      (** {m T, T', \Delta, (e : T), (e' : T'), \mathrm{iso}} *)
   | TRphase of
       exprtype (* T *)
       * pure_expr_typing_proof (* e : T *)
       * real (* r *)
-      * real (* r' *)
+      * real (* r' *)  (** {m T, (e : T), r, r'} *)
 
+(** A data structure representing a mixed program typing judgment proof. *)
 and mixed_prog_typing_proof =
   | TChannel of pure_prog_typing_proof
   | TMixedAbs of
@@ -91,16 +102,21 @@ and mixed_prog_typing_proof =
       * pure_expr_typing_proof (* e : T *)
       * mixed_expr_typing_proof (* e' : T' *)
       * bool (* iso *)
+      (** {m T, T', \Delta, \Delta_0, (e : T), (e' : T'), \mathrm{iso}} *)
 
+(** A data structure representing a pure or mixed program typing judgment
+    proof. *)
 and prog_typing_proof =
   | PureProg of pure_prog_typing_proof
   | MixedProg of mixed_prog_typing_proof
 
+(** A data structure representing an erasure judgment proof. *)
 and erasure_proof =
   | EVar of exprtype
   | EPair0 of exprtype * exprtype * erasure_proof
   | EPair1 of exprtype * exprtype * erasure_proof
 
+(** A data structure representing a spanning judgment proof. *)
 and spanning_proof =
   | SVoid
   | SUnit
@@ -114,8 +130,10 @@ and spanning_proof =
       * int
       * int list
 
-and ortho_proof = spanning_proof * bool list (* selection *)
+and ortho_proof = spanning_proof * bool list
+(** A data structure representing an orthogonality judgment proof. *)
 
+(** Obtains the expression type from a pure expression typing judgment proof. *)
 let type_of_pure_expr_proof (tp : pure_expr_typing_proof) : exprtype =
   match tp with
   | TUnit _ -> Qunit
@@ -125,6 +143,7 @@ let type_of_pure_expr_proof (tp : pure_expr_typing_proof) : exprtype =
   | TCtrl (_, t, _, _, _, _, _, _, _, _, _) -> t
   | TPureApp (_, t, _, _, _, _, _) -> t
 
+(** Obtains the expression type from a mixed expression typing judgment proof. *)
 let type_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : exprtype =
   match tp with
   | TMix p -> type_of_pure_expr_proof p
@@ -132,6 +151,8 @@ let type_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : exprtype =
   | TTry (t, _, _, _, _, _) -> t
   | TMixedApp (_, t, _, _, _, _) -> t
 
+(** Obtains the input and output expression types from a program typing
+    judgment proof. *)
 let rec type_of_prog_proof (tp : prog_typing_proof) : exprtype * exprtype =
   match tp with
   | PureProg (TGate _) -> (bit, bit)
@@ -142,12 +163,15 @@ let rec type_of_prog_proof (tp : prog_typing_proof) : exprtype * exprtype =
   | MixedProg (TChannel tp') -> type_of_prog_proof (PureProg tp')
   | MixedProg (TMixedAbs (t, t', _, _, _, _, _)) -> (t, t')
 
+(** Obtains the program type from a program typing judgment proof. *)
 let progtype_of_prog_proof (tp : prog_typing_proof) : progtype =
   let t, t' = type_of_prog_proof tp in
     match tp with
     | PureProg _ -> Coherent (t, t')
     | MixedProg _ -> Channel (t, t')
 
+(** Obtains the classical and quantum contexts from a pure expression typing
+    judgment proof. *)
 let context_of_pure_expr_proof (tp : pure_expr_typing_proof) :
     context * context =
   match tp with
@@ -160,6 +184,7 @@ let context_of_pure_expr_proof (tp : pure_expr_typing_proof) :
       (map_merge_noopt false g g', map_merge_noopt false d d')
   | TPureApp (_, _, g, d, _, _, _) -> (g, d)
 
+(** Obtains the quantum context from a mixed expression typing judgment proof. *)
 let context_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : context =
   match tp with
   | TMix tp' -> snd (context_of_pure_expr_proof tp')
@@ -168,6 +193,8 @@ let context_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : context =
   | TTry (_, d0, d1, _, _, _) -> map_merge_noopt false d0 d1
   | TMixedApp (_, _, d, _, _, _) -> d
 
+(** Obtains the isometry information from a pure expression typing judgment
+    proof. *)
 let is_iso_pure_expr_proof (tp : pure_expr_typing_proof) : bool =
   match tp with
   | TUnit _
@@ -178,6 +205,8 @@ let is_iso_pure_expr_proof (tp : pure_expr_typing_proof) : bool =
   | TCtrl (_, _, _, _, _, _, _, _, _, _, iso) -> iso
   | TPureApp (_, _, _, _, _, _, iso) -> iso
 
+(** Obtains the isometry information from a mixed expression typing judgment
+    proof. *)
 let is_iso_mixed_expr_proof (tp : mixed_expr_typing_proof) : bool =
   match tp with
   | TMix tp' -> is_iso_pure_expr_proof tp'
@@ -185,6 +214,7 @@ let is_iso_mixed_expr_proof (tp : mixed_expr_typing_proof) : bool =
   | TTry (_, _, _, _, _, iso) -> iso
   | TMixedApp (_, _, _, _, _, iso) -> iso
 
+(** Obtains the isometry information from a pure program typing judgment proof. *)
 let is_iso_pure_prog_proof (tp : pure_prog_typing_proof) : bool =
   match tp with
   | TGate _
@@ -194,16 +224,20 @@ let is_iso_pure_prog_proof (tp : pure_prog_typing_proof) : bool =
       true
   | TPureAbs (_, _, _, _, _, iso) -> iso
 
+(** Obtains the isometry information from a mixed program typing judgment
+    proof. *)
 let is_iso_mixed_prog_proof (tp : mixed_prog_typing_proof) : bool =
   match tp with
   | TChannel tp' -> is_iso_pure_prog_proof tp'
   | TMixedAbs (_, _, _, _, _, _, iso) -> iso
 
+(** Obtains the isometry information from a program typing judgment proof. *)
 let is_iso_prog_proof (tp : prog_typing_proof) : bool =
   match tp with
   | PureProg tp' -> is_iso_pure_prog_proof tp'
   | MixedProg tp' -> is_iso_mixed_prog_proof tp'
 
+(** Determines if an expression is classical (does not use [U3] or [Rphase]). *)
 let rec expr_is_classical (e : expr) : bool =
   match e with
   | Null
@@ -218,6 +252,7 @@ let rec expr_is_classical (e : expr) : bool =
   | Try (e0, e1) -> expr_is_classical e0 && expr_is_classical e1
   | Apply (f, e') -> prog_is_classical f && expr_is_classical e'
 
+(** Determines if a program is classical (does not use [U3] or [Rphase]). *)
 and prog_is_classical (f : prog) : bool =
   match f with
   | U3 _
@@ -228,13 +263,13 @@ and prog_is_classical (f : prog) : bool =
       true
   | Lambda (e0, _, e1) -> expr_is_classical e0 && expr_is_classical e1
 
+(** Checks if an orthogonality proof directly corresponds to a spanning proof
+    (if the corresponding expressions form a full spanning set). *)
 let is_spanning_ortho_proof (orp : ortho_proof) : bool =
   let _, selection = orp in
     List.for_all (fun x -> x) selection
 
-(*
-Finds the free variables in an expression e.
-*)
+(** Finds the free variables in an expression e. *)
 let rec free_vars (e : expr) : StringSet.t =
   match e with
   | Null -> StringSet.empty
@@ -251,6 +286,7 @@ let rec free_vars (e : expr) : StringSet.t =
         l (free_vars e')
   | Apply (_, e') -> free_vars e'
 
+(** Removes global phases from an expression. *)
 let rec dephase (e : expr) : expr list =
   match e with
   | Apply (Rphase (_, _, r0, r1), e') when r0 = r1 -> dephase e'
@@ -258,9 +294,7 @@ let rec dephase (e : expr) : expr list =
       List.flatten (List.map (fun (_, ej') -> dephase ej') l)
   | _ -> [e]
 
-(*
-Given a list l of Qpairs, split the list into two lists.
-*)
+(** Given a list [l] of Qpairs, splits the list into two lists. *)
 let rec split_qpair_list (l : expr list) : (expr list * expr list) option =
   match l with
   | [] -> Some ([], [])
@@ -271,6 +305,8 @@ let rec split_qpair_list (l : expr list) : (expr list * expr list) option =
     end
   | _ -> None
 
+(** Checks whether the erasure check is satisfied, outputting an erasure
+    judgment proof. *)
 let rec erases_check (x : string) (l : expr list) (t : exprtype) :
     erasure_proof option =
   let l' = List.flatten (List.map dephase l) in
@@ -286,11 +322,9 @@ let rec erases_check (x : string) (l : expr list) (t : exprtype) :
         end
       | _ -> None
 
-(*
-Given a list l of expressionsexpected to be of type SumType (t0, t1),
-split the list into two lists - one containing all the "left" expressions
-of type t0 and one containing all the "right" exressions of type t1.
-*)
+(** Given a list l of expressionsexpected to be of type [SumType (t0, t1)],
+    splits the list into two lists - one containing all the "left" expressions
+    of type [t0] and one containing all the "right" exressions of type [t1]. *)
 let rec split_sum_list (t0 : exprtype) (t1 : exprtype) (l : expr list) :
     (expr list * expr list) option =
   match l with
@@ -307,12 +341,11 @@ let rec split_sum_list (t0 : exprtype) (t1 : exprtype) (l : expr list) :
     end
   | _ -> None
 
-(*
-Adds a pair of expressions (e0, e1) to a list consisting of pairs of expressions
-and expression lists. If e0 occurs as one of these expressions, e1 is added
-to its corresponding list. Otherwise, the pair consisting of e0 and the
-singleton list [e1] is added to the list of pairs
-*)
+(** Adds a pair of expressions ([e0], [e1]) to a list consisting of pairs of
+    expressions and expression lists. If [e0] occurs as one of these
+    expressions, [e1] is added to its corresponding list. Otherwise, the pair
+    consisting of [e0] and the singleton list [[e1]] is added to the list of
+    pairs *)
 let rec add_to_qpair_list (e0 : expr) (e1 : expr) (l : (expr * expr list) list)
     : (expr * expr list) list =
   match l with
@@ -323,11 +356,9 @@ let rec add_to_qpair_list (e0 : expr) (e1 : expr) (l : (expr * expr list) list)
       else
         (e0', l1) :: add_to_qpair_list e0 e1 l'
 
-(*
-Convert a list of Qpairs of expressions (of type ProdType (t0, t1)) into a
-list associating each unique expression of type t0 with a list of all
-expressions of type t1 with which it appears in the original list.
-*)
+(** Converts a list of [Qpair]'s of expressions (of type [ProdType (t0, t1)])
+    into a list associating each unique expression of type [t0] with a list of
+    all expressions of type [t1] with which it appears in the original list. *)
 let rec spread_qpair_list (l : expr list) : (expr * expr list) list option =
   match l with
   | [] -> Some []
@@ -338,11 +369,9 @@ let rec spread_qpair_list (l : expr list) : (expr * expr list) list option =
     end
   | _ -> None
 
-(*
-Comparison for two expressions (assumed to be of the same type).
-If the expressions can't both be on the left-hand side of a control block,
-the output is meaningless.
-*)
+(** Comparison for two expressions (assumed to be of the same type). If the
+    expressions can't both be on the left-hand side of a control block, the
+    output is meaningless. *)
 and expr_compare (e0 : expr) (e1 : expr) =
   match (e0, e1) with
   | Null, Null -> 0
@@ -355,6 +384,8 @@ and expr_compare (e0 : expr) (e1 : expr) =
         if c0 = 0 then expr_compare e01 e11 else c0
   | _ -> 0
 
+(** If possible, fills the missing span for a given list of expressions to make
+    the spanning judgment hold. *)
 let missing_span (t : exprtype) (l : expr list) :
     (expr list * spanning_proof) option =
   let rec missing_span_helper (t : exprtype) (l : expr list) (fv : StringSet.t)
@@ -439,15 +470,16 @@ let missing_span (t : exprtype) (l : expr list) :
   in
     missing_span_helper t l StringSet.empty
 
-(*
-Given an expression type t and list l of expressions, expected to be of
-type t, extends the list to one "spanning" t.
-*)
+(** Given an expression type [t] and list [l] of expressions, expected to be of
+    type [t], extends the list to one "spanning" [t], if possible. *)
 let span_list (t : exprtype) (l : expr list) : expr list option =
   match missing_span t l with
   | Some (l', _) -> Some (List.sort expr_compare (l @ l'))
   | None -> None
 
+(** Checks if the given expression list [l] satisfies the orthogonality
+    judgment, and if so, outputs an orthogonality judgment proof data
+    structure. *)
 let ortho_check (t : exprtype) (l : expr list) : ortho_proof option =
   match missing_span t l with
   | Some (l', sp) ->
@@ -457,11 +489,10 @@ let ortho_check (t : exprtype) (l : expr list) : ortho_proof option =
         Some (sp, selection)
   | None -> None
 
-(*
-In T-CTRL, given a classical context g and a pair ej, ej', the quantum
-context of ej has to be some gj with no classical context - then,
-with the classical context g ++ gj, this finds the quantum context of ej'.
-*)
+(** In T-CTRL, given a classical context [g] and a pair [ej], [ej'], the
+    quantum context of [ej] has to be some [gj] with no classical context -
+    then, with the classical context obtained by merging [g] and [gj], this
+    finds the quantum context of [ej']. *)
 let rec first_pattern_context_check (g : context) (t : exprtype)
     (t' : exprtype) (ej : expr) (ej' : expr) : context optionE =
   match context_check StringMap.empty t ej with
@@ -472,10 +503,9 @@ let rec first_pattern_context_check (g : context) (t : exprtype)
       | NoneE err -> NoneE err
     end
 
-(*
-In T-CTRL, checks the type of an expression on the right-hand side of a
-control block under the contexts obtained from the first pattern in the block.
-*)
+(** In T-CTRL, checks the type of an expression on the right-hand side of a
+    control block under the contexts obtained from the first pattern in the
+    block. *)
 and pattern_type_check (g : context) (d : context) (t : exprtype)
     (t' : exprtype) ((ej, ej') : expr * expr) :
     (context * pure_expr_typing_proof * pure_expr_typing_proof) optionE =
@@ -499,9 +529,7 @@ and pattern_type_check (g : context) (d : context) (t : exprtype)
       | NoneE err -> NoneE err
     end
 
-(*
-Finds the type of a mixed expression e with a quantum context d
-*)
+(** Typechecks a mixed expression [e] with a quantum context [d]. *)
 and mixed_type_check (d : context) (e : expr) : mixed_expr_typing_proof optionE
     =
   match e with
@@ -594,10 +622,8 @@ and mixed_type_check (d : context) (e : expr) : mixed_expr_typing_proof optionE
       | NoneE err -> NoneE (err ^ "\nin Mix")
     end
 
-(*
-Finds the type of a pure expression e with a classical context g and a
-quantum context d
-*)
+(** Typechecks a pure expression [e] with a classical context [g] and a quantum
+    context [d]. *)
 and pure_type_check (g : context) (d : context) (e : expr) :
     pure_expr_typing_proof optionE =
   match e with
@@ -762,10 +788,8 @@ and pure_type_check (g : context) (d : context) (e : expr) :
           NoneE (err ^ "\nin Apply")
     end
 
-(*
-Given a mixed expression e expected to be of type t,
-find the quantum context of the expression.
-*)
+(** Given a mixed expression [e] expected to be of type [t], finds the quantum
+    context of the expression. *)
 and mixed_context_check (t : exprtype) (e : expr) : context optionE =
   match (e, t) with
   (* T-MIXEDPAIR *)
@@ -799,10 +823,8 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
     end
   | _, _ -> context_check StringMap.empty t e
 
-(*
-Given a pure expression e expected to be of type t with classical context g,
-find the quantum context of the expression.
-*)
+(** Given a pure expression [e] expected to be of type [t] with classical
+    context [g], finds the quantum context of the expression. *)
 and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
   match (e, t) with
   (* T-UNIT *)
@@ -835,9 +857,7 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
           match first_pattern_context_check g t0 t1 e0 e0' with
           | NoneE err -> NoneE (err ^ "\nin Ctrl")
           | SomeE d0 -> begin
-              (* d is Γ, Δ
-                 g is Γ, Γ'
-                 d0 is Δ, Δ' *)
+              (* d is Γ, Δ g is Γ, Γ' d0 is Δ, Δ' *)
               match map_merge false g d0 with
               | NoneE err -> NoneE (err ^ "\nin Ctrl")
               | SomeE gd0 ->
@@ -885,6 +905,7 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
     end
   | _, _ -> NoneE "Type mismatch"
 
+(** Typechecks a program [f]. *)
 and prog_type_check (f : prog) : prog_typing_proof optionE =
   match f with
   (* T-GATE *)
@@ -955,16 +976,22 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
         end
     end
 
+(** Typechecks a pure expression, throwing an exception in the case of a
+    typechecking error. *)
 let pure_type_check_noopt (e : expr) : pure_expr_typing_proof =
   match pure_type_check StringMap.empty StringMap.empty e with
   | SomeE t -> t
   | NoneE err -> failwith err
 
+(** Typechecks a mixed expression, throwing an exception in the case of a
+    typechecking error. *)
 let mixed_type_check_noopt (e : expr) : mixed_expr_typing_proof =
   match mixed_type_check StringMap.empty e with
   | SomeE t -> t
   | NoneE err -> failwith err
 
+(** Typechecks a program, throwing an exception in the case of a typechecking
+    error. *)
 let prog_type_check_noopt (f : prog) : prog_typing_proof =
   match prog_type_check f with
   | SomeE ft -> ft

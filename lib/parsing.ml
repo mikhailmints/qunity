@@ -2,11 +2,9 @@ open Util
 open Syntax
 open Extended_syntax
 
-(*
-Source:
-https://baturin.org/blog/declarative-parse-error-reporting-with-menhir/
-*)
 module I = Parser.MenhirInterpreter
+(** Source:
+    {:https://baturin.org/blog/declarative-parse-error-reporting-with-menhir/} *)
 
 exception Syntax_error of ((int * int) option * string)
 
@@ -47,10 +45,12 @@ let rec parse lexbuf (checkpoint : 'a I.checkpoint) =
   | I.Accepted v -> v
   | I.Rejected -> raise (Syntax_error (None, "Invalid syntax"))
 
+(** Parses a [qunityfile] from a string. *)
 let parse_string (s : string) : qunityfile =
   let lexbuf = Lexing.from_string s in
     parse lexbuf (Parser.Incremental.qunityfile lexbuf.lex_curr_p)
 
+(** Parses a [qunityfile] from a file. *)
 let parse_file (filename : string) : qunityfile =
   let file = open_in filename in
   let lexbuf = Lexing.from_channel (open_in filename) in
@@ -60,6 +60,8 @@ let parse_file (filename : string) : qunityfile =
     close_in file;
     result
 
+(** Given a parsing function (from a string or a file), outputs a [qunityfile]
+    if there are no syntax errors. Otherwise, outputs a syntax error message. *)
 let parse_with_err parse_fun s : qunityfile optionE =
   try SomeE (parse_fun s) with
   | Syntax_error (loc, err) -> begin
@@ -75,6 +77,7 @@ let parse_with_err parse_fun s : qunityfile optionE =
     end
   | Lexer.Lexing_error err -> NoneE err
 
+(** Reads a file and outputs a Qunity expression. *)
 let get_expr_from_file (prog_filename : string) : expr optionE =
   let stdlib_filename = "qunitylib/stdlib.qunity" in
     match parse_with_err parse_file stdlib_filename with

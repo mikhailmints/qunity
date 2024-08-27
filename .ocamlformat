@@ -3,4 +3,6 @@ break-cases=all
 space-around-lists=false
 indent-after-in=2
 exp-grouping=preserve
+parse-docstrings=true
+wrap-comments=true
 margin=79

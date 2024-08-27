@@ -4,28 +4,35 @@ open Syntax
 open Typechecking
 open Gate
 
+(** If set to true, prints some helpful debugging information. *)
 let debug_mode = ref false
+
+(** If set to true, adds annotation gates to circuits. *)
 let annotation_mode = ref false
+
+(** If set to true, runs the post-processing optimization procedure on the
+    compiled circuit. *)
 let post_optimize = ref true
 
-(*
-A circuit is a wrapper around a gate that labels the qubits by their roles as
-input qubits, output qubits, prep qubits (which are initialized in the |0>
-state, flag qubigs (which are expected to be zero in the end if no error is
-thrown), and garbage qubits, which are measured and discarded, unless the
-circuit is instantiated with the reset_garb option set to false (as it is when
-constructing) a purified version of the circuit.
-*)
 type circuit = {
   name : string;
-  in_regs : int list list;
-  prep_reg : int list;
-  out_regs : int list list;
-  flag_reg : int list;
-  garb_reg : int list;
-  gate : gate;
+      (** Name associated with circuit, used for debugging purposes. *)
+  in_regs : int list list;  (** List of input registers. *)
+  prep_reg : int list;  (** The prep register used by the circuit. *)
+  out_regs : int list list;  (** List of output registers. *)
+  flag_reg : int list;  (** Flag register. *)
+  garb_reg : int list;  (** Garbage register. *)
+  gate : gate;  (** Gate associated with the circuit. *)
 }
+(** A {e circuit} is a wrapper around a gate that labels the qubits by their
+    roles as input qubits, output qubits, prep qubits (which are initialized in
+    the {m |0\rangle} state), flag qubits (which are expected to be
+    {m |0\rangle} in the end if no error is thrown), and garbage qubits, which
+    are measured and discarded, unless the circuit is instantiated with the
+    [reset_garb] setting set to [false] (as it is when constructing a purified
+    version of the circuit). *)
 
+(** String representation of a circuit. *)
 let string_of_circuit (circ : circuit) : string =
   Printf.sprintf
     "name: %s\n\
@@ -45,88 +52,119 @@ let string_of_circuit (circ : circuit) : string =
 
 type instantiation_settings = {
   reset_flag : bool;
+      (** Whether or not to measure and reset the flag qubits *)
   reset_garb : bool;
+      (** Whether or not to measure and reset the garbage qubits *)
   iso : bool;
+      (** Whether or not this circuit can be treated as an {e isometry}, in
+          which case we can expect the flag registers to end in the
+          {m |0\rangle} state, allowing for some additional post-processing
+          optimizations. *)
 }
+(** An object containing settings that are passed to a circuit specification
+    when it is instantiated into a circuit. *)
 
-(*
-A circuit specification wraps a function for building a circuit provided a
-certain input register and a set of wires that were already used, as well as
-an option that tells whether or not to reset the garbage register.
-*)
 type circuit_spec = {
   in_sizes : int list;
+      (** The required input register sizes that the circuit specification
+          accepts. *)
   out_sizes : int list;
-  (* in_regs, used_wires, settings -> (circuit, updated used_wires) *)
+      (** The sizes of the output registers of the circuit specification. *)
   circ_fun :
     int list list -> IntSet.t -> instantiation_settings -> circuit * IntSet.t;
+      (** Circuit instantiation function: Takes in [in_regs], [used_wires],
+          [settings], and outputs ([circuit], updated [used_wires]). *)
 }
+(** A {e circuit specification} wraps a function for building a circuit
+    provided a certain input register and a set of wires that were already
+    used, as well as an option that tells whether or not to reset the garbage
+    register. *)
 
-(*
-A valuation for the intermediate representation maps strings (variable names)
-to quantum registers that they represent.
-*)
 type inter_valuation = int list StringMap.t
+(** A {e valuation} for the intermediate representation maps strings (variable
+    names) to quantum registers that they represent. *)
 
-(*
-An operator in the intermediate representation is any one of the operators
-detled in Appendix H.1 of Voichick et al, or a user-defined ILambda. The
-implementation of the pre-defined operators is contained in this file. A
-user-defined operator can apply a number of operators in sequence to some
-registers, storing them as variables in its body.
-*)
+(** An {e operator} in the intermediate representation is any one of the
+    operators detled in Appendix H.1 of Voichick et al, or a user-defined
+    [ILambda]. The implementation of the pre-defined operators is contained in
+    this file. A user-defined operator can apply a number of operators in
+    sequence to some registers, storing them as variables in its body. *)
 type inter_op =
-  | INothing
-  | IEmpty
+  | INothing  (** Takes in nothing and outputs nothing. *)
+  | IEmpty  (** Takes in nothing and outputs an empty register. *)
   | IPrepReg of int
+      (** Takes in nothing and outputs a register in the {m |0\rangle} state of
+          a given size. *)
   | IIdentity of exprtype
-  | ISizeIdentity of int
+      (** Identity operator corresponding to a given type. *)
+  | ISizeIdentity of int  (** Identity operator of a given size. *)
   | IAnnotation of int list * string
-  | IU3 of real * real * real
+      (** Adds an annotation with a comment to a register. *)
+  | IU3 of real * real * real  (** Single-qubit gate *)
   | IRphase of exprtype * inter_op * real * real
-  | ILeft of exprtype * exprtype (* a {T0} -> left{T0, T1} a *)
-  | IRight of exprtype * exprtype (* a {T1} -> right{T0, T1} a *)
-  | IPair of exprtype * exprtype (* a {T0}, b {T1} -> (a, b) {T0 * T1} *)
+      (** Relative phase operator, using a given operator to define a subspace
+          of the given type. *)
+  | ILeft of exprtype * exprtype
+      (** Left direct sum injection {m T_0 \rarr T_0 \oplus T_1}. *)
+  | IRight of exprtype * exprtype
+      (** Right direct sum injection {m T_1 \rarr T_0 \oplus T_1}. *)
+  | IPair of exprtype * exprtype
+      (** Takes in two registers of given types {m T_0} and {m T_1} and outputs
+          a register corresponding to their pair, of type {m T_0 \otimes T_1}. *)
   | ISizePair of int * int
-  | IShare of exprtype (* a {T} -> [a; a] *)
-  | IContextShare of context
-  | IAdjoint of inter_op
+      (** Combines two registers of given sizes into one. *)
+  | IShare of exprtype  (** The share gate for a given type. *)
+  | IContextShare of context  (** The share gate for a given context. *)
+  | IAdjoint of inter_op  (** Takes the adjoint of another operator. *)
   | ISequence of inter_op * inter_op
-  | IDirsum of inter_op * inter_op
-  | IAssoc of
-      exprtype * exprtype * exprtype (* (T0 + T1) + T2 -> T0 + (T1 + T2) *)
-  | IDistrLeft of
-      exprtype * exprtype * exprtype (* T * (T0 + T1) -> T * T0 + T * T1 *)
-  | IDistrRight of
-      exprtype * exprtype * exprtype (* (T0 + T1) * T -> T0 * T + T1 * T *)
-  | IMixedErr of inter_op
-  | IPureErr of inter_op
-  | IAlwaysErr of int
+      (** Sequence of two operators applied one after the other. *)
+  | IDirsum of inter_op * inter_op  (** Direct sum of two operators. *)
+  | IAssoc of exprtype * exprtype * exprtype
+      (** Direct sum associativity isomorphism
+          {m (T_0 \oplus T1) \oplus T_2 \rarr T_0 \oplus (T_1 \oplus T_2)}. *)
+  | IDistrLeft of exprtype * exprtype * exprtype
+      (** Left distributivity isomorphism
+          {m T \otimes (T_0 \oplus T_1) \rarr T \otimes T_0 \oplus T \otimes T_1}. *)
+  | IDistrRight of exprtype * exprtype * exprtype
+      (** Right distributivity isomorphism
+          {m (T_0 \oplus T1) \otimes T \rarr T_0 \otimes T \oplus T_1 \otimes T}. *)
+  | IMixedErr of inter_op  (** Mixed error handling circuit. *)
+  | IPureErr of inter_op  (** Pure error handling circuit. *)
+  | IAlwaysErr of int  (** Circuit component that always throws an error. *)
   | IDiscard of exprtype
+      (** Discards the input register, associated with a type. *)
   | IContextDiscard of context
-  | IPurify of inter_op
+      (** Discards the input register, associated with a context. *)
+  | IPurify of inter_op  (** Purification of an operator *)
   | IMarkAsIso of bool * inter_op
-  | IContextPartition of
-      context * StringSet.t (* context -> [things in set; things not in set] *)
+      (** Marks an operator as an isometry, changing the corresponding
+          instantiation settings. *)
+  | IContextPartition of context * StringSet.t
+      (** Partitions a register corresponding to a context into two according
+          to a given set. *)
   | IContextMerge of context * context
-    (* merge contexts assumed to be disjoint *)
+      (** Merges contexts assumed to be disjoint, ensuring proper ordering of
+          variables. *)
   | ILambda of
       string * (string * int) list * inter_com list * (string * int) list
-(* Output sizes, arg names with sizes, body, return vars. *)
+      (** A user-defined operator. Consists of a name, a list of argument names
+          with sizes, a list of commands (assignments), and a list of output
+          variable names with sizes. *)
 
-(*
-A command in the intermediate representation consists of the output variable
-names, the and operator, input variable names. The commands represent
-assigning to the output variables the operator applied to the input variables,
-and they also delete the input variables since the registers will overlap in
-an arbitrary way in the reassignment.
-*)
 and inter_com = string list * inter_op * string list
+(** A {e command} in the intermediate representation consists of the output
+    variable names, the operator, and input variable names. The commands
+    represent assigning to the output variables the operator applied to the
+    input variables, and they also delete the input variables since the
+    registers will overlap in an arbitrary way in the reassignment. *)
 
 let ( @&& ) a b = ISequence (a, b)
 
+(** A simple binary tree data structure, used for representing direct sum
+    encoding structures. *)
 type binary_tree = Leaf | Node of binary_tree * binary_tree
 
+(** String representation of a binary tree. *)
 let rec string_of_tree (tree : binary_tree) : string =
   match tree with
   | Leaf -> "Leaf"
@@ -134,16 +172,21 @@ let rec string_of_tree (tree : binary_tree) : string =
       Printf.sprintf "Node (%s, %s)" (string_of_tree tree0)
         (string_of_tree tree1)
 
+(** The number of leaves in the tree. *)
 let rec tree_size (tree : binary_tree) : int =
   match tree with
   | Leaf -> 1
   | Node (l, r) -> tree_size l + tree_size r
 
+(** The longest distance from the root of the tree to a leaf. *)
 let rec tree_height (tree : binary_tree) : int =
   match tree with
   | Leaf -> 0
   | Node (l, r) -> 1 + max (tree_height l) (tree_height r)
 
+(** To each leaf of [tree0], attach a copy of the corresponding element of
+    [l_tree1]. It is required that the length of [l_tree1] is the same as the
+    size of [tree0]. *)
 let rec tree_multiply (tree0 : binary_tree) (l_tree1 : binary_tree list) :
     binary_tree =
   match (tree0, l_tree1) with
@@ -154,16 +197,17 @@ let rec tree_multiply (tree0 : binary_tree) (l_tree1 : binary_tree list) :
         Node (tree_multiply tree0_l l_tree1_l, tree_multiply tree0_r l_tree1_r)
     end
 
-(* Alias for ILambda. *)
+(** Alias for ILambda, also adding an option to mark it as an isometry. *)
 let inter_lambda (name : string) (iso : bool) (arglist : (string * int) list)
     (body : inter_com list) (ret : (string * int) list) : inter_op =
   IMarkAsIso (iso, ILambda (name, arglist, body, ret))
 
-(* Alias for construcing an inter_com for clarity. *)
+(** Alias for construcing an [inter_com] for clarity. *)
 let inter_letapp (target : string list) (op : inter_op) (args : string list) :
     inter_com =
   (target, op, args)
 
+(** An [inter_com] creating an annotation not applied to any registers. *)
 let inter_comment (message : string) =
   inter_letapp []
     (if !annotation_mode then
@@ -172,7 +216,8 @@ let inter_comment (message : string) =
        INothing)
     []
 
-(* Add annotations describing the (low-level) roles of the registers to a circuit. *)
+(** Add annotations describing the (low-level) roles of the registers to a
+    circuit. *)
 let annotate_circuit (circ : circuit) : circuit =
   if circ.name = "init" then
     circ
@@ -197,9 +242,14 @@ let annotate_circuit (circ : circuit) : circuit =
         @& Annotation (circ.garb_reg, Printf.sprintf "%s garb" circ.name);
     }
 
-(*
-Wrapper around calling a circuit_spec's circ_fun
-*)
+(** Wrapper around a [circuit_spec]'s [circ_fun]. This should always be used
+    instead of calling the [circ_fun] directly. This instantiates a
+    [circuit_spec] into a [circuit], and it also makes sure that the
+    instantiation settings are followed. If some registers are reset, the
+    corresponding qubits are removed from the [used_wires] set and are thus
+    {e recycled}. This also places {e potential deletion labels} onto resetting
+    garbage registers, and, if [settings.iso] is true (the circuit is marked as
+    an isometry), it also places them onto resetting flag registers. *)
 let build_circuit (cs : circuit_spec) (in_regs : int list list)
     (used_wires : IntSet.t) (settings : instantiation_settings) :
     circuit * IntSet.t =
@@ -229,12 +279,12 @@ let build_circuit (cs : circuit_spec) (in_regs : int list list)
       gate =
         begin
           if settings.iso && settings.reset_flag then
-            (* Note that this label may not necessarily be placed
-               in the location where the qubits of interest are initialized - this
-               might be part of the input rather than the prep register. However,
-               this is ok, because in the post-processing stage, the labels will
-               be shifted as far left as possible before the qubit removal optimization
-               procedure is started. *)
+            (* Note that this label may not necessarily be placed in the
+               location where the qubits of interest are initialized - this
+               might be part of the input rather than the prep register.
+               However, this is ok, because in the post-processing stage, the
+               labels will be shifted as far left as possible before the qubit
+               removal optimization procedure is started. *)
             gate_label_reg_for_potential_deletion circ.flag_reg
           else
             Identity
@@ -263,19 +313,19 @@ let build_circuit (cs : circuit_spec) (in_regs : int list list)
   in
     (circ, used_wires)
 
-(*
-To create a controlled version of something that is already provided as a
-circuit, this should be used instead of just adding a Controlled to the
-circuit's gate. This is because whatever permutation is applied to the input
-qubits when rearranging them should also be controlled. This undoes the
-permutation and redoes it under a control to ensure this.
-*)
+(** To create a controlled version of something that is already provided as a
+    circuit, this should be used instead of just adding a [Controlled] to the
+    circuit's gate. This is because whatever permutation is applied to the
+    input qubits when rearranging them should also be controlled. This function
+    ensures that the permutation is applied as a controlled gate. *)
 let controlled_circ (l : int list) (bl : bool list) (circ : circuit) : gate =
   let circ_in = List.flatten circ.in_regs @ circ.prep_reg in
   let circ_out = List.flatten circ.out_regs @ circ.flag_reg @ circ.garb_reg in
     Controlled (l, bl, circ.gate)
     @& Controlled (l, bl, gate_permute circ_in circ_out)
 
+(** Rewires a circuit, remapping all qubits in [source] to the corresponding
+    qubits in [target]. *)
 let rewire_circuit (circ : circuit) (source : int list) (target : int list) :
     circuit =
   let rewiring = IntMap.of_seq (List.to_seq (List.combine source target)) in
@@ -291,9 +341,7 @@ let rewire_circuit (circ : circuit) (source : int list) (target : int list) :
       gate = gate_rewire circ.gate source target;
     }
 
-(*
-Number of qubits needed to represent a value of a given size.
-*)
+(** Number of qubits needed to represent a value of a given size. *)
 let rec type_size (t : exprtype) =
   match t with
   | Void
@@ -302,18 +350,14 @@ let rec type_size (t : exprtype) =
   | SumType (t0, t1) -> 1 + max (type_size t0) (type_size t1)
   | ProdType (t0, t1) -> type_size t0 + type_size t1
 
-(*
-Number of qubits needed to represent a set of values corresponding to
-a certain context.
-*)
+(** Number of qubits needed to represent a set of values corresponding to a
+    certain context. *)
 let context_size (d : context) =
   List.fold_left ( + ) 0
     (List.map (fun (_, t) -> type_size t) (StringMap.bindings d))
 
-(*
-Utility function for error-checking when only one in_reg should be provided
-to a circuit_spec.
-*)
+(** Utility function for error-checking when only one [in_reg] should be
+    provided to a [circuit_spec]. *)
 let expect_single_in_reg (name : string) (in_regs : int list list) (size : int)
     : int list =
   match in_regs with
@@ -323,6 +367,8 @@ let expect_single_in_reg (name : string) (in_regs : int list list) (size : int)
         (Printf.sprintf "%s: expected input lengths [%d], got %s" name size
            (string_of_list string_of_int (List.map List.length in_regs)))
 
+(** Utility function for error-checking that the provided [regs] provided match
+    the [expected] sizes. *)
 let expect_sizes (name : string) (expected : int list) (regs : int list list) :
     unit =
   if List.map List.length regs <> expected then
@@ -331,16 +377,14 @@ let expect_sizes (name : string) (expected : int list) (regs : int list list) :
          (string_of_list string_of_int expected)
          (string_of_list string_of_int (List.map List.length regs)))
 
-(*
-A circuit that takes in nothing and outputs nothing.
-*)
+(** A circuit that takes in nothing and outputs nothing. *)
 let circuit_nothing : circuit_spec =
   {
     in_sizes = [];
     out_sizes = [];
     circ_fun =
       begin
-        fun in_regs used_wires _ ->
+        fun (in_regs : int list list) (used_wires : IntSet.t) _ ->
           expect_sizes "circuit_nothing" [] in_regs;
           ( {
               name = "nothing";
@@ -355,16 +399,14 @@ let circuit_nothing : circuit_spec =
       end;
   }
 
-(*
-A circuit that takes in nothing and outputs an empty register.
-*)
+(** A circuit that takes in nothing and outputs an empty register. *)
 let circuit_empty : circuit_spec =
   {
     in_sizes = [];
     out_sizes = [0];
     circ_fun =
       begin
-        fun in_regs used_wires _ ->
+        fun (in_regs : int list list) (used_wires : IntSet.t) _ ->
           expect_sizes "circuit_empty" [] in_regs;
           ( {
               name = "empty";
@@ -379,10 +421,8 @@ let circuit_empty : circuit_spec =
       end;
   }
 
-(*
-A circuit that takes in nothing and outputs an zeroed register of a
-given size.
-*)
+(** A circuit that takes in nothing and outputs an zeroed register of a given
+    size. *)
 let circuit_prep_reg (size : int) : circuit_spec =
   {
     in_sizes = [];
@@ -405,9 +445,7 @@ let circuit_prep_reg (size : int) : circuit_spec =
       end;
   }
 
-(*
-The identity circuit operating on a given type.
-*)
+(** The identity circuit operating on a given type. *)
 let circuit_identity (size : int) : circuit_spec =
   {
     in_sizes = [size];
@@ -428,6 +466,7 @@ let circuit_identity (size : int) : circuit_spec =
       end;
   }
 
+(** Adds an annotation with a comment to a register. *)
 let circuit_annotation (sizes : int list) (s : string) =
   {
     in_sizes = sizes;
@@ -449,9 +488,7 @@ let circuit_annotation (sizes : int list) (s : string) =
       end;
   }
 
-(*
-Circuit corresponding to a single-qubit gate.
-*)
+(** Circuit corresponding to a single-qubit gate. *)
 let circuit_u3 (theta : real) (phi : real) (lambda : real) : circuit_spec =
   {
     in_sizes = [1];
@@ -474,9 +511,7 @@ let circuit_u3 (theta : real) (phi : real) (lambda : real) : circuit_spec =
       end;
   }
 
-(*
-Circuit corresponding to a global phase gate.
-*)
+(** Circuit corresponding to a global phase gate. *)
 let circuit_gphase (t : exprtype) (theta : real) : circuit_spec =
   let size = type_size t in
     {
@@ -499,9 +534,8 @@ let circuit_gphase (t : exprtype) (theta : real) : circuit_spec =
         end;
     }
 
-(*
-Lemma H.1
-*)
+(** Circuit corresponding to the left direct sum injection
+    {m T_0 \rarr T_0 \oplus T_1}. *)
 let circuit_left (t0 : exprtype) (t1 : exprtype) : circuit_spec =
   let in_size = type_size t0 in
   let out_size = type_size (SumType (t0, t1)) in
@@ -527,9 +561,8 @@ let circuit_left (t0 : exprtype) (t1 : exprtype) : circuit_spec =
         end;
     }
 
-(*
-Lemma H.1
-*)
+(** Circuit corresponding to the right direct sum injection
+    {m T_1 \rarr T_0 \oplus T_1}. *)
 let circuit_right (t0 : exprtype) (t1 : exprtype) : circuit_spec =
   let in_size = type_size t1 in
   let out_size = type_size (SumType (t0, t1)) in
@@ -557,11 +590,9 @@ let circuit_right (t0 : exprtype) (t1 : exprtype) : circuit_spec =
         end;
     }
 
-(*
-Circuit implementing the share gate, which copies classical data from the
-input register. This is not quantum cloning (which is impossible), it will
-only duplicate the input when it is in a basis state.
-*)
+(** Circuit implementing the share gate, which copies classical data from the
+    input register. This is not quantum cloning (which is impossible) - it will
+    only duplicate the input when it is in a basis state. *)
 let circuit_share (size : int) : circuit_spec =
   {
     in_sizes = [size];
@@ -584,10 +615,9 @@ let circuit_share (size : int) : circuit_spec =
       end;
   }
 
-(*
-Circuit that takes in a value of type t0 and a value of type t1 and outputs
-a value of type t0 * t1 (functionally this is just the identity circuit).
-*)
+(** Circuit that takes in a value of type {m T_0} and a value of type {m T_1}
+    and outputs a value of type {m T_0 \otimes T_1} (functionally this is just
+    the identity circuit). *)
 let circuit_pair (size0 : int) (size1 : int) : circuit_spec =
   {
     in_sizes = [size0; size1];
@@ -614,11 +644,9 @@ let circuit_pair (size0 : int) (size1 : int) : circuit_spec =
       end;
   }
 
-(*
-Takes the adjoint of a circuit specification. To do this, we need to instantiate
-the circuit with fresh wires and then do a rewiring using the provided input
-registers.
-*)
+(** Takes the adjoint of a circuit specification. To do this, we need to
+    instantiate the circuit with fresh wires and then do a rewiring using the
+    provided input registers. *)
 let circuit_adjoint (cs : circuit_spec) : circuit_spec =
   {
     in_sizes = cs.out_sizes;
@@ -670,6 +698,8 @@ let circuit_adjoint (cs : circuit_spec) : circuit_spec =
       end;
   }
 
+(** Combines two circuit specifications in a sequence, ensuring that registers
+    are properly handled in the middle where qubit recycling could occur. *)
 let circuit_sequence (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
   {
     in_sizes = cs0.in_sizes;
@@ -698,9 +728,7 @@ let circuit_sequence (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec =
       end;
   }
 
-(*
-Circuit implementing the direct sum of two circuits.
-*)
+(** Circuit implementing the direct sum of two circuits. *)
 let rec circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec
     =
   let s0, s1, s0', s1' =
@@ -749,9 +777,9 @@ let rec circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec
                 build_circuit cs0 [s0_reg] used_wires
                   { settings with reset_flag = false }
               in
-              (* Note that I am deliberately not updating used_wires between creating the
-                 circuits! This is because we are trying to reuse the prep register as much
-                 as possible. *)
+              (* Note that I am deliberately not updating used_wires between
+                 creating the circuits! This is because we are trying to reuse
+                 the prep register as much as possible. *)
               let circ1, used_wires1 =
                 build_circuit cs1 [s1_reg] used_wires
                   { settings with reset_flag = false }
@@ -927,10 +955,8 @@ let rec circuit_dirsum (cs0 : circuit_spec) (cs1 : circuit_spec) : circuit_spec
           end;
       }
 
-(*
-Associativity isomorphism in Lemma H.6. Takes (t0 + t1) + t2 and outputs
-t0 + (t1 + t2).
-*)
+(** Direct sum associativity isomorphism
+    {m (T_0 \oplus T_1) \oplus T_2 \rarr T_0 \oplus (T_1 \oplus T_2)}. *)
 let circuit_assoc (t0 : exprtype) (t1 : exprtype) (t2 : exprtype) :
     circuit_spec =
   (* 1 + max(1 + max(s0, s1), s2) *)
@@ -983,10 +1009,8 @@ let circuit_assoc (t0 : exprtype) (t1 : exprtype) (t2 : exprtype) :
         end;
     }
 
-(*
-Left distributivity isomorphism in Lemma H.7. Takes t * (t0 + t1) and outputs
-(t * t0) + (t * t1).
-*)
+(** Left distributivity isomorphism
+    {m T \otimes (T_0 \oplus T_1) \rarr T \otimes T_0 \oplus T \otimes T_1}. *)
 let circuit_distr_left (t : exprtype) (t0 : exprtype) (t1 : exprtype) :
     circuit_spec =
   let in_sizes = [type_size t; type_size (SumType (t0, t1))] in
@@ -1018,10 +1042,8 @@ let circuit_distr_left (t : exprtype) (t0 : exprtype) (t1 : exprtype) :
         end;
     }
 
-(*
-Right distributivity isomorphism. Takes (t0 + t1) * t and outputs
-(t0 * t) + (t1 * t).
-*)
+(** Right distributivity isomorphism
+    {m (T_0 \oplus T_1) \otimes T \rarr T_0 \otimes T \oplus T_1 \otimes T}. *)
 let circuit_distr_right (t0 : exprtype) (t1 : exprtype) (t : exprtype) :
     circuit_spec =
   let in_sizes = [type_size (SumType (t0, t1)); type_size t] in
@@ -1078,9 +1100,11 @@ let circuit_distr_right (t0 : exprtype) (t1 : exprtype) (t : exprtype) :
         end;
     }
 
-(*
-Lemma H.8
-*)
+(** Mixed error handling circuit: given a circuit specification corresponding
+    to a trace non-increasing superoperator with output space {m \mathcal{H}},
+    converts it into a circuit corresponding to a trace-preserving
+    superoperator with output space {m \mathcal{H} \oplus \mathbb{C}}, sending
+    the error states to the new subspace. *)
 let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
   let in_sizes = cs.in_sizes in
   let out_size = 1 + List.fold_left ( + ) 0 cs.out_sizes in
@@ -1135,9 +1159,12 @@ let circuit_mixed_error_handling (cs : circuit_spec) : circuit_spec =
         end;
     }
 
-(*
-Lemma H.9
-*)
+(** Pure error handling circuit: given a circuit specification corresponding to
+    a Kraus operator with output space {m \mathcal{H}}, converts it into a
+    circuit corresponding to a norm-preserving operator with output space
+    {m \mathcal{H} \oplus \mathcal{H}_F} for some flag space {m \mathcal{H}_F}.
+    This just sends the flag registers to the output and adds an additional
+    signaling qubit. *)
 let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
   let flag_size =
     begin
@@ -1192,6 +1219,9 @@ let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
         end;
     }
 
+(** Relative phase circuit, using a given circuit specification to define a
+    subspace of the given type - different phases are applied to states inside
+    and outside the subspace. *)
 let circuit_rphase (t : exprtype) (cs : circuit_spec) (r0 : real) (r1 : real) :
     circuit_spec =
   let cs_adj = circuit_adjoint cs in
@@ -1240,10 +1270,8 @@ let circuit_rphase (t : exprtype) (cs : circuit_spec) (r0 : real) (r1 : real) :
         end;
     }
 
-(*
-Circuit that always causes an error by creating a nonzero value in the
-flag register.
-*)
+(*** Circuit that always causes an error by creating a nonzero value in the
+  flag register. *)
 let circuit_always_error (size : int) =
   {
     in_sizes = [size];
@@ -1268,9 +1296,8 @@ let circuit_always_error (size : int) =
       end;
   }
 
-(*
-Discards the input by putting the input register into the garbage register.
-*)
+(** Circuit that discards the input by putting the input register into the
+    garbage register. *)
 let circuit_discard (size : int) =
   {
     in_sizes = [size];
@@ -1292,10 +1319,8 @@ let circuit_discard (size : int) =
       end;
   }
 
-(*
-Purification of a circuit - ensures that when the circuit is built, no
-garbage wires are reset or reused.
-*)
+(** Purification of a circuit - ensures that when the circuit is built, no
+    garbage wires are reset or reused. *)
 let circuit_purify (cs : circuit_spec) : circuit_spec =
   let garb_size =
     begin
@@ -1330,6 +1355,8 @@ let circuit_purify (cs : circuit_spec) : circuit_spec =
         end;
     }
 
+(** Circuit modifier that ensures that [settings.iso] is set to [true] when the
+    circuit is instantiated. *)
 let circuit_mark_as_iso (iso : bool) (cs : circuit_spec) : circuit_spec =
   {
     in_sizes = cs.in_sizes;
@@ -1342,11 +1369,9 @@ let circuit_mark_as_iso (iso : bool) (cs : circuit_spec) : circuit_spec =
       end;
   }
 
-(*
-Given a context and a register containing something in the space associated
-to the context, splits the register into smaller registers mapped to each
-variable in the context.
-*)
+(** Given a context [d] and a register [reg] containing something in the space
+    associated to the context, splits the register into smaller registers
+    mapped to each variable in the context. *)
 let context_reg_split (d : context) (reg : int list) : int list StringMap.t =
   let rec iter (cur : int list StringMap.t) (reg_rest : int list)
       (bind_rest : (string * exprtype) list) : int list StringMap.t =
@@ -1359,10 +1384,9 @@ let context_reg_split (d : context) (reg : int list) : int list StringMap.t =
   in
     iter StringMap.empty reg (StringMap.bindings d)
 
-(*
-Partition a register corresponding to a context into a part corresponding to
-those variables that are in a specified set and those that are not.
-*)
+(** Partitions a register [reg] corresponding to a context [d] into a part
+    corresponding to those variables that are in a specified set [fv] and those
+    that are not. *)
 let context_reg_partition (d : context) (reg : int list) (fv : StringSet.t) :
     int list * int list =
   let reg_map = context_reg_split d reg in
@@ -1377,11 +1401,10 @@ let context_reg_partition (d : context) (reg : int list) (fv : StringSet.t) :
       ( flatten_bindings (StringMap.bindings reg_map_in),
         flatten_bindings (StringMap.bindings reg_map_out) )
 
-(*
-Creates a circuit that partitions a register corresponding to a context into a
-part corresponding to those variables that are in a specified set and those that
-are not. These two new registers form the output registers of the circuit.
-*)
+(** Creates a circuit that partitions a register corresponding to a context [d]
+    into a part corresponding to those variables that are in a specified set
+    [fv] and those that are not. These two new registers form the output
+    registers of the circuit. *)
 let circuit_context_partition (d : context) (fv : StringSet.t) : circuit_spec =
   let in_size = context_size d in
   let d0, d1 = map_partition d fv in
@@ -1408,11 +1431,9 @@ let circuit_context_partition (d : context) (fv : StringSet.t) : circuit_spec =
         end;
     }
 
-(*
-A circuit that merges two disjoint (important!) contexts into one. Since the
-contexts are disjoint, this merge is simply the adjioint of the
-partition circuit.
-*)
+(** A circuit that merges two disjoint ({e this is important!}) contexts into
+    one. Since the contexts are disjoint, this merge is simply the adjoint of
+    the partition circuit. *)
 let circuit_context_merge (d0 : context) (d1 : context) : circuit_spec =
   let d =
     match map_merge false d0 d1 with
@@ -1422,12 +1443,12 @@ let circuit_context_merge (d0 : context) (d1 : context) : circuit_spec =
   let fv0 = map_dom d0 in
     circuit_adjoint (circuit_context_partition d fv0)
 
-(*
-Given a circuit and an intermediate representation command, as well as an
-intermediate representation valuation, applies the command's operator to the
-registers of the circuit. Returns an updated circuit and valuation (which
-has the new variables corresponding to the output registers of the circuit).
-*)
+(** Given a circuit [circ] and an intermediate representation command [ic], as
+    well as an intermediate representation valuation [iv], applies the
+    command's operator to the registers of the circuit, instantiating a new
+    circuit component using the given [used_wires] and [settings]. Returns an
+    updated circuit and valuation (which has the new variables corresponding to
+    the output registers of the circuit). *)
 let rec compile_inter_com_to_circuit (circ : circuit) (used_wires : IntSet.t)
     (iv : inter_valuation) (ic : inter_com) (settings : instantiation_settings)
     : circuit * IntSet.t * inter_valuation =
@@ -1496,10 +1517,8 @@ let rec compile_inter_com_to_circuit (circ : circuit) (used_wires : IntSet.t)
           in
             (res_circ, used_wires, iv'')
 
-(*
-Applies a list of intermediate representation commands, in series, to a circuit,
-updating the valuation each time.
-*)
+(** Applies a list of intermediate representation commands, in series, to a
+    circuit, updating the valuation each time. *)
 and compile_inter_com_list_to_circuit (circ : circuit) (used_wires : IntSet.t)
     (iv : inter_valuation) (icl : inter_com list)
     (settings : instantiation_settings) : circuit * IntSet.t * inter_valuation
@@ -1513,11 +1532,11 @@ and compile_inter_com_list_to_circuit (circ : circuit) (used_wires : IntSet.t)
         compile_inter_com_list_to_circuit circ' used_wires' iv' iclt settings
     end
 
-(*
-Converts an intermediate representation operator to a circuit, calling the
-previously defined circuits for most cases and calling the above functions
-for the user-defined ILambda case.
-*)
+(** Converts an intermediate representation operator to a circuit, calling the
+    previously defined circuits for most cases and calling the above functions
+    for the user-defined [ILambda] case. Also does additional simplification in
+    the [IAdjoint] case to ensure that the circuits can take advantage of qubit
+    recycling. *)
 and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   match op with
   | INothing -> circuit_nothing
@@ -1658,12 +1677,17 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
         }
     end
 
+(** An operator corresponding to a pure expression normally takes two
+    registers, corresponding to the classical and quantum context. This
+    transformation combines these into one. *)
 let make_pure_op_take_one_reg (g : context) (d : context) (t : exprtype)
     (op : inter_op) =
   let gsize = context_size g in
   let tsize = type_size t in
     IAdjoint (IContextMerge (g, d)) @&& op @&& ISizePair (gsize, tsize)
 
+(** Takes the direct sum of a list of operators along a given binary tree
+    structure. *)
 let rec dirsum_op_list (tree : binary_tree) (l : inter_op list) : inter_op =
   match (tree, l) with
   | _, [] -> failwith "Expected nonempty list"
@@ -1676,9 +1700,15 @@ let rec dirsum_op_list (tree : binary_tree) (l : inter_op list) : inter_op =
         IDirsum (dirsum_op_list t_left l_left, dirsum_op_list t_right l_right)
     end
 
+(** Takes the direct sum of an operator with itself along a given binary tree
+    structure. *)
 let dirsum_op_by_tree (tree : binary_tree) (op : inter_op) =
   dirsum_op_list tree (List.map (fun _ -> op) (range (tree_size tree)))
 
+(** Takes the direct sum of a list of operators along a given binary tree
+    structure, leveled to the given height [h], which must be at least the
+    height of [tree]. This ensures that the result can be separated into an
+    index register and a data register that do not overlap. *)
 let rec dirsum_op_list_leveled (tree : binary_tree) (h : int)
     (l : inter_op list) : inter_op =
   match (tree, h, l) with
@@ -1696,6 +1726,8 @@ let rec dirsum_op_list_leveled (tree : binary_tree) (h : int)
             dirsum_op_list_leveled t_right (h - 1) l_right )
     end
 
+(** Takes the direct sum of a type with itself along a given binary tree
+    structure. *)
 let rec dirsum_type_list (tree : binary_tree) (l : exprtype list) : exprtype =
   match (tree, l) with
   | _, [] -> failwith "Expected nonempty list"
@@ -1709,9 +1741,13 @@ let rec dirsum_type_list (tree : binary_tree) (l : exprtype list) : exprtype =
           (dirsum_type_list t_left l_left, dirsum_type_list t_right l_right)
     end
 
+(** Takes the direct sum of a type with itself along a given binary tree
+    structure. *)
 let dirsum_type_by_tree (tree : binary_tree) (t : exprtype) =
   dirsum_type_list tree (List.map (fun _ -> t) (range (tree_size tree)))
 
+(** Converts a sum type to a binary tree structure, creating a leaf when the
+    type is no longer a sum type or when the [stop] type is reached. *)
 let rec binary_tree_of_type (stop : exprtype) (t : exprtype) : binary_tree =
   match t with
   | _ when t = stop -> Leaf
@@ -1719,6 +1755,8 @@ let rec binary_tree_of_type (stop : exprtype) (t : exprtype) : binary_tree =
       Node (binary_tree_of_type stop t0, binary_tree_of_type stop t1)
   | _ -> Leaf
 
+(** Type obtained from right-distributing the type [t1] along the direct sum
+    tree represented by [t0], which has leaves at the [stop] type. *)
 let rec big_distr_right_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype)
     : exprtype =
   match t0 with
@@ -1728,6 +1766,8 @@ let rec big_distr_right_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype)
         (big_distr_right_type stop t00 t1, big_distr_right_type stop t01 t1)
   | _ -> ProdType (t0, t1)
 
+(** Right distributy isomorphism of the type [t1] along the direct sum tree
+    represented by [t0], which has leaves at the [stop] type. *)
 let rec big_distr_right_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
     inter_op =
   match t0 with
@@ -1751,6 +1791,8 @@ let rec big_distr_right_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
     end
   | _ -> IIdentity (ProdType (t0, t1))
 
+(** Type obtained from left-distributing the type [t1] along the direct sum
+    tree represented by [t0], which has leaves at the [stop] type. *)
 let rec big_distr_left_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
     exprtype =
   match t1 with
@@ -1759,6 +1801,8 @@ let rec big_distr_left_type (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
       SumType (big_distr_left_type stop t0 t10, big_distr_left_type stop t0 t11)
   | _ -> ProdType (t0, t1)
 
+(** Left distributy isomorphism of the type [t1] along the direct sum tree
+    represented by [t0], which has leaves at the [stop] type. *)
 let rec big_distr_left_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
     inter_op =
   match t1 with
@@ -1782,14 +1826,20 @@ let rec big_distr_left_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
     end
   | _ -> IIdentity (ProdType (t0, t1))
 
+(** Converts a context into a fake product type of the types in its bindings. *)
 let fake_type_of_context (d : context) : exprtype =
   let types = List.map snd (StringMap.bindings d) in
     List.fold_right (fun x cur -> ProdType (x, cur)) types Qunit
 
+(** Converts a context list into a direct sum along a given tree of the fake
+    types corresponding to its elements. *)
 let fake_type_of_context_list (tree : binary_tree) (l : context list) :
     exprtype =
   dirsum_type_list tree (List.map fake_type_of_context l)
 
+(** Context distributivity operator that distributes the context [d] over the
+    direct sum of contexts in the list [l] with the tree structure [tree],
+    ensuring that the contexts are properly merged. *)
 let rec big_context_distr_op (tree : binary_tree) (l : context list)
     (d : context) : inter_op =
   match (tree, l) with
@@ -1809,6 +1859,13 @@ let rec big_context_distr_op (tree : binary_tree) (l : context list)
               )
     end
 
+(** Tree leveling operator that acts on a register corresponding to the direct
+    sum of spaces with sizes specified in [l], using the binary tree structure
+    [tree]. The operator, in effect, flattens the bottom of the tree to the
+    given height [h], which must be at least the height of [tree]. It extends
+    the branches by adding extra left children, thus ensuring that the result
+    can be separated into an index register and a data register that do not
+    overlap. *)
 let rec tree_level_op (tree : binary_tree) (h : int) (l : int list) : inter_op
     =
   match (tree, l) with
@@ -1826,6 +1883,20 @@ let rec tree_level_op (tree : binary_tree) (h : int) (l : int list) : inter_op
       let l0, l1 = list_split_at_i l (tree_size tree0) in
         IDirsum (tree_level_op tree0 (h - 1) l0, tree_level_op tree1 (h - 1) l1)
 
+(** Compilation of the spanning judgment, producing a circuit
+    {m \llbracket \mathrm{spanning}(e_1, \dots, e_n) \rrbracket} such that when
+    {m \mathrm{spanning}(e_1, \dots, e_n)} holds with tree structure
+    {m \mathcal{R}}, then for all {m j}, for all
+    {m \sigma_j \in \mathbb{V}(\Gamma_j)}, we have that
+    {m \llbracket \mathrm{spanning}(e_1, \dots, e_n) \rrbracket \llbracket e_j \rrbracket |\sigma_j\rangle = \mathrm{inj}_j^{\mathcal{R}}|\sigma_j\rangle }.
+    This means that
+    {m \llbracket \mathrm{spanning}(e_1, \dots, e_n) \rrbracket} corresponds to
+    an operator
+    {m \mathcal{H}(T) \rarr \bigoplus_{j=1}^n \mathcal{H}(\Gamma_j)} where the
+    direct sum is along the tree structure {m \mathcal{R}}. This function,
+    given the spanning proof structure from the type checker, outputs an
+    intermediate representation operator that does this transformation, as well
+    as the corresponding binary tree and context list of the {m \Gamma_j}. *)
 let rec compile_spanning_to_inter_op (sp : spanning_proof) :
     inter_op * binary_tree * context list =
   match sp with
@@ -2009,6 +2080,10 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
             gl_res )
     end
 
+(** Orthogonality selection operator, which, in effect, removes certain leaves
+    from a binary tree according to [selection]. This returns the operator
+    which transforms the direct sum structure and sends unselected subspaces
+    into the error space, as well as the updated tree. *)
 let rec ortho_select_op (t : exprtype) (tree : binary_tree)
     (selection : bool list) : inter_op * binary_tree =
   let n = List.length selection in
@@ -2039,6 +2114,9 @@ let rec ortho_select_op (t : exprtype) (tree : binary_tree)
           | _ -> failwith "Expected sum type"
         end
 
+(** Compiles the orthogonality judgment into an intermediate representation
+    operator, combining the compiled spanning operator and the orthogonality
+    selection operator. *)
 let compile_ortho_to_inter_op (orp : ortho_proof) : inter_op * binary_tree =
   let sp, selection = orp in
   let span_op, span_tree, gl = compile_spanning_to_inter_op sp in
@@ -2049,6 +2127,8 @@ let compile_ortho_to_inter_op (orp : ortho_proof) : inter_op * binary_tree =
   in
     (span_op @&& select_op, ortho_tree)
 
+(** Compiles the erasure judgment for a single variable into an intermediate
+    representation operator. *)
 let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     (erp : erasure_proof) =
   let xsize = type_size xtype in
@@ -2085,6 +2165,7 @@ let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
             [("res", tsize)]
       end
 
+(** Compiles the erasure judgment into an intermediate representation operator. *)
 let rec compile_erasure_to_inter_op (d : context) (t : exprtype)
     (l : (string * erasure_proof) list) : inter_op =
   let dsize = context_size d in
@@ -2113,11 +2194,9 @@ let rec compile_erasure_to_inter_op (d : context) (t : exprtype)
             [("t", tsize)]
       end
 
-(*
-Compilation of a pure expression into the intermediate representation.
-This creates a circuit that takes in two registers, corresponding to the
-classical and quantum contexts.
-*)
+(** Compiles a pure expression into the intermediate representation. This
+    creates a circuit that takes in two registers, corresponding to the
+    classical and quantum contexts. *)
 let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
     =
   let t = type_of_pure_expr_proof tp in
@@ -2274,11 +2353,9 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             [("g", gsize); ("res", tsize)]
       end
 
-(*
-Compilation of a mixed expression into the intermediate representation.
-This creates a circuit that takes in one register, corresponding to the
-quantum context.
-*)
+(** Compiles a mixed expression into the intermediate representation. This
+    creates a circuit that takes in one register, corresponding to the quantum
+    context. *)
 and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
   let t = type_of_mixed_expr_proof tp in
   let d_whole = context_of_mixed_expr_proof tp in
@@ -2392,9 +2469,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             [("res", tsize)]
       end
 
-(*
-Compilation of a pure program into the intermediate representation.
-*)
+(** Compiles a pure program into the intermediate representation. *)
 and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
   match tp with
   | TGate (theta, phi, lambda) -> IU3 (theta, phi, lambda)
@@ -2422,9 +2497,7 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
         IMarkAsIso (true, IRphase (t, e_op_no_g, r0, r1))
     end
 
-(*
-Compilation of a mixed program into the intermediate representation.
-*)
+(** Compiles a mixed program into the intermediate representation. *)
 and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
   match tp with
   | TChannel tp' -> compile_pure_prog_to_inter_op tp'
@@ -2445,12 +2518,10 @@ and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
           [("res", type_size t')]
     end
 
-(*
-Main procedure for compiling a Qunity expression into a low-level quantum
-gate: into the intermediate representation, then compiling the intermediate
-representation to a circuit, then applying several postprocessing steps, and
-outputting the circuit's gate and additional relevant information.
-*)
+(** Main procedure for compiling a Qunity expression: into the intermediate
+    representation, then compiling the intermediate representation to a
+    circuit, then applying several postprocessing steps, and outputting the
+    circuit's gate and additional relevant information. *)
 let expr_compile (e : expr) : gate * int * int list =
   let tp = mixed_type_check_noopt e in
   let op = compile_mixed_expr_to_inter_op tp in
