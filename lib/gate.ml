@@ -1,10 +1,9 @@
 open Util
 open Reals
 
-(*
-Low-level representation of a quantum circuit. Describes unitary gates (or
-reset or measurement operations) acting on qubits specified by integer labels.
-*)
+(** Low-level representation of a quantum circuit. Describes unitary gates (or
+    reset or measurement operations) acting on qubits specified by integer
+    labels. *)
 type gate =
   | Identity
   | U3Gate of (int * real * real * real)
@@ -19,6 +18,7 @@ type gate =
 
 let ( @& ) a b = Sequence (a, b)
 
+(** String representation of a gate. *)
 let rec string_of_gate (u : gate) : string =
   match u with
   | Identity -> "Identity"
@@ -41,25 +41,33 @@ let rec string_of_gate (u : gate) : string =
       Printf.sprintf "Sequence (%s, %s)" (string_of_gate u0)
         (string_of_gate u1)
 
+(** A type used to track whether a qubit is in a classical state during
+    optimization passes. *)
 type classical_prop_state = Classical of bool | Quantum
 
-(* Simple utility gate definitions *)
+(** The Pauli {m X} gate. *)
 let gate_paulix (i : int) : gate = U3Gate (i, Pi, Const 0, Pi)
+
+(** The Pauli {m Z} gate. *)
+
 let gate_pauliz (i : int) : gate = U3Gate (i, Const 0, Pi, Const 0)
+
+(** The Hadamard gate. *)
 let gate_had (i : int) : gate = U3Gate (i, Div (Pi, Const 2), Const 0, Pi)
 
+(** The CNOT gate. *)
 let gate_cnot (b0 : int) (b1 : int) : gate =
   Controlled ([b0], [true], gate_paulix b1)
 
+(** Checks whether the gate is unitary (all are, except for [Reset] and
+    [MeasureAsErr]). *)
 let gate_is_unitary (u : gate) : bool =
   match u with
   | Reset _ -> false
   | MeasureAsErr _ -> false
   | _ -> true
 
-(*
-Take the adjoint of a unitary gate.
-*)
+(** Takes the adjoint of a unitary gate. *)
 let rec gate_adjoint (u : gate) : gate =
   match u with
   | Identity -> Identity
@@ -77,10 +85,8 @@ let rec gate_adjoint (u : gate) : gate =
   | Controlled (l, bl, u0) -> Controlled (l, bl, gate_adjoint u0)
   | Sequence (u0, u1) -> Sequence (gate_adjoint u1, gate_adjoint u0)
 
-(*
-These are some sufficient (but not necessary) conditions for two gates to
-be equal.
-*)
+(** These are some sufficient (but not necessary) conditions for two gates to
+    be equal. *)
 let rec gate_equal (u0 : gate) (u1 : gate) =
   match (u0, u1) with
   | U3Gate (i0, theta0, phi0, lambda0), U3Gate (i1, theta1, phi1, lambda1) ->
@@ -98,11 +104,13 @@ let rec gate_equal (u0 : gate) (u1 : gate) =
   | Swap (i, j), Swap (i', j') -> (i = i' && j = j') || (i = j' && j = i')
   | _ -> u0 = u1
 
+(** Whether the given gate is a Pauli {m X} gate. *)
 let gate_is_x (u : gate) : bool =
   match u with
   | U3Gate (i, _, _, _) -> gate_equal u (gate_paulix i)
   | _ -> false
 
+(** Given a gate, outputs the set of qubits used by the gate. *)
 let rec gate_qubits_used (u : gate) : IntSet.t =
   match u with
   | Identity -> IntSet.empty
@@ -119,10 +127,13 @@ let rec gate_qubits_used (u : gate) : IntSet.t =
   | Sequence (u0, u1) ->
       IntSet.union (gate_qubits_used u0) (gate_qubits_used u1)
 
+(** Given a gate, outputs the number of qubits necessary to apply the gate -
+    that is, the maximum qubit index used by the gate plus one. *)
 let gate_num_qubits (u : gate) : int =
   let max_index = List.fold_left max 0 (IntSet.to_list (gate_qubits_used u)) in
     max_index + 1
 
+(** The number of [MeasureAsErr] gates in the given gate. *)
 let rec gate_num_err_measurements (u : gate) : int =
   match u with
   | MeasureAsErr _ -> 1
@@ -130,10 +141,8 @@ let rec gate_num_err_measurements (u : gate) : int =
       gate_num_err_measurements u0 + gate_num_err_measurements u1
   | _ -> 0
 
-(*
-Rewire a gate by replacing all references to certain qubits with
-other qubits.
-*)
+(** Rewires a gate by replacing all references to certain qubits with other
+    qubits. *)
 let rec gate_rewire (u : gate) (source : int list) (target : int list) : gate =
   let rewiring = IntMap.of_seq (List.to_seq (List.combine source target)) in
     match u with
@@ -157,10 +166,8 @@ let rec gate_rewire (u : gate) (source : int list) (target : int list) : gate =
     | Sequence (u0, u1) ->
         Sequence (gate_rewire u0 source target, gate_rewire u1 source target)
 
-(*
-Remove all identity gates from a circuit, unless the entire circuit is
-equivalent to an identity, in which case return the identity gate.
-*)
+(* Removes all identity gates from a circuit, unless the entire circuit is
+   equivalent to an identity, in which case this returns the identity gate. *)
 let rec gate_remove_identities (u : gate) : gate =
   match u with
   | Controlled (l, bl, u0) -> begin
@@ -180,11 +187,9 @@ let rec gate_remove_identities (u : gate) : gate =
     end
   | _ -> u
 
-(*
-Replace controlled sequences of gates with sequences of controlled gates,
-making the only controlled gates in the end be single-qubit gates,
-global phase gates, and swap gates.
-*)
+(** Replaces controlled sequences of gates with sequences of controlled gates,
+    making the only controlled gates in the end be single-qubit gates, global
+    phase gates, and swap gates. *)
 let rec gate_combine_and_distribute_controls (u : gate) : gate =
   match u with
   | Controlled (l, bl, u0) -> begin
@@ -205,39 +210,35 @@ let rec gate_combine_and_distribute_controls (u : gate) : gate =
           gate_combine_and_distribute_controls u1 )
   | _ -> u
 
+(** Converts a gate into a list, eliminating all uses of [Sequence]. *)
 let rec gate_to_list (u : gate) : gate list =
   match u with
   | Sequence (u0, u1) -> gate_to_list u0 @ gate_to_list u1
   | _ -> [u]
 
+(** Converts a list of gates into a single gate, joining it using [Sequence]. *)
 let rec gate_of_list (ul : gate list) : gate =
   match ul with
   | [] -> Identity
   | [u] -> u
   | u :: ul' -> Sequence (u, gate_of_list ul')
 
-(*
-Share a register to another one by applying CNOT gates for each qubit.
-*)
+(** Shares a register to another one by applying CNOT gates for each qubit. *)
 let rec gate_share (reg0 : int list) (reg1 : int list) : gate =
   match (reg0, reg1) with
   | [], [] -> Identity
   | h1 :: t1, h2 :: t2 -> gate_cnot h1 h2 @& gate_share t1 t2
   | _ -> invalid_arg "Registers must be of the same size"
 
-(*
-Swap two registers of equal size.
-*)
+(** Swaps two registers of equal size. *)
 let rec gate_swap_regs (reg0 : int list) (reg1 : int list) : gate =
   match (reg0, reg1) with
   | [], [] -> Identity
   | h1 :: t1, h2 :: t2 -> Swap (h1, h2) @& gate_swap_regs t1 t2
   | _ -> invalid_arg "Registers must be of the same size"
 
-(*
-A gate that sends the qubits specified in reg to the positions specified in
-perm, which is required to be a permutation of reg.
-*)
+(** A gate that sends the qubits specified in [reg] to the positions specified
+    in [perm], which is required to be a permutation of [reg]. *)
 let gate_permute (reg : int list) (perm : int list) =
   let rec gate_permute_helper perm_map =
     match IntMap.bindings perm_map with
@@ -258,33 +259,38 @@ let gate_permute (reg : int list) (perm : int list) =
     let perm_map = IntMap.of_seq (List.to_seq (List.combine reg perm)) in
       gate_permute_helper perm_map
 
-(* Left shift gate: permutes 123 into 231. *)
+(** Left shift gate: permutes [123] into [231]. *)
 let rec gate_lshift (reg : int list) : gate =
   match reg with
   | [] -> Identity
   | [_] -> Identity
   | h1 :: h2 :: t -> Swap (h1, h2) @& gate_lshift (h2 :: t)
 
-(* Right shift gate: permutes 123 into 312. *)
+(** Right shift gate: permutes [123] into [312]. *)
 let gate_rshift (reg : int list) : gate = gate_adjoint (gate_lshift reg)
 
-(* Measure and reset an entire register to the zero state. *)
+(** Measures and resets an entire register to the {m |0\rangle} state. *)
 let rec gate_reset_reg (reg : int list) : gate =
   match reg with
   | [] -> Identity
   | h :: t -> Reset h @& gate_reset_reg t
 
+(** Measures an entire register as a flag register. *)
 let rec gate_measure_reg_as_err (reg : int list) : gate =
   match reg with
   | [] -> Identity
   | h :: t -> MeasureAsErr h @& gate_measure_reg_as_err t
 
+(** Adds [PotentialDeletionLabel]s to an entire register. *)
 let rec gate_label_reg_for_potential_deletion (reg : int list) : gate =
   match reg with
   | [] -> Identity
   | h :: t ->
       PotentialDeletionLabel h @& gate_label_reg_for_potential_deletion t
 
+(** Splits an input gate list [ul] into two parts, where the first part is as
+    large as possible subject to the restriction that any gates in it involving
+    the qubit [i] can only be measurements. *)
 let rec split_first_consecutive_measurements (ul : gate list) (i : int) :
     gate list * gate list =
   match ul with
@@ -297,11 +303,9 @@ let rec split_first_consecutive_measurements (ul : gate list) (i : int) :
       let ul'0, ul'1 = split_first_consecutive_measurements ul' i in
         (u :: ul'0, ul'1)
 
-(*
-Given gate list ul, returns:
-Part of ul up to and including first series of consecutive measurements of i
-Part of ul after first series of consecutive measurements of i
-*)
+(** Given gate list [ul], returns the part of [ul] up to and including the
+    first series of consecutive measurements of [i], and the part of [ul] after
+    the first series of consecutive measurements of [i]. *)
 let rec split_up_to_first_measurements (ul : gate list) (i : int) :
     gate list * gate list =
   match ul with
@@ -312,6 +316,9 @@ let rec split_up_to_first_measurements (ul : gate list) (i : int) :
       let ul'0, ul'1 = split_up_to_first_measurements ul' i in
         (u :: ul'0, ul'1)
 
+(** Determines whether or not it is valid to delete all the gates acting on
+    qubit [i] in the given list [ul], provided that the qubit [i] starts in the
+    {m |0\rangle} state and is measured at the end. *)
 let rec is_valid_to_delete (ul : gate list) (i : int) =
   match ul with
   | [] -> true
@@ -331,6 +338,9 @@ let rec is_valid_to_delete (ul : gate list) (i : int) =
         | _ -> true
       end
 
+(** Splits the gate list [ul] into the parts before and after the first CNOT
+    gate with [i] as a target, also returning the control qubit of that CNOT
+    gate. If there is no CNOT gate, this returns [None]. *)
 let rec split_up_to_first_cnot (ul : gate list) (i : int) :
     (int * gate list * gate list) option =
   match ul with
@@ -344,6 +354,8 @@ let rec split_up_to_first_cnot (ul : gate list) (i : int) :
       | None -> None
       | Some (j, ul0, ul1) -> Some (j, u :: ul0, ul1))
 
+(** Checks whether a gate list before a CNOT gate with the target qubit [i] is
+    valid for the purposes of removing an unnecessary share operation. *)
 let rec is_valid_before_share (ul : gate list) (i : int) =
   match ul with
   | [] -> true
@@ -360,6 +372,8 @@ let rec is_valid_before_share (ul : gate list) (i : int) =
         | _ -> true
       end
 
+(** Checks whether a gate list between two CNOT gates with the target qubit [i]
+    is valid for the purposes of removing an unnecessary share operation. *)
 let rec is_valid_during_share (ul : gate list) (i : int) (j : int)
     (i_flipped : bool) (j_flipped : bool) =
   match ul with
@@ -392,6 +406,10 @@ let rec is_valid_during_share (ul : gate list) (i : int) (j : int)
           | _ -> true
         end
 
+(** Attempts to find a region where an unnecessary share operation is applied
+    in the list [l] with qubit [i] as a target. If a region is found, the
+    source qubit, as well as the regions before, during, and after the sharing
+    are returned. Otherwise, [None] is returned. *)
 let find_disentangling_region (ul : gate list) (i : int) :
     (int * gate list * gate list * gate list) option =
   match split_up_to_first_cnot ul i with
@@ -411,6 +429,8 @@ let find_disentangling_region (ul : gate list) (i : int) :
         end
     end
 
+(** A pass that shifts all [PotentialDeletionLabel]s in a gate list towards the
+    left, until they hit a measurement of the same qubit. *)
 let rec shift_deletion_labels_left_pass (ul : gate list) : gate list * bool =
   match ul with
   | [] -> ([], false)
@@ -449,6 +469,8 @@ let rec shift_deletion_labels_left_pass (ul : gate list) : gate list * bool =
       let ul'', changes_made = shift_deletion_labels_left_pass ul' in
         (u :: ul'', changes_made)
 
+(** Shifts all [PotentialDeletionLabel]s in a gate list as far left as
+    possible, until they hit a measurement of the same qubit. *)
 let rec gate_list_shift_deletion_labels_left (ul : gate list) : gate list =
   let ul_opt, changes_made = shift_deletion_labels_left_pass ul in
     if changes_made then
@@ -456,6 +478,8 @@ let rec gate_list_shift_deletion_labels_left (ul : gate list) : gate list =
     else
       ul
 
+(** Iterates though the given gate list, keeping track of qubits that are in a
+    classical state and simplifying gates where possible. *)
 let rec gate_classical_propagation (ul : gate list)
     (cl : classical_prop_state array) (err : classical_prop_state ref) :
     gate list =
@@ -531,6 +555,9 @@ let rec gate_classical_propagation (ul : gate list)
         | _ -> u' :: gate_classical_propagation ul' cl err
     end
 
+(** An optimization pass that iterates though the given gate list [ul], making
+    various gate simplifications. This can also modify the resulting [out_reg]
+    when it eliminates SWAP gates. *)
 let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
     gate list * int list * bool =
   match ul with
@@ -649,9 +676,10 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
       let ul'', out_reg', changes_made = gate_optimization_pass ul' out_reg in
         (u :: ul'', out_reg', changes_made)
 
+(** Whether to print messages during the gate optimization procedure. *)
 let optimization_print = ref false
-let optimization_max_length = 10000
 
+(** Runs the optimization procedure on a given gate list. *)
 let rec gate_list_optimize (ul : gate list) (out_reg : int list)
     (nqubits : int) : gate list * int list =
   if !optimization_print then
@@ -668,19 +696,13 @@ let rec gate_list_optimize (ul : gate list) (out_reg : int list)
     else
       (ul, out_reg')
 
+(** The main entry point for the gate optimization procedure. *)
 let gate_optimize (u : gate) (out_reg : int list) : gate * int list =
   let ul = gate_to_list u in
   let nqubits = gate_num_qubits u in
-    if List.length ul > optimization_max_length then begin
+    if !optimization_print then
+      Printf.printf "Optimizing\n%!";
+    let ul, out_reg = gate_list_optimize ul out_reg nqubits in
       if !optimization_print then
-        Printf.printf "Circuit too large - not optimizing\n%!";
-      (u, out_reg)
-    end
-    else begin
-      if !optimization_print then
-        Printf.printf "Optimizing\n%!";
-      let ul, out_reg = gate_list_optimize ul out_reg nqubits in
-        if !optimization_print then
-          Printf.printf "\n%!";
-        (gate_of_list ul, out_reg)
-    end
+        Printf.printf "\n%!";
+      (gate_of_list ul, out_reg)

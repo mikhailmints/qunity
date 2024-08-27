@@ -1,6 +1,7 @@
 open Ratio
 open Util
 
+(** The real number representation used in Qunity. *)
 type real =
   | Pi
   | Euler
@@ -24,6 +25,7 @@ type real =
   | Ceil of real
   | Floor of real
 
+(** Converts a real to a float. *)
 let rec float_of_real (r : real) : float =
   match r with
   | Pi -> Float.pi
@@ -48,6 +50,7 @@ let rec float_of_real (r : real) : float =
   | Ceil r0 -> Float.ceil (float_of_real r0)
   | Floor r0 -> Float.floor (float_of_real r0)
 
+(** Converts a real to an integer, if possible. *)
 let rec int_of_real (r : real) : int option =
   match r with
   | Const x -> Some x
@@ -83,6 +86,7 @@ let rec int_of_real (r : real) : int option =
     end
   | _ -> None
 
+(** Converts a real to a ratio, if possible. *)
 and ratio_of_real (r : real) : ratio option =
   match r with
   | Const x -> Some (ratio_of_int x)
@@ -128,12 +132,10 @@ and ratio_of_real (r : real) : ratio option =
     end
   | _ -> None
 
-(*
-If the values are integers or rational numbers or if they have exactly
-the same real representation, the equality comparison is exact. Otherwise, float
-comparison is used, and values are considered equal if their float
-representations are approximately equal.
-*)
+(** Compares two reals. If the values are integers or rational numbers or if
+    they have exactly the same real representation, the equality comparison is
+    exact. Otherwise, float comparison is used, and values are considered equal
+    if their float representations are approximately equal. *)
 let real_equal (r0 : real) (r1 : real) =
   if r0 = r1 then
     true
@@ -142,6 +144,7 @@ let real_equal (r0 : real) (r1 : real) =
     | Some q0, Some q1 -> eq_ratio q0 q1
     | _ -> float_approx_equal (float_of_real r0) (float_of_real r1)
 
+(** Tests whether one real is less than or equal to another. *)
 let real_le (r0 : real) (r1 : real) =
   if real_equal r0 r1 then
     true
@@ -150,6 +153,7 @@ let real_le (r0 : real) (r1 : real) =
     | Some q0, Some q1 -> le_ratio q0 q1
     | _ -> float_of_real r0 <= float_of_real r1
 
+(** Tests whether one real is less than another. *)
 let real_lt (r0 : real) (r1 : real) =
   if real_equal r0 r1 then
     false
@@ -158,6 +162,7 @@ let real_lt (r0 : real) (r1 : real) =
     | Some q0, Some q1 -> lt_ratio q0 q1
     | _ -> float_of_real r0 < float_of_real r1
 
+(** Tests whether one real is greater than or equal to another. *)
 let real_ge (r0 : real) (r1 : real) =
   if real_equal r0 r1 then
     true
@@ -166,6 +171,7 @@ let real_ge (r0 : real) (r1 : real) =
     | Some q0, Some q1 -> ge_ratio q0 q1
     | _ -> float_of_real r0 >= float_of_real r1
 
+(** Tests whether one real is greater than another. *)
 let real_gt (r0 : real) (r1 : real) =
   if real_equal r0 r1 then
     false
@@ -174,9 +180,7 @@ let real_gt (r0 : real) (r1 : real) =
     | Some q0, Some q1 -> gt_ratio q0 q1
     | _ -> float_of_real r0 > float_of_real r1
 
-(*
-String representation in Qunity syntax.
-*)
+(** String representation of a real in Qunity syntax. *)
 let rec string_of_real (r : real) : string =
   match r with
   | Pi -> "pi"
@@ -206,10 +210,8 @@ let rec string_of_real (r : real) : string =
   | Ceil r0 -> Printf.sprintf "ceil(%s)" (string_of_real r0)
   | Floor r0 -> Printf.sprintf "floor(%s)" (string_of_real r0)
 
-(*
-Ideally this should be used when outputting to QASM, but Qiskit's
-qiskit-qasm3-import currently doesn't seem to support math functions.
-*)
+(** Ideally this should be used when outputting to QASM, but Qiskit's
+    [qiskit-qasm3-import] currently doesn't seem to support math functions. *)
 let rec qasm_string_of_real (r : real) : string =
   match r with
   | Pi -> "pi"
@@ -244,9 +246,7 @@ let rec qasm_string_of_real (r : real) : string =
   | Ceil r0 -> Printf.sprintf "ceiling(%s)" (qasm_string_of_real r0)
   | Floor r0 -> Printf.sprintf "floor(%s)" (qasm_string_of_real r0)
 
-(*
-Version that is compatible with qiskit-qasm3-import.
-*)
+(** Version that is compatible with [qiskit-qasm3-import]. *)
 let rec qasm_string_of_real_temp (r : real) : string =
   match r with
   | Pi -> "pi"
@@ -267,6 +267,7 @@ let rec qasm_string_of_real_temp (r : real) : string =
         (qasm_string_of_real_temp r1)
   | _ -> Printf.sprintf "%f" (float_of_real r)
 
+(** String representation of a real in OCaml syntax. *)
 let rec ocaml_string_of_real (r : real) : string =
   match r with
   | Pi -> "Pi"

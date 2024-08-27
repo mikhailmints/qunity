@@ -3,8 +3,16 @@ open Reals
 open Syntax
 open Typechecking
 
+(** Comparison operators for the extended Qunity syntax. [Equal] can be applied
+    to reals, expressions, types, and programs, while the other operators can
+    only be applied to reals. *)
 type comparison = Equal | Leq | Lt | Geq | Gt
 
+(** Expressions for the extended Qunity syntax, which are the initial output of
+    the parser. This groups together Qunity expressions, types, programs, and
+    reals, as well as syntactic sugar ([XMatch], [XPmatch]) and the
+    metaprogramming-level constructs of definition invocations ([XInvoke]) and
+    if-comparison statements ([XIfcmp]). *)
 type xexpr =
   | XNull
   | XVar of string
@@ -50,6 +58,8 @@ type xexpr =
   | XFloor of xexpr
   | XFail
 
+(** Result of preprocessing an extended Qunity expression, wrapping a Qunity
+    real, type, program, or expression, or signal a preprocessing error. *)
 and xresult =
   | RReal of real
   | RType of exprtype
@@ -58,11 +68,18 @@ and xresult =
   | RNone of string
 
 and definition = string list * xexpr
+(** A definition consisting of argument names and the body. *)
+
 and defmap = definition StringMap.t
+(** A map matching names to definitions. *)
+
 and xvaluation = xresult StringMap.t
+(** A map matching names to already-evaluated results. *)
 
 type qunityfile = { dm : defmap; main : xexpr option }
+(** Structure of a Qunity file output by the parser. *)
 
+(** Converts a real extended-syntax expression into a real. *)
 let rec realexpr_eval (r : xexpr) (dm : defmap) (xv : xvaluation) : real =
   match r with
   | XPi -> Pi
@@ -102,6 +119,8 @@ let rec realexpr_eval (r : xexpr) (dm : defmap) (xv : xvaluation) : real =
   | XFloor r0 -> Floor (realexpr_eval r0 dm xv)
   | _ -> failwith "Not a realexpr"
 
+(** Converts an extended-syntax expression into a Qunity expression, type,
+    program, or real. *)
 and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
   let expand_xelse (t0 : exprtype) (xelseopt : xexpr option)
       (l : (expr * expr) list) : (expr * expr) list optionE =
@@ -333,12 +352,16 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
         try RReal (realexpr_eval v dm xv) with
         | Failure err -> RNone err)
 
+(** Adds a definition map [dm_new] to the old [defmap], overriding the old
+    values. *)
 let add_defmap (dm : defmap) (dm_new : defmap) : defmap =
   StringMap.union (fun _ _ x -> Some x) dm dm_new
 
+(** Adds a new definition [d] with the name [name] to the Qunity file [qf].
+    These definitions are added during parsing in reverse order, so newly added
+    definitions do not override existing ones. *)
 let add_def (name : string) (d : definition) (qf : qunityfile) : qunityfile =
   if StringMap.find_opt name qf.dm <> None then
-    (* When a program is parsed, definitions are added in reverse order *)
     qf
   else
     { dm = StringMap.add name d qf.dm; main = qf.main }

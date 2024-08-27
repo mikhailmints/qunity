@@ -1,16 +1,19 @@
 open Reals
 open Util
 
+(** A Qunity expression type. *)
 type exprtype =
   | Void
   | Qunit
   | SumType of (exprtype * exprtype)
   | ProdType of (exprtype * exprtype)
 
+(** A Qunity program type. *)
 type progtype =
   | Coherent of (exprtype * exprtype)
   | Channel of (exprtype * exprtype)
 
+(** A Qunity expression. *)
 type expr =
   | Null
   | Var of string
@@ -19,6 +22,7 @@ type expr =
   | Try of (expr * expr)
   | Apply of (prog * expr)
 
+(** A Qunity program. *)
 and prog =
   | U3 of (real * real * real)
   | Left of (exprtype * exprtype)
@@ -27,7 +31,10 @@ and prog =
   | Rphase of (exprtype * expr * real * real)
 
 type context = exprtype StringMap.t
+(** A context, mapping variable names to types. *)
+
 type valuation = expr StringMap.t
+(** A valuation, mapping variable names to expressions. *)
 
 let bit = SumType (Qunit, Qunit)
 let had = U3 (Div (Pi, Const 2), Const 0, Pi)
@@ -41,6 +48,7 @@ let gphase (t : exprtype) (r : real) = Rphase (t, Var "_", r, r)
 let phaseflip (t : exprtype) = gphase t Pi
 let adjoint (t : exprtype) (f : prog) = Lambda (Apply (f, Var "x"), t, Var "x")
 
+(** String representation of a type in Qunity syntax. *)
 let rec string_of_type (t : exprtype) =
   match t with
   | _ when t = bit -> "Bit"
@@ -51,6 +59,7 @@ let rec string_of_type (t : exprtype) =
   | ProdType (t0, t1) ->
       Printf.sprintf "(%s) * (%s)" (string_of_type t0) (string_of_type t1)
 
+(** String representation of an expression in Qunity syntax. *)
 let rec string_of_expr (e : expr) : string =
   match e with
   | _ when e = bit0 -> "Bit0"
@@ -75,6 +84,7 @@ let rec string_of_expr (e : expr) : string =
   | Apply (f, e') ->
       Printf.sprintf "(%s) of (%s)" (string_of_prog f) (string_of_expr e')
 
+(** String representation of a program in Qunity syntax. *)
 and string_of_prog (f : prog) : string =
   match f with
   | _ when f = had -> "Had"
@@ -93,6 +103,7 @@ and string_of_prog (f : prog) : string =
       Printf.sprintf "rphase{%s, %s, %s, %s}" (string_of_type t)
         (string_of_expr e) (string_of_real r0) (string_of_real r1)
 
+(** String representation of a program type. *)
 let string_of_progtype (ft : progtype) : string =
   match ft with
   | Coherent (t0, t1) ->
@@ -100,7 +111,21 @@ let string_of_progtype (ft : progtype) : string =
   | Channel (t0, t1) ->
       Printf.sprintf "%s ==> %s" (string_of_type t0) (string_of_type t1)
 
-let rec ocaml_string_of_expr (e : expr) : string =
+(** String representation of a type in OCaml syntax. *)
+let rec ocaml_string_of_type (t : exprtype) : string =
+  match t with
+  | _ when t = bit -> "bit"
+  | Void -> "Void"
+  | Qunit -> "Qunit"
+  | SumType (t0, t1) ->
+      Printf.sprintf "SumType (%s, %s)" (ocaml_string_of_type t0)
+        (ocaml_string_of_type t1)
+  | ProdType (t0, t1) ->
+      Printf.sprintf "ProdType (%s, %s)" (ocaml_string_of_type t0)
+        (ocaml_string_of_type t1)
+
+(** String representation of an expression in OCaml syntax. *)
+and ocaml_string_of_expr (e : expr) : string =
   match e with
   | _ when e = bit0 -> "bit0"
   | _ when e = bit1 -> "bit1"
@@ -125,18 +150,7 @@ let rec ocaml_string_of_expr (e : expr) : string =
       Printf.sprintf "Apply (%s, %s)" (ocaml_string_of_prog f)
         (ocaml_string_of_expr e')
 
-and ocaml_string_of_type (t : exprtype) : string =
-  match t with
-  | _ when t = bit -> "bit"
-  | Void -> "Void"
-  | Qunit -> "Qunit"
-  | SumType (t0, t1) ->
-      Printf.sprintf "SumType (%s, %s)" (ocaml_string_of_type t0)
-        (ocaml_string_of_type t1)
-  | ProdType (t0, t1) ->
-      Printf.sprintf "ProdType (%s, %s)" (ocaml_string_of_type t0)
-        (ocaml_string_of_type t1)
-
+(** String representation of a program in OCaml syntax. *)
 and ocaml_string_of_prog (f : prog) : string =
   match f with
   | _ when f = had -> "had"
@@ -160,11 +174,13 @@ and ocaml_string_of_prog (f : prog) : string =
         (ocaml_string_of_expr e) (ocaml_string_of_real r0)
         (ocaml_string_of_real r1)
 
+(** String representation of a context. *)
 let string_of_context (d : context) =
   string_of_list
     (fun (x, e) -> Printf.sprintf "%s : %s" x (string_of_type e))
     (StringMap.bindings d)
 
+(** String representation of a valuation. *)
 let string_of_valuation (sigma : valuation) =
   string_of_list
     (fun (x, e) -> Printf.sprintf "%s = %s" x (string_of_expr e))

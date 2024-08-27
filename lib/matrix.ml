@@ -12,26 +12,39 @@ module Int4Map = Map.Make (struct
   let compare = Stdlib.compare
 end)
 
+(** Dense matrices are represented as functions on two integers, and sparse
+    matrices are represented as maps. *)
 type matrix_contents =
   | Dense of (int -> int -> Complex.t)
   | Sparse of Complex.t Int2Map.t
 
-type matrix = { r : int; c : int; ent : matrix_contents }
+type matrix = {
+  r : int;  (** Number of rows in the matrix. *)
+  c : int;  (** Number of columns in the matrix. *)
+  ent : matrix_contents;
+      (** Matrix contents in the dense or sparse representation. *)
+}
+(** Specifies the dimensions of the matrix, and wraps its contents. *)
 
+(** Sun of a list of complex numbers. *)
 let complex_sum : Complex.t list -> Complex.t =
   List.fold_left Complex.add Complex.zero
 
+(** Sum of applying the function [f] to all values between [0] (inclusive) and
+    [n] (exclusive). *)
 let rec complex_sum_to_n (n : int) (f : int -> Complex.t) =
   if n <= 0 then
     Complex.zero
   else
     Complex.add (f (n - 1)) (complex_sum_to_n (n - 1) f)
 
+(** Check whether a matrix is in the sparse representation. *)
 let mat_is_sparse (m : matrix) : bool =
   match m.ent with
   | Dense _ -> false
   | Sparse _ -> true
 
+(** Gets the [i], [j] entry of the matrix [m]. *)
 let mat_entry (m : matrix) (i : int) (j : int) : Complex.t =
   match m.ent with
   | Dense f -> f i j
@@ -41,12 +54,16 @@ let mat_entry (m : matrix) (i : int) (j : int) : Complex.t =
       | None -> Complex.zero
     end
 
+(** Construct a dense matrix from a function. *)
 let mat_from_fun (r : int) (c : int) (f : int -> int -> Complex.t) : matrix =
   { r; c; ent = Dense f }
 
+(** Construct a sparse matrix from a map. *)
 let mat_from_map (r : int) (c : int) (s : Complex.t Int2Map.t) : matrix =
   { r; c; ent = Sparse s }
 
+(** Evaluates the entries of a matrix, creating a dense representation
+    referring to an array. *)
 let mat_evaluate_dense (m : matrix) : matrix =
   let r_range = range m.r in
   let c_range = range m.c in
@@ -58,6 +75,7 @@ let mat_evaluate_dense (m : matrix) : matrix =
   in
     { r = m.r; c = m.c; ent = Dense (fun i j -> arr.(i).(j)) }
 
+(** Multiplies a matrix by a scalar. *)
 let mat_scalar_mul (z : Complex.t) (m : matrix) : matrix =
   match m.ent with
   | Dense f ->
@@ -69,6 +87,7 @@ let mat_scalar_mul (z : Complex.t) (m : matrix) : matrix =
         ent = Sparse (Int2Map.map (fun z' -> Complex.mul z z') s);
       }
 
+(** Adds two matrices. *)
 let rec mat_plus (m1 : matrix) (m2 : matrix) : matrix =
   if m1.r <> m2.r || m1.c <> m2.c then
     invalid_arg
@@ -103,9 +122,11 @@ let rec mat_plus (m1 : matrix) (m2 : matrix) : matrix =
                  s1 s2);
         }
 
+(** Subtracts two matrices. *)
 let mat_minus (m1 : matrix) (m2 : matrix) : matrix =
   mat_plus m1 (mat_scalar_mul (Complex.neg Complex.one) m2)
 
+(** Takes the transpose of a matrix. *)
 let mat_transpose (m : matrix) : matrix =
   match m.ent with
   | Dense f -> { r = m.c; c = m.r; ent = Dense (fun i j -> f j i) }
@@ -122,14 +143,17 @@ let mat_transpose (m : matrix) : matrix =
                      (Int2Map.bindings s))));
       }
 
+(** Takes the complex conjugate of all elements in a matrix. *)
 let mat_conjugate (m : matrix) : matrix =
   match m.ent with
   | Dense f ->
       { r = m.r; c = m.c; ent = Dense (fun i j -> Complex.conj (f i j)) }
   | Sparse s -> { r = m.r; c = m.c; ent = Sparse (Int2Map.map Complex.conj s) }
 
+(** Takes the adjoint of a matrix. *)
 let mat_adjoint (m : matrix) : matrix = mat_conjugate (mat_transpose m)
 
+(** Multiplies two matrices. *)
 let rec mat_mul (m1 : matrix) (m2 : matrix) : matrix =
   if m1.c <> m2.r then
     invalid_arg
@@ -191,8 +215,11 @@ let rec mat_mul (m1 : matrix) (m2 : matrix) : matrix =
         }
 
 let ( *@ ) = mat_mul
+
+(** Multiplies a matrix by its adjoint. *)
 let mat_outer (m : matrix) = m *@ mat_adjoint m
 
+(** Takes the tensor product (Kronecker product) of two matrices. *)
 let rec mat_tensor (m1 : matrix) (m2 : matrix) : matrix =
   match (m1.ent, m2.ent) with
   | Dense f1, Dense f2 ->
@@ -234,6 +261,7 @@ let rec mat_tensor (m1 : matrix) (m2 : matrix) : matrix =
           end;
       }
 
+(** Takes the direct sum of two vectors. *)
 let rec vec_dirsum (m1 : matrix) (m2 : matrix) : matrix =
   if m1.c <> 1 || m2.c <> 1 then
     failwith "Direct sum only applies to vectors"
@@ -261,6 +289,7 @@ let rec vec_dirsum (m1 : matrix) (m2 : matrix) : matrix =
                         (Int2Map.bindings s2))));
         }
 
+(** Gets the [c]'th column of a matrix. *)
 let mat_column (m : matrix) (c : int) : matrix =
   match m.ent with
   | Dense f ->
@@ -283,6 +312,7 @@ let mat_column (m : matrix) (c : int) : matrix =
                      (Int2Map.bindings s))));
       }
 
+(** Takes the trace of a matrix. *)
 let mat_trace (m : matrix) : Complex.t =
   if m.r <> m.c then
     failwith "Matrix must be square"
@@ -294,12 +324,15 @@ let mat_trace (m : matrix) : Complex.t =
           (List.map snd
              (Int2Map.bindings (Int2Map.filter (fun (i, j) _ -> i = j) s)))
 
+(** Converts a {m 1 \times 1} matrix into a scalar. *)
 let mat_to_scalar (m : matrix) : Complex.t =
   if m.r <> 1 || m.c <> 1 then
     failwith (Printf.sprintf "Matrix must be 1x1, instead got %dx%d" m.r m.c)
   else
     mat_trace m
 
+(** Creates a matrix from a function acting on the column indices and
+    outputting vectors. *)
 let mat_from_basis_action (r : int) (c : int) (bfun : int -> matrix) =
   let cols = List.map bfun (range c) in
     if List.for_all mat_is_sparse cols then
@@ -342,6 +375,7 @@ let mat_from_basis_action (r : int) (c : int) (bfun : int -> matrix) =
                       mat_entry bvec i 0);
           }
 
+(** The identity matrix of size [n]. *)
 let mat_identity (n : int) =
   if n < 0 then
     invalid_arg "Matrix size must be nonnegative"
@@ -356,6 +390,7 @@ let mat_identity (n : int) =
                 (List.map (fun i -> ((i, i), Complex.one)) (range n))));
     }
 
+(** Matrix corresponding to a single-qubit gate. *)
 let mat_from_u3 (theta : float) (phi : float) (lambda : float) : matrix =
   {
     r = 2;
@@ -373,6 +408,8 @@ let mat_from_u3 (theta : float) (phi : float) (lambda : float) : matrix =
           end);
   }
 
+(** Matrix corresponding to the Pauli {m X} gate. This uses the sparse
+    representation. *)
 let mat_xgate : matrix =
   {
     r = 2;
@@ -383,24 +420,31 @@ let mat_xgate : matrix =
            (List.to_seq [((0, 1), Complex.one); ((1, 0), Complex.one)]));
   }
 
+(** The zero matrix of given dimensions. *)
 let mat_zero (r : int) (c : int) = { r; c; ent = Sparse Int2Map.empty }
+
+(** The zero vector of given dimension. *)
 let vec_zero (dim : int) = mat_zero dim 1
 
+(** A basis column vector containing a 1 in the [k]th position. *)
 let basis_column_vec (dim : int) (k : int) =
   if k < 0 || k >= dim then
     invalid_arg "Invalid basis vector"
   else
     { r = dim; c = 1; ent = Sparse (Int2Map.singleton (k, 0) Complex.one) }
 
+(** A basis row vector containing a 1 in the [k]th position. *)
 let basis_row_vec (dim : int) (k : int) =
   if k < 0 || k >= dim then
     invalid_arg "Invalid basis vector"
   else
     { r = 1; c = dim; ent = Sparse (Int2Map.singleton (0, k) Complex.one) }
 
+(** Takes the sum of a list of matrices. *)
 let mat_sum r c : matrix list -> matrix =
   List.fold_left mat_plus (mat_zero r c)
 
+(** Converts a list of lists into a matrix. *)
 let mat_from_list (l : Complex.t list list) : matrix =
   if l = [] then
     { r = 0; c = 0; ent = Sparse Int2Map.empty }
@@ -410,8 +454,10 @@ let mat_from_list (l : Complex.t list list) : matrix =
       mat_evaluate_dense
         { r; c; ent = Dense (fun i j -> List.nth (List.nth l i) j) }
 
+(** String representation of a complex number for matrix printing. *)
 let string_of_complex (z : Complex.t) = Printf.sprintf "%.3f%+.3fi" z.re z.im
 
+(** Prints a matrix. *)
 let print_mat (m : matrix) : unit =
   if m.r = 0 || m.c = 0 then
     Printf.printf "Degenerate matrix: %dx%d\n" m.r m.c
@@ -461,6 +507,7 @@ let print_mat (m : matrix) : unit =
             end
       end
 
+(** Tests if two matrices are approximately equal. *)
 let mat_approx_equal (m1 : matrix) (m2 : matrix) : bool =
   m1.r = m2.r && m1.c = m2.c
   && List.for_all
@@ -474,17 +521,25 @@ let mat_approx_equal (m1 : matrix) (m2 : matrix) : bool =
            (range m1.c))
        (range m1.r)
 
+(** Dense superoperators are represented as functions on two integers, and
+    sparse superoperators are represented as maps. *)
 type superoperator_contents =
-  (* to_row, to_col, from_row, from_col *)
   | Dense of (int -> int -> int -> int -> Complex.t)
+      (** Inputs are [to_row], [to_col], [from_row], [from_col]. *)
   | Sparse of Complex.t Int4Map.t
 
 type superoperator = {
-  dim_to : int;
-  dim_from : int;
+  dim_to : int;  (** Dimension of the output space. *)
+  dim_from : int;  (** Dimension of the input space. *)
   ent : superoperator_contents;
+      (** Superoperator contents in the dense or sparse representation. *)
 }
+(** Specifies the dimensions of the superoperator, and wraps its contents. The
+    superoperator maps from the space of [dim_from] {m \times} [dim_from]
+    linear operators to the space of [dim_to] {m \times} [dim_to] linear
+    operators. *)
 
+(** Gets the [i], [j], [k], [l] entry of the superoperator [super]. *)
 let superop_entry (super : superoperator) (i : int) (j : int) (k : int)
     (l : int) : Complex.t =
   match super.ent with
@@ -495,6 +550,8 @@ let superop_entry (super : superoperator) (i : int) (j : int) (k : int)
       | None -> Complex.zero
     end
 
+(** Evaluates the entries of a superoperator, creating a dense representation
+    referring to an array. *)
 let superop_evaluate_dense (super : superoperator) : superoperator =
   let df_range = range_arr super.dim_from in
   let dt_range = range_arr super.dim_to in
@@ -516,6 +573,7 @@ let superop_evaluate_dense (super : superoperator) : superoperator =
       ent = Dense (fun i j k l -> arr.(i).(j).(k).(l));
     }
 
+(** Applies a superoperator to a matrix. *)
 let rec superop_apply (super : superoperator) (m : matrix) : matrix =
   if m.r <> super.dim_from || m.c <> super.dim_from then
     failwith "Inconsistent dimensions in superoperator application"
@@ -573,6 +631,8 @@ let rec superop_apply (super : superoperator) (m : matrix) : matrix =
             end;
         }
 
+(** Creates a superoperator from a function acting on the input space indices
+    and outputting matrices. *)
 let superop_from_basis_action (dim_to : int) (dim_from : int)
     (bfun : int -> int -> matrix) : superoperator =
   let df_range = range dim_from in
@@ -624,6 +684,8 @@ let superop_from_basis_action (dim_to : int) (dim_from : int)
                       mat_entry bmat i j);
           }
 
+(** Acts with a superoperator on a matrix that is the outer product of two
+    basis vectors. *)
 let superop_on_basis (super : superoperator) (k : int) (l : int) : matrix =
   match super.ent with
   | Dense f ->
@@ -646,6 +708,7 @@ let superop_on_basis (super : superoperator) (k : int) (l : int) : matrix =
                      (Int4Map.bindings s))));
       }
 
+(** Prints a superoperator. *)
 let print_superop (super : superoperator) : unit =
   let dim_limit = 4 in
     if super.dim_from > dim_limit || super.dim_to > dim_limit then
