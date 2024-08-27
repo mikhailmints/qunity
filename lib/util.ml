@@ -1,3 +1,4 @@
+(** An option type that can also contain an error message. *)
 type 'a optionE = SomeE of 'a | NoneE of string
 
 module StringSet = Set.Make (String)
@@ -9,6 +10,7 @@ let fst3 (a, _, _) = a
 let snd3 (_, b, _) = b
 let trd3 (_, _, c) = c
 
+(** Converts [SomeE] to [Some] and [NoneE] to [None]. *)
 let option_of_optionE (optE : 'a optionE) : 'a option =
   match optE with
   | NoneE _ -> None

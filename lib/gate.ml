@@ -16,6 +16,7 @@ type gate =
   | Controlled of (int list * bool list * gate)
   | Sequence of (gate * gate)
 
+(** Alias for [Sequence]. *)
 let ( @& ) a b = Sequence (a, b)
 
 (** String representation of a gate. *)
@@ -49,7 +50,6 @@ type classical_prop_state = Classical of bool | Quantum
 let gate_paulix (i : int) : gate = U3Gate (i, Pi, Const 0, Pi)
 
 (** The Pauli {m Z} gate. *)
-
 let gate_pauliz (i : int) : gate = U3Gate (i, Const 0, Pi, Const 0)
 
 (** The Hadamard gate. *)
@@ -166,8 +166,8 @@ let rec gate_rewire (u : gate) (source : int list) (target : int list) : gate =
     | Sequence (u0, u1) ->
         Sequence (gate_rewire u0 source target, gate_rewire u1 source target)
 
-(* Removes all identity gates from a circuit, unless the entire circuit is
-   equivalent to an identity, in which case this returns the identity gate. *)
+(** Removes all identity gates from a circuit, unless the entire circuit is
+    equivalent to an identity, in which case this returns the identity gate. *)
 let rec gate_remove_identities (u : gate) : gate =
   match u with
   | Controlled (l, bl, u0) -> begin
@@ -281,7 +281,7 @@ let rec gate_measure_reg_as_err (reg : int list) : gate =
   | [] -> Identity
   | h :: t -> MeasureAsErr h @& gate_measure_reg_as_err t
 
-(** Adds [PotentialDeletionLabel]s to an entire register. *)
+(** Adds [PotentialDeletionLabel]'s to an entire register. *)
 let rec gate_label_reg_for_potential_deletion (reg : int list) : gate =
   match reg with
   | [] -> Identity
@@ -429,8 +429,8 @@ let find_disentangling_region (ul : gate list) (i : int) :
         end
     end
 
-(** A pass that shifts all [PotentialDeletionLabel]s in a gate list towards the
-    left, until they hit a measurement of the same qubit. *)
+(** A pass that shifts all [PotentialDeletionLabel]'s in a gate list towards
+    the left, until they hit a measurement of the same qubit. *)
 let rec shift_deletion_labels_left_pass (ul : gate list) : gate list * bool =
   match ul with
   | [] -> ([], false)
@@ -469,7 +469,7 @@ let rec shift_deletion_labels_left_pass (ul : gate list) : gate list * bool =
       let ul'', changes_made = shift_deletion_labels_left_pass ul' in
         (u :: ul'', changes_made)
 
-(** Shifts all [PotentialDeletionLabel]s in a gate list as far left as
+(** Shifts all [PotentialDeletionLabel]'s in a gate list as far left as
     possible, until they hit a measurement of the same qubit. *)
 let rec gate_list_shift_deletion_labels_left (ul : gate list) : gate list =
   let ul_opt, changes_made = shift_deletion_labels_left_pass ul in

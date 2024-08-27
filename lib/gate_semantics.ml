@@ -3,6 +3,8 @@ open Reals
 open Matrix
 open Gate
 
+(** Computes the semantics of a single unitary gate, outputting a unitary
+    matrix. *)
 let rec gate_unitary_semantics (nqubits : int) (u : gate) : matrix =
   let qdim = 1 lsl nqubits in
     match u with
@@ -52,6 +54,8 @@ let rec gate_unitary_semantics (nqubits : int) (u : gate) : matrix =
     | Reset _ -> failwith "Reset is not a unitary gate"
     | MeasureAsErr _ -> failwith "Measurement is not a unitary gate"
 
+(** Computes the semantics of a gate acting on the initial state
+    {m |0 \rangle\langle 0|}, outputting the final density matrix. *)
 let gate_semantics (u : gate) (nqubits : int) (out_reg : int list) : matrix =
   let qdim = 1 lsl nqubits in
   let rec gate_semantics_helper (u : gate) (state : matrix) : matrix =

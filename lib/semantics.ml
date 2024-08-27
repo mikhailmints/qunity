@@ -4,6 +4,7 @@ open Matrix
 open Syntax
 open Typechecking
 
+(** The initial size of hash tables used for memoization. *)
 let memo_size = 1000
 
 (** The dimension of the vector space corresponding to the type [t]. *)
