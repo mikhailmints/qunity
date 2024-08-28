@@ -265,10 +265,10 @@ let rec pure_expr_semantics (tp : pure_expr_typing_proof) (sigma : valuation) :
         let ddim = context_dimension d_whole in
           match tp with
           | TUnit _ -> expr_to_basis_state t_whole Null
-          | TCvar (_, _, x) ->
+          | TCvar { x; _ } ->
               expr_to_basis_state t_whole (StringMap.find x sigma)
           | TQvar _ -> mat_identity tdim
-          | TPurePair (_, _, _, d, d0, d1, e0, e1, _) -> begin
+          | TPurePair { d; d0; d1; e0; e1; _ } -> begin
               let dd0 = map_merge_noopt false d d0 in
               let dd1 = map_merge_noopt false d d1 in
               let e0sem = pure_expr_semantics e0 sigma in
@@ -279,7 +279,7 @@ let rec pure_expr_semantics (tp : pure_expr_typing_proof) (sigma : valuation) :
                       mat_tensor (mat_column e0sem i0) (mat_column e1sem i1))
             end
           | TCtrl _ -> ctrl_semantics tp sigma
-          | TPureApp (_, _, _, _, f, e, _) ->
+          | TPureApp { f; e; _ } ->
               pure_prog_semantics f *@ pure_expr_semantics e sigma
       end
     in
@@ -289,7 +289,7 @@ let rec pure_expr_semantics (tp : pure_expr_typing_proof) (sigma : valuation) :
 (** Computes the pure semantics of a control expression. *)
 and ctrl_semantics (tp : pure_expr_typing_proof) (sigma : valuation) : matrix =
   match tp with
-  | TCtrl (t0, t1, g, _, d, d', e, l, _, _, _) -> begin
+  | TCtrl { t0; t1; g; d; d'; e; l; _ } -> begin
       let dd' = map_merge_noopt false d d' in
       let gd = map_merge_noopt false g d in
       let fve = map_dom gd in
@@ -372,7 +372,7 @@ and mixed_expr_semantics (tp : mixed_expr_typing_proof) : superoperator =
                     let tau' = index_to_context_basis_state d_whole j in
                       pure_sem *@ tau *@ mat_adjoint tau'
                       *@ mat_adjoint pure_sem)
-          | TMixedPair (_, _, d, d0, d1, e0, e1, _) -> begin
+          | TMixedPair { d; d0; d1; e0; e1; _ } -> begin
               let dd0 = map_merge_noopt false d d0 in
               let dd1 = map_merge_noopt false d d1 in
               let fv0 = map_dom dd0 in
@@ -388,7 +388,7 @@ and mixed_expr_semantics (tp : mixed_expr_typing_proof) : superoperator =
                         (superop_on_basis e0sem i0 j0)
                         (superop_on_basis e1sem i1 j1))
             end
-          | TTry (_, d0, d1, e0, e1, _) -> begin
+          | TTry { d0; d1; e0; e1; _ } -> begin
               let fv0 = map_dom d0 in
               let fv1 = map_dom d1 in
               let e0sem = mixed_expr_semantics e0 in
@@ -407,7 +407,7 @@ and mixed_expr_semantics (tp : mixed_expr_typing_proof) : superoperator =
                               (mat_trace mtry))
                            mcatch))
             end
-          | TMixedApp (_, _, _, f, e, _) ->
+          | TMixedApp { f; e; _ } ->
               let fsem = mixed_prog_semantics f in
               let esem = mixed_expr_semantics e in
                 superop_from_basis_action tdim ddim (fun i j ->
@@ -446,11 +446,11 @@ and pure_prog_semantics (tp : pure_prog_typing_proof) : matrix =
                   expr_to_basis_state
                     (SumType (t0, t1))
                     (Apply (Right (t0, t1), e)))
-        | TPureAbs (_, _, _, e, e', _) -> begin
+        | TPureAbs { e; e'; _ } -> begin
             pure_expr_semantics e' StringMap.empty
             *@ mat_adjoint (pure_expr_semantics e StringMap.empty)
           end
-        | TRphase (t, e, r0, r1) -> begin
+        | TRphase { t; e; r0; r1; _ } -> begin
             let e_sem = pure_expr_semantics e StringMap.empty in
             let er_proj = e_sem *@ mat_adjoint e_sem in
               mat_plus
@@ -480,7 +480,7 @@ and mixed_prog_semantics (tp : mixed_prog_typing_proof) : superoperator =
                   let v = index_to_basis_state t i in
                   let v' = index_to_basis_state t j in
                     pure_sem *@ v *@ mat_adjoint v' *@ mat_adjoint pure_sem)
-        | TMixedAbs (t, t', d, d0, e, e', _) -> begin
+        | TMixedAbs { t; t'; d; d0; e; e'; _ } -> begin
             let dd0 = map_merge_noopt false d d0 in
             let fve' = map_dom d in
             let e_pure_sem = pure_expr_semantics e StringMap.empty in
