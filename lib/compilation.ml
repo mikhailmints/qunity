@@ -300,8 +300,11 @@ let build_circuit (cs : circuit_spec) (in_regs : int list list)
         @& circ.gate
         @& begin
              if settings.reset_flag then
-               gate_measure_reg_as_err circ.flag_reg
-               @& gate_reset_reg circ.flag_reg
+               if settings.iso then
+                 gate_label_reg_as_zero_state circ.flag_reg
+               else
+                 gate_measure_reg_as_err circ.flag_reg
+                 @& gate_reset_reg circ.flag_reg
              else
                Identity
            end

@@ -11,6 +11,7 @@ type gate =
   | Reset of int
   | MeasureAsErr of int
   | PotentialDeletionLabel of int
+  | ZeroStateLabel of int
   | Swap of int * int
   | Annotation of int list * string
   | Controlled of (int list * bool list * gate)
@@ -30,6 +31,7 @@ let rec string_of_gate (u : gate) : string =
   | Reset i -> Printf.sprintf "Reset %d" i
   | MeasureAsErr i -> Printf.sprintf "MeasureAsErr %d" i
   | PotentialDeletionLabel i -> Printf.sprintf "PotentialDeletionLabel %d" i
+  | ZeroStateLabel i -> Printf.sprintf "ZeroStateLabel %d" i
   | Swap (i, j) -> Printf.sprintf "Swap (%d, %d)" i j
   | Annotation (l, s) ->
       Printf.sprintf "Annotation (%s, %s)" (string_of_list string_of_int l) s
@@ -79,7 +81,9 @@ let rec gate_adjoint (u : gate) : gate =
   | GphaseGate theta -> GphaseGate (Negate theta)
   | Reset _ -> failwith "Can't take adjoint of reset"
   | MeasureAsErr _ -> failwith "Can't take adjoint of measurement"
-  | PotentialDeletionLabel _ -> Identity
+  | PotentialDeletionLabel _
+  | ZeroStateLabel _ ->
+      Identity
   | Swap (i, j) -> Swap (i, j)
   | Annotation (l, s) -> Annotation (l, s)
   | Controlled (l, bl, u0) -> Controlled (l, bl, gate_adjoint u0)
@@ -118,7 +122,8 @@ let rec gate_qubits_used (u : gate) : IntSet.t =
   | GphaseGate _ -> IntSet.empty
   | Reset i
   | MeasureAsErr i
-  | PotentialDeletionLabel i ->
+  | PotentialDeletionLabel i
+  | ZeroStateLabel i ->
       IntSet.singleton i
   | Swap (i, j) -> IntSet.of_list [i; j]
   | Annotation (l, _) -> IntSet.of_list l
@@ -154,6 +159,7 @@ let rec gate_rewire (u : gate) (source : int list) (target : int list) : gate =
     | MeasureAsErr i -> MeasureAsErr (int_map_find_or_keep rewiring i)
     | PotentialDeletionLabel i ->
         PotentialDeletionLabel (int_map_find_or_keep rewiring i)
+    | ZeroStateLabel i -> ZeroStateLabel (int_map_find_or_keep rewiring i)
     | Swap (i, j) ->
         Swap (int_map_find_or_keep rewiring i, int_map_find_or_keep rewiring j)
     | Annotation (l, s) ->
@@ -288,30 +294,38 @@ let rec gate_label_reg_for_potential_deletion (reg : int list) : gate =
   | h :: t ->
       PotentialDeletionLabel h @& gate_label_reg_for_potential_deletion t
 
+(** Adds [ZeroStateLabel]'s to an entire register. *)
+let rec gate_label_reg_as_zero_state (reg : int list) : gate =
+  match reg with
+  | [] -> Identity
+  | h :: t -> ZeroStateLabel h @& gate_label_reg_as_zero_state t
+
 (** Splits an input gate list [ul] into two parts, where the first part is as
     large as possible subject to the restriction that any gates in it involving
-    the qubit [i] can only be measurements. *)
+    the qubit [i] can only be measurements or zero state labels. *)
 let rec split_first_consecutive_measurements (ul : gate list) (i : int) :
     gate list * gate list =
   match ul with
   | [] -> ([], [])
   | u :: _
     when IntSet.mem i (gate_qubits_used u)
-         && u <> Reset i && u <> MeasureAsErr i ->
+         && u <> Reset i && u <> MeasureAsErr i && u <> ZeroStateLabel i ->
       ([], ul)
   | u :: ul' ->
       let ul'0, ul'1 = split_first_consecutive_measurements ul' i in
         (u :: ul'0, ul'1)
 
 (** Given gate list [ul], returns the part of [ul] up to and including the
-    first series of consecutive measurements of [i], and the part of [ul] after
-    the first series of consecutive measurements of [i]. *)
+    first series of consecutive measurements or zero state labels of [i], and
+    the remaining part. *)
 let rec split_up_to_first_measurements (ul : gate list) (i : int) :
     gate list * gate list =
   match ul with
   | [] -> ([], [])
-  | Reset j :: _ when j = i -> split_first_consecutive_measurements ul i
-  | MeasureAsErr j :: _ when j = i -> split_first_consecutive_measurements ul i
+  | Reset j :: _
+  | MeasureAsErr j :: _
+    when j = i ->
+      split_first_consecutive_measurements ul i
   | u :: ul' ->
       let ul'0, ul'1 = split_up_to_first_measurements ul' i in
         (u :: ul'0, ul'1)
@@ -430,20 +444,15 @@ let find_disentangling_region (ul : gate list) (i : int) :
     end
 
 (** A pass that shifts all [PotentialDeletionLabel]'s in a gate list towards
-    the left, until they hit a measurement of the same qubit. *)
+    the left, until they hit a measurement or zero state label of the same
+    qubit. *)
 let rec shift_deletion_labels_left_pass (ul : gate list) : gate list * bool =
   match ul with
   | [] -> ([], false)
-  | Reset i :: PotentialDeletionLabel j :: PotentialDeletionLabel k :: ul' ->
-      ( PotentialDeletionLabel k :: Reset i :: PotentialDeletionLabel j
-        :: fst (shift_deletion_labels_left_pass ul'),
-        true )
-  | MeasureAsErr i
-    :: PotentialDeletionLabel j
-    :: PotentialDeletionLabel k
-    :: ul'
-    when i = j && i <> k ->
-      ( PotentialDeletionLabel k :: MeasureAsErr i :: PotentialDeletionLabel j
+  | u :: PotentialDeletionLabel i :: PotentialDeletionLabel j :: ul'
+    when (u = Reset i || u = MeasureAsErr i || u = ZeroStateLabel i) && i <> j
+    ->
+      ( PotentialDeletionLabel j :: u :: PotentialDeletionLabel i
         :: fst (shift_deletion_labels_left_pass ul'),
         true )
   | u :: PotentialDeletionLabel i :: ul' -> begin
@@ -451,7 +460,8 @@ let rec shift_deletion_labels_left_pass (ul : gate list) : gate list * bool =
         begin
           match u with
           | Reset j
-          | MeasureAsErr j ->
+          | MeasureAsErr j
+          | ZeroStateLabel j ->
               j <> i
           | PotentialDeletionLabel _ -> false
           | _ -> true
@@ -512,7 +522,8 @@ let rec gate_classical_propagation (ul : gate list)
         | U3Gate (i, _, _, _) ->
             cl.(i) <- Quantum;
             u
-        | Reset i ->
+        | Reset i
+        | ZeroStateLabel i ->
             cl.(i) <- Classical false;
             u
         | Swap (i, j) -> begin
