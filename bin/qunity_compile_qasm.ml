@@ -39,7 +39,8 @@ let rec gate_to_qasm_str (u : gate) (err_num : int) : string * int =
         | Sequence _ -> failwith "Controls should be distributed"
         | Controlled _ -> failwith "Controls should be combined"
         | Annotation _
-        | PotentialDeletionLabel _ ->
+        | PotentialDeletionLabel _
+        | ZeroStateLabel _ ->
             ("", err_num)
         | _ -> begin
             let l, bl, (s, l0), apply_x =
@@ -89,6 +90,7 @@ let rec gate_to_qasm_str (u : gate) (err_num : int) : string * int =
         (Printf.sprintf "err[%d] = measure q[%d];\n" err_num i, err_num + 1)
     | PotentialDeletionLabel i ->
         (Printf.sprintf "// Potential deletion %d\n" i, err_num)
+    | ZeroStateLabel i -> (Printf.sprintf "// Zero state %d\n" i, err_num)
     | _ ->
         let s, l = simple_gate_to_qasm_str u in
           ( Printf.sprintf "%s%s;\n" s (List.fold_left arglist_fold "" l),

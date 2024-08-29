@@ -300,8 +300,11 @@ let build_circuit (cs : circuit_spec) (in_regs : int list list)
         @& circ.gate
         @& begin
              if settings.reset_flag then
-               gate_measure_reg_as_err circ.flag_reg
-               @& gate_reset_reg circ.flag_reg
+               if settings.iso then
+                 gate_label_reg_as_zero_state circ.flag_reg
+               else
+                 gate_measure_reg_as_err circ.flag_reg
+                 @& gate_reset_reg circ.flag_reg
              else
                Identity
            end
@@ -1903,12 +1906,12 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
   | SVoid -> (IIdentity Void, Leaf, [])
   | SUnit -> (IIdentity Qunit, Leaf, [StringMap.empty])
   | SVar (x, t) -> (IIdentity t, Leaf, [StringMap.singleton x t])
-  | SSum (_, _, sp0, sp1, _, _) -> begin
+  | SSum (sp0, sp1) -> begin
       let sp0_op, tree0, gl0 = compile_spanning_to_inter_op sp0 in
       let sp1_op, tree1, gl1 = compile_spanning_to_inter_op sp1 in
         (IDirsum (sp0_op, sp1_op), Node (tree0, tree1), gl0 @ gl1)
     end
-  | SPair (t0, t1, sp0, l, _, _) -> begin
+  | SPair (t0, t1, sp0, l) -> begin
       let op0, tree0, gl0 = compile_spanning_to_inter_op sp0 in
       let l_op1, l_tree1, l_gl1 =
         list_split3 (List.map compile_spanning_to_inter_op l)
@@ -2211,7 +2214,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
           []
           [("g", gsize); ("d", tsize)]
       end
-    | TCvar (t, g, x) -> begin
+    | TCvar { t; g; x } -> begin
         let xreg, grest = map_partition g (StringSet.singleton x) in
           inter_lambda "TCvar" true
             [("g", gsize); ("d", dsize)]
@@ -2231,7 +2234,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
           []
           [("g", gsize); ("d", tsize)]
       end
-    | TPurePair (t0, t1, _, d, d0, d1, e0, e1, iso) -> begin
+    | TPurePair { t0; t1; d; d0; d1; e0; e1; iso; _ } -> begin
         let op0 = compile_pure_expr_to_inter_op e0 in
         let op1 = compile_pure_expr_to_inter_op e1 in
           inter_lambda "TPurePair" iso
@@ -2254,7 +2257,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             ]
             [("g", gsize); ("res", tsize)]
       end
-    | TCtrl (_, t1, g, g', d, d', e, l, orp, erp_map, iso) -> begin
+    | TCtrl { t1; g; g'; d; d'; e; l; orp; erp; iso; _ } -> begin
         let n = List.length l in
         let gg'dd' = map_merge_noopt false g_whole d_whole in
           if n = 0 then
@@ -2283,7 +2286,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                    (List.combine ej's gjs))
             in
             let erase_op =
-              compile_erasure_to_inter_op d t1 (StringMap.bindings erp_map)
+              compile_erasure_to_inter_op d t1 (StringMap.bindings erp)
             in
             let fake_context_sumtype =
               fake_type_of_context_list ortho_tree
@@ -2339,14 +2342,14 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
                 ]
                 [("gg*", gsize); ("t1", tsize)]
       end
-    | TPureApp (_, _, _, _, f, e', iso) -> begin
-        let e'_op = compile_pure_expr_to_inter_op e' in
+    | TPureApp { f; e; iso; _ } -> begin
+        let e_op = compile_pure_expr_to_inter_op e in
         let f_op = compile_pure_prog_to_inter_op f in
           inter_lambda "TPureApp" iso
             [("g", gsize); ("d", dsize)]
             [
               inter_comment "Starting TPureApp";
-              inter_letapp ["g"; "t*"] e'_op ["g"; "d"];
+              inter_letapp ["g"; "t*"] e_op ["g"; "d"];
               inter_letapp ["res"] f_op ["t*"];
               inter_comment "Finished TPureApp";
             ]
@@ -2375,7 +2378,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             ]
             [("res", tsize)]
       end
-    | TMixedPair (t0, t1, d, d0, d1, e0, e1, iso) -> begin
+    | TMixedPair { t0; t1; d; d0; d1; e0; e1; iso } -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
           inter_lambda "TMixedPair" iso
@@ -2398,7 +2401,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             ]
             [("res", tsize)]
       end
-    | TTry (t, d0, _, e0, e1, iso) -> begin
+    | TTry { t; d0; e0; e1; iso; _ } -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
         let iso0 = is_iso_mixed_expr_proof e0 in
@@ -2455,7 +2458,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
               ]
               [("t", tsize)]
       end
-    | TMixedApp (_, _, _, f, e, iso) -> begin
+    | TMixedApp { f; e; iso; _ } -> begin
         let e_op = compile_mixed_expr_to_inter_op e in
         let f_op = compile_mixed_prog_to_inter_op f in
           inter_lambda "TMixedApp" iso
@@ -2475,7 +2478,7 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
   | TGate (theta, phi, lambda) -> IU3 (theta, phi, lambda)
   | TLeft (t0, t1) -> ILeft (t0, t1)
   | TRight (t0, t1) -> IRight (t0, t1)
-  | TPureAbs (t, t', _, e, e', iso) -> begin
+  | TPureAbs { t; t'; e; e'; iso; _ } -> begin
       let e_op = compile_pure_expr_to_inter_op e in
       let e'_op = compile_pure_expr_to_inter_op e' in
         inter_lambda "TPureAbs" iso
@@ -2490,18 +2493,18 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
           ]
           [("res", type_size t')]
     end
-  | TRphase (t, e, r0, r1) -> begin
+  | TRphase { t; e; r0; r1; iso; _ } -> begin
       let _, d = context_of_pure_expr_proof e in
       let e_op = compile_pure_expr_to_inter_op e in
       let e_op_no_g = make_pure_op_take_one_reg StringMap.empty d t e_op in
-        IMarkAsIso (true, IRphase (t, e_op_no_g, r0, r1))
+        IMarkAsIso (iso, IRphase (t, e_op_no_g, r0, r1))
     end
 
 (** Compiles a mixed program into the intermediate representation. *)
 and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
   match tp with
   | TChannel tp' -> compile_pure_prog_to_inter_op tp'
-  | TMixedAbs (t, t', d, d0, e, e', iso) -> begin
+  | TMixedAbs { t; t'; d; d0; e; e'; iso } -> begin
       let dd0 = map_merge_noopt false d d0 in
       let fve' = map_dom d in
       let e_op = compile_pure_expr_to_inter_op e in

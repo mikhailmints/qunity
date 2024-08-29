@@ -10,7 +10,8 @@ let rec gate_unitary_semantics (nqubits : int) (u : gate) : matrix =
     match u with
     | Identity
     | Annotation _
-    | PotentialDeletionLabel _ ->
+    | PotentialDeletionLabel _
+    | ZeroStateLabel _ ->
         mat_identity qdim
     | GphaseGate theta ->
         mat_scalar_mul
