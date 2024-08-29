@@ -753,10 +753,12 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                           | Some l' ->
                               let gjs = List.map fst3 l' in
                               let un =
-                                expr_is_classical e'
+                                expr_is_classical e' && g = StringMap.empty
                                 && begin
-                                     match tpe' with
-                                     | TMix tpe'_pure ->
+                                     match
+                                       pure_type_check StringMap.empty g0d0 e'
+                                     with
+                                     | SomeE tpe'_pure ->
                                          is_un_pure_expr_proof tpe'_pure
                                      | _ -> false
                                    end

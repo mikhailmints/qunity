@@ -55,8 +55,15 @@ let () =
                                 Printf.printf "Program type: %s\n"
                                   (string_of_progtype
                                      (progtype_of_prog_proof tp));
-                                Printf.printf "Isometry: %b\n\n"
+                                Printf.printf "Isometry: %b\n"
                                   (is_iso_prog_proof tp);
+                                begin
+                                  match tp with
+                                  | PureProg tp' ->
+                                      Printf.printf "Unitary: %b\n\n%!"
+                                        (is_un_pure_prog_proof tp')
+                                  | _ -> ()
+                                end;
                                 Printf.printf "Pure semantics:\n%!";
                                 begin
                                   try

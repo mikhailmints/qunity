@@ -11,7 +11,13 @@ let execute_expr (e : expr) : unit =
   | SomeE tp -> begin
       Printf.printf "Expression type: %s\n%!"
         (string_of_type (type_of_mixed_expr_proof tp));
-      Printf.printf "Isometry: %b\n\n%!" (is_iso_mixed_expr_proof tp);
+      Printf.printf "Isometry: %b\n%!" (is_iso_mixed_expr_proof tp);
+      begin
+        match tp with
+        | TMix tp' ->
+            Printf.printf "Unitary: %b\n\n%!" (is_un_pure_expr_proof tp')
+        | _ -> ()
+      end;
       Printf.printf "Pure semantics:\n%!";
       begin
         try print_mat (top_pure_expr_semantics e) with

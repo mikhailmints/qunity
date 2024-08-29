@@ -705,7 +705,20 @@ let rec gate_list_optimize (ul : gate list) (out_reg : int list)
     if changes_made then
       gate_list_optimize ul_opt out_reg' nqubits
     else
-      (ul, out_reg')
+      let ul_no_labels =
+        List.filter
+          (fun u ->
+            match u with
+            | PotentialDeletionLabel _
+            | ZeroStateLabel _ ->
+                false
+            | _ -> true)
+          ul
+      in
+        if ul_no_labels <> ul then
+          gate_list_optimize ul_no_labels out_reg nqubits
+        else
+          (ul, out_reg)
 
 (** The main entry point for the gate optimization procedure. *)
 let gate_optimize (u : gate) (out_reg : int list) : gate * int list =
