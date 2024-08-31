@@ -16,7 +16,7 @@ let option_of_optionE (optE : 'a optionE) : 'a option =
   | NoneE _ -> None
   | SomeE x -> Some x
 
-(** Outputs [None] if any of the elements of [l] are [None], otherwise remove
+(** Outputs [None] if any of the elements of [l] are [None], otherwise removes
     the option constructors from the elements. *)
 let all_or_nothing (l : 'a option list) : 'a list option =
   if List.for_all (fun a -> a <> None) l then
@@ -30,8 +30,8 @@ let all_or_nothing (l : 'a option list) : 'a list option =
   else
     None
 
-(** Outputs [None] if any of the values of [d] are [None], otherwise remove the
-    option constructors from the values. *)
+(** Outputs [None] if any of the values of [d] are [None], otherwise removes
+    the option constructors from the values. *)
 let map_all_or_nothing (d : 'a option StringMap.t) : 'a StringMap.t option =
   let keys, vals = List.split (StringMap.bindings d) in
     match all_or_nothing vals with

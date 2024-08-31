@@ -107,11 +107,11 @@ xexpr:
     | x = VAR {XVar x}
     | LPAREN; e0 = xexpr; COMMA; e1 = xexpr; RPAREN {XQpair (e0, e1)}
     | CTRL; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE; e = xexpr; LBRACKET;
-        l = ctrlblock {XCtrl (e, t0, fst l, t1, snd l)}
+        l = ctrlblock {XCtrl (e, t0, t1, fst l, snd l)}
     | MATCH; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE; e = xexpr; LBRACKET;
-        l = ctrlblock {XMatch (e, t0, fst l, t1, snd l)}
+        l = ctrlblock {XMatch (e, t0, t1, fst l, snd l)}
     | PMATCH; LBRACE; t0 = xexpr; COMMA; t1 = xexpr; RBRACE; LBRACKET;
-        l = ctrlblock {XPMatch (t0, fst l, t1, snd l)}
+        l = pmatchblock {XPMatch (t0, t1, l)}
     | TRY; e0 = xexpr; CATCH e1 = xexpr {XTry (e0, e1)}
     | f = xexpr; OF; e = xexpr  {XApply (f, e)}
     | e = xexpr; PIPE; f = xexpr {XApply (f, e)}
@@ -185,6 +185,11 @@ ctrlblock:
     | e0 = xexpr; ARROW; e1 = xexpr; SEMICOLON; ELSE; ARROW; e2 = xexpr;
         SEMICOLON; RBRACKET {([(e0, e1)], Some e2)}
     ;
+
+pmatchblock:
+    | e0 = xexpr; ARROW; e1 = xexpr; SEMICOLON; l = pmatchblock {(e0, e1) :: l}
+    | e0 = xexpr; ARROW; e1 = xexpr; RBRACKET {[(e0, e1)]}
+    | RBRACKET {[]}
 
 argnames:
     | name = XVAR; RANGLE {[name]}

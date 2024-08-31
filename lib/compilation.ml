@@ -3,6 +3,7 @@ open Reals
 open Syntax
 open Typechecking
 open Gate
+open Binary_tree
 
 (** If set to true, prints some helpful debugging information. *)
 let debug_mode = ref false
@@ -123,6 +124,12 @@ type inter_op =
   | IAssoc of exprtype * exprtype * exprtype
       (** Direct sum associativity isomorphism
           {m (T_0 \oplus T1) \oplus T_2 \rarr T_0 \oplus (T_1 \oplus T_2)}. *)
+  | ICommute of exprtype * exprtype
+      (** Direct sum commutativity isomorphism
+          {m (T_0 \oplus T1) \rarr T_1 \oplus T_0}. *)
+  | IConditionalCommute of exprtype * exprtype * bool list
+      (** In a direct sum tree type, commutes data lying along the same given
+          path in the left and right subspace. *)
   | IDistrLeft of exprtype * exprtype * exprtype
       (** Left distributivity isomorphism
           {m T \otimes (T_0 \oplus T_1) \rarr T \otimes T_0 \oplus T \otimes T_1}. *)
@@ -161,43 +168,6 @@ and inter_com = string list * inter_op * string list
 
 (** Alias for [ISequence]. *)
 let ( @&& ) a b = ISequence (a, b)
-
-(** A simple binary tree data structure, used for representing direct sum
-    encoding structures. *)
-type binary_tree = Leaf | Node of binary_tree * binary_tree
-
-(** String representation of a binary tree. *)
-let rec string_of_tree (tree : binary_tree) : string =
-  match tree with
-  | Leaf -> "Leaf"
-  | Node (tree0, tree1) ->
-      Printf.sprintf "Node (%s, %s)" (string_of_tree tree0)
-        (string_of_tree tree1)
-
-(** The number of leaves in the tree. *)
-let rec tree_size (tree : binary_tree) : int =
-  match tree with
-  | Leaf -> 1
-  | Node (l, r) -> tree_size l + tree_size r
-
-(** The longest distance from the root of the tree to a leaf. *)
-let rec tree_height (tree : binary_tree) : int =
-  match tree with
-  | Leaf -> 0
-  | Node (l, r) -> 1 + max (tree_height l) (tree_height r)
-
-(** To each leaf of [tree0], attach a copy of the corresponding element of
-    [l_tree1]. It is required that the length of [l_tree1] is the same as the
-    size of [tree0]. *)
-let rec tree_multiply (tree0 : binary_tree) (l_tree1 : binary_tree list) :
-    binary_tree =
-  match (tree0, l_tree1) with
-  | Leaf, [tree1] -> tree1
-  | Leaf, _ -> failwith "Mismatch when multiplying trees"
-  | Node (tree0_l, tree0_r), _ -> begin
-      let l_tree1_l, l_tree1_r = list_split_at_i l_tree1 (tree_size tree0_l) in
-        Node (tree_multiply tree0_l l_tree1_l, tree_multiply tree0_r l_tree1_r)
-    end
 
 (** Wrapper for [ILambda], also adding an option to mark it as an isometry. *)
 let inter_lambda (name : string) (iso : bool) (arglist : (string * int) list)
@@ -1012,6 +982,57 @@ let circuit_assoc (t0 : exprtype) (t1 : exprtype) (t2 : exprtype) :
         end;
     }
 
+(** Direct sum commutativity isomorphism
+    {m (T_0 \oplus T1) \rarr T_1 \oplus T_0}. *)
+let circuit_commute (t0 : exprtype) (t1 : exprtype) : circuit_spec =
+  let size = type_size (SumType (t0, t1)) in
+    {
+      in_sizes = [size];
+      out_sizes = [size];
+      circ_fun =
+        begin
+          fun in_regs used_wires _ ->
+            let in_reg = expect_single_in_reg "circuit_commute" in_regs size in
+              ( {
+                  name = "commute";
+                  in_regs = [in_reg];
+                  prep_reg = [];
+                  out_regs = [in_reg];
+                  flag_reg = [];
+                  garb_reg = [];
+                  gate = gate_paulix (List.hd in_reg);
+                },
+                used_wires )
+        end;
+    }
+
+(** In a direct sum tree type, commutes data lying along the same given path in
+    the left and right subspace. *)
+let circuit_conditional_commute (t0 : exprtype) (t1 : exprtype)
+    (bl : bool list) : circuit_spec =
+  let size = type_size (SumType (t0, t1)) in
+    {
+      in_sizes = [size];
+      out_sizes = [size];
+      circ_fun =
+        begin
+          fun in_regs used_wires _ ->
+            let in_reg = expect_single_in_reg "circuit_commute" in_regs size in
+            let signal_qubit = List.hd in_reg in
+            let l, _ = list_split_at_i (List.tl in_reg) (List.length bl) in
+              ( {
+                  name = "commute";
+                  in_regs = [in_reg];
+                  prep_reg = [];
+                  out_regs = [in_reg];
+                  flag_reg = [];
+                  garb_reg = [];
+                  gate = Controlled (l, bl, gate_paulix signal_qubit);
+                },
+                used_wires )
+        end;
+    }
+
 (** Left distributivity isomorphism
     {m T \otimes (T_0 \oplus T_1) \rarr T \otimes T_0 \oplus T \otimes T_1}. *)
 let circuit_distr_left (t : exprtype) (t0 : exprtype) (t1 : exprtype) :
@@ -1569,6 +1590,9 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
         (compile_inter_op_to_circuit op0)
         (compile_inter_op_to_circuit op1)
   | IAssoc (t0, t1, t2) -> circuit_assoc t0 t1 t2
+  | ICommute (t0, t1) -> circuit_commute t0 t1
+  | IConditionalCommute (t0, t1, path) ->
+      circuit_conditional_commute t0 t1 path
   | IDistrLeft (t, t0, t1) -> circuit_distr_left t t0 t1
   | IDistrRight (t0, t1, t) -> circuit_distr_right t0 t1 t
   | IMixedErr op ->
@@ -1582,6 +1606,7 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
       circuit_mark_as_iso iso (compile_inter_op_to_circuit op')
   | IContextPartition (d, fv) -> circuit_context_partition d fv
   | IContextMerge (d0, d1) -> circuit_context_merge d0 d1
+  | IAdjoint (IAdjoint op) -> compile_inter_op_to_circuit op
   | IAdjoint (ISequence (op0, op1)) ->
       compile_inter_op_to_circuit (ISequence (IAdjoint op1, IAdjoint op0))
   | IAdjoint (IDirsum (op0, op1)) ->
@@ -1862,6 +1887,61 @@ let rec big_context_distr_op (tree : binary_tree) (l : context list)
               )
     end
 
+(** Converts a valued tree of contexts into a direct sum along the tree of the
+    fake types corresponding to its elements. *)
+let rec fake_type_of_context_tree (tree : context valued_binary_tree) :
+    exprtype =
+  match tree with
+  | ValuedLeaf d -> fake_type_of_context d
+  | ValuedNode (tree0, tree1) ->
+      SumType (fake_type_of_context_tree tree0, fake_type_of_context_tree tree1)
+
+(** Converts a tree transformation, assumed to act on the given valued tree of
+    contexts, into an intermediate representation operator that transforms the
+    structure of the corresponding direct sum type accordingly. *)
+let rec inter_op_of_tree_transformation (trans : tree_transformation)
+    (tree : context valued_binary_tree) : inter_op =
+  match tree with
+  | ValuedLeaf d -> ISizeIdentity (context_size d)
+  | ValuedNode (tree0, tree1) -> begin
+      let t0 = fake_type_of_context_tree tree0 in
+      let t1 = fake_type_of_context_tree tree1 in
+        match trans with
+        | TreeIdentity -> IIdentity (SumType (t0, t1))
+        | TreeLeftRotation -> begin
+            match tree1 with
+            | ValuedNode (tree10, tree11) -> begin
+                let t10 = fake_type_of_context_tree tree10 in
+                let t11 = fake_type_of_context_tree tree11 in
+                  IAdjoint (IAssoc (t0, t10, t11))
+              end
+            | _ -> failwith "Can't convert left rotation to inter_op"
+          end
+        | TreeRightRotation -> begin
+            match tree0 with
+            | ValuedNode (tree00, tree01) -> begin
+                let t00 = fake_type_of_context_tree tree00 in
+                let t01 = fake_type_of_context_tree tree01 in
+                  IAssoc (t0, t00, t01)
+              end
+            | _ -> failwith "Can't convert right rotation to inter_op"
+          end
+        | TreeCommute -> ICommute (t0, t1)
+        | TreeLeftApply trans' ->
+            IDirsum (inter_op_of_tree_transformation trans' tree0, IIdentity t1)
+        | TreeRightApply trans' ->
+            IDirsum (IIdentity t0, inter_op_of_tree_transformation trans' tree1)
+        | TreeBothApply (trans0, trans1) ->
+            IDirsum
+              ( inter_op_of_tree_transformation trans0 tree0,
+                inter_op_of_tree_transformation trans1 tree1 )
+        | TreeConditionalCommute path -> IConditionalCommute (t0, t1, path)
+        | TreeSequence (trans0, trans1) ->
+            inter_op_of_tree_transformation trans0 tree
+            @&& inter_op_of_tree_transformation trans1
+                  (transform_valued_tree trans0 tree)
+    end
+
 (** Tree leveling operator that acts on a register corresponding to the direct
     sum of spaces with sizes specified in [l], using the binary tree structure
     [tree]. The operator, in effect, flattens the bottom of the tree to the
@@ -1905,6 +1985,10 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
   match sp with
   | SVoid -> (IIdentity Void, Leaf, [])
   | SUnit -> (IIdentity Qunit, Leaf, [StringMap.empty])
+  | SUnApp (f, sp') -> begin
+      let op, tree, gl = compile_spanning_to_inter_op sp' in
+        (IAdjoint (compile_pure_prog_to_inter_op f) @&& op, tree, gl)
+    end
   | SVar (x, t) -> (IIdentity t, Leaf, [StringMap.singleton x t])
   | SSum (sp0, sp1) -> begin
       let sp0_op, tree0, gl0 = compile_spanning_to_inter_op sp0 in
@@ -2087,8 +2171,8 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
     from a binary tree according to [selection]. This returns the operator
     which transforms the direct sum structure and sends unselected subspaces
     into the error space, as well as the updated tree. *)
-let rec ortho_select_op (t : exprtype) (tree : binary_tree)
-    (selection : bool list) : inter_op * binary_tree =
+and ortho_select_op (t : exprtype) (tree : binary_tree) (selection : bool list)
+    : inter_op * binary_tree =
   let n = List.length selection in
   let n' = List.length (List.filter (fun x -> x) selection) in
     if n = n' then
@@ -2120,7 +2204,8 @@ let rec ortho_select_op (t : exprtype) (tree : binary_tree)
 (** Compiles the orthogonality judgment into an intermediate representation
     operator, combining the compiled spanning operator and the orthogonality
     selection operator. *)
-let compile_ortho_to_inter_op (orp : ortho_proof) : inter_op * binary_tree =
+and compile_ortho_to_inter_op (orp : ortho_proof) :
+    inter_op * binary_tree * context list =
   let sp, selection = orp in
   let span_op, span_tree, gl = compile_spanning_to_inter_op sp in
   let select_op, ortho_tree =
@@ -2128,11 +2213,13 @@ let compile_ortho_to_inter_op (orp : ortho_proof) : inter_op * binary_tree =
       (dirsum_type_list span_tree (List.map fake_type_of_context gl))
       span_tree selection
   in
-    (span_op @&& select_op, ortho_tree)
+    ( span_op @&& select_op,
+      ortho_tree,
+      List.map fst (List.filter snd (List.combine gl selection)) )
 
 (** Compiles the erasure judgment for a single variable into an intermediate
     representation operator. *)
-let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
+and compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     (erp : erasure_proof) =
   let xsize = type_size xtype in
     match erp with
@@ -2169,7 +2256,7 @@ let rec compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
       end
 
 (** Compiles the erasure judgment into an intermediate representation operator. *)
-let rec compile_erasure_to_inter_op (d : context) (t : exprtype)
+and compile_erasure_to_inter_op (d : context) (t : exprtype)
     (l : (string * erasure_proof) list) : inter_op =
   let dsize = context_size d in
   let tsize = type_size t in
@@ -2200,8 +2287,7 @@ let rec compile_erasure_to_inter_op (d : context) (t : exprtype)
 (** Compiles a pure expression into the intermediate representation. This
     creates a circuit that takes in two registers, corresponding to the
     classical and quantum contexts. *)
-let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
-    =
+and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
   let t = type_of_pure_expr_proof tp in
   let g_whole, d_whole = context_of_pure_expr_proof tp in
   let gsize = context_size g_whole in
@@ -2274,7 +2360,7 @@ let rec compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op
             let e_op = compile_mixed_expr_to_inter_op e in
             let gjs = List.map fst3 l in
             let ej's = List.map trd3 l in
-            let ortho_op, ortho_tree = compile_ortho_to_inter_op orp in
+            let ortho_op, ortho_tree, _ = compile_ortho_to_inter_op orp in
             let ej'_sum_op =
               dirsum_op_list ortho_tree
                 (List.map
@@ -2498,6 +2584,22 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
       let e_op = compile_pure_expr_to_inter_op e in
       let e_op_no_g = make_pure_op_take_one_reg StringMap.empty d t e_op in
         IMarkAsIso (iso, IRphase (t, e_op_no_g, r0, r1))
+    end
+  | TPmatch { orp0; orp1; perm0; perm1; iso; _ } -> begin
+      let ortho_op0, tree0, djs0 = compile_ortho_to_inter_op orp0 in
+      let ortho_op1, tree1, _ = compile_ortho_to_inter_op orp1 in
+      let djs0 =
+        List.map fst
+          (List.sort (fun (_, a) (_, b) -> a - b) (List.combine djs0 perm0))
+      in
+      let valued_tree0 = assign_values_to_tree tree0 perm0 in
+      let valued_tree1 = assign_values_to_tree tree1 perm1 in
+      let trans = reshape_valued_tree valued_tree0 valued_tree1 in
+      let reshape_op =
+        inter_op_of_tree_transformation trans
+          (assign_values_to_tree tree0 djs0)
+      in
+        IMarkAsIso (iso, ortho_op0 @&& reshape_op @&& IAdjoint ortho_op1)
     end
 
 (** Compiles a mixed program into the intermediate representation. *)

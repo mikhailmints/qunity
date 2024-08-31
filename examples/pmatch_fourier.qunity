@@ -1,0 +1,4 @@
+NTensorE <[4], BitMinus> |> pmatch {NTensorT <[4], Bit>, NTensorT <[2], Bit> * NTensorT <[2], Bit>} [
+    Qft <[4]> of (Bit0, (x, y)) -> (Qft <[2]> of (BitPlus, (x, ())), Qft <[2]> of y);
+    Qft <[4]> of (Bit1, (x, y)) -> (Qft <[2]> of (BitMinus, (x, ())), Qft <[2]> of y);
+]

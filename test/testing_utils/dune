@@ -1,4 +1,4 @@
 (library
  (name testing_utils)
- (libraries qunity alcotest)
+ (libraries qunity alcotest qcheck)
  (modules testing_utils))

@@ -123,8 +123,9 @@ let deutsch (f : prog) : expr =
               Ctrl
                 ( Apply (f, Var "x"),
                   bit,
-                  [(bit0, Var "x"); (bit1, Apply (phaseflip bit, Var "x"))],
-                  bit ) ) ),
+                  bit,
+                  [(bit0, Var "x"); (bit1, Apply (phaseflip bit, Var "x"))] )
+            ) ),
       Apply (had, bit0) )
 
 let deutsch_fail_erase (f : prog) : expr =
@@ -137,8 +138,8 @@ let deutsch_fail_erase (f : prog) : expr =
               Ctrl
                 ( Apply (f, Var "x"),
                   bit,
-                  [(bit0, bit0); (bit1, Apply (phaseflip bit, Var "x"))],
-                  bit ) ) ),
+                  bit,
+                  [(bit0, bit0); (bit1, Apply (phaseflip bit, Var "x"))] ) ) ),
       Apply (had, bit0) )
 
 let deutsch_fail_ortho (f : prog) : expr =
@@ -151,8 +152,9 @@ let deutsch_fail_ortho (f : prog) : expr =
               Ctrl
                 ( Apply (f, Var "x"),
                   bit,
-                  [(bit0, Var "x"); (bit0, Apply (phaseflip bit, Var "x"))],
-                  bit ) ) ),
+                  bit,
+                  [(bit0, Var "x"); (bit0, Apply (phaseflip bit, Var "x"))] )
+            ) ),
       Apply (had, bit0) )
 
 let big_expr =
@@ -190,22 +192,28 @@ let () =
     expect_expr_puretype_err "try_pure_err" (Try (Null, Null));
     expect_expr_mixedtype "try_unit_type" (Try (Null, Null)) Qunit;
 
-    test_equality "span_list_qunit1" (span_list Qunit [Null]) (Some [Null]);
-    test_equality "span_list_qunit2" (span_list Qunit []) (Some [Null]);
-    test_equality "span_list_bit1" (span_list bit []) (Some [Var "$0"]);
-    test_equality "span_list_bit2" (span_list bit [bit0]) (Some [bit0; bit1]);
-    test_equality "span_list_bit3" (span_list bit [bit1]) (Some [bit0; bit1]);
+    test_equality "span_list_qunit1"
+      (span_list Qunit [Null] false)
+      (Some [Null]);
+    test_equality "span_list_qunit2" (span_list Qunit [] false) (Some [Null]);
+    test_equality "span_list_bit1" (span_list bit [] false) (Some [Var "$0"]);
+    test_equality "span_list_bit2"
+      (span_list bit [bit0] false)
+      (Some [bit0; bit1]);
+    test_equality "span_list_bit3"
+      (span_list bit [bit1] false)
+      (Some [bit0; bit1]);
 
     test_equality "span_list_2bit"
-      (span_list (ProdType (bit, bit)) [Qpair (bit0, bit0)])
+      (span_list (ProdType (bit, bit)) [Qpair (bit0, bit0)] false)
       (Some [Qpair (bit0, bit0); Qpair (bit0, bit1); Qpair (bit1, Var "$0")]);
 
     expect_expr_puretype "half_bell_type"
       (Ctrl
          ( Apply (had, bit0),
            bit,
-           [(bit0, Qpair (bit0, bit0)); (bit1, Qpair (bit1, bit1))],
-           ProdType (bit, bit) ))
+           ProdType (bit, bit),
+           [(bit0, Qpair (bit0, bit0)); (bit1, Qpair (bit1, bit1))] ))
       (ProdType (bit, bit));
 
     expect_expr_puretype "deutsch_type" (deutsch (qid bit)) bit;

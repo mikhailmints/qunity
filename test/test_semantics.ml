@@ -61,8 +61,9 @@ let deutsch (f : prog) : expr =
               Ctrl
                 ( Apply (f, Var "x"),
                   bit,
-                  [(bit0, Var "x"); (bit1, Apply (phaseflip bit, Var "x"))],
-                  bit ) ) ),
+                  bit,
+                  [(bit0, Var "x"); (bit1, Apply (phaseflip bit, Var "x"))] )
+            ) ),
       Apply (had, bit0) )
 
 let const0 = Lambda (Var "x", bit, bit0)
@@ -105,8 +106,8 @@ let () =
       (Ctrl
          ( Apply (had, bit0),
            bit,
-           [(bit0, Qpair (bit0, bit0)); (bit1, Qpair (bit1, bit1))],
-           ProdType (bit, bit) ))
+           ProdType (bit, bit),
+           [(bit0, Qpair (bit0, bit0)); (bit1, Qpair (bit1, bit1))] ))
       [half; c0; c0; half];
 
     expect_mixed_expr_sem "const0_app_sem"

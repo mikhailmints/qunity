@@ -96,6 +96,17 @@ and pure_prog_typing_proof =
       iso : bool;
       un : bool;
     }
+  | TPmatch of {
+      t0 : exprtype;
+      t1 : exprtype;
+      l : (context * pure_expr_typing_proof * pure_expr_typing_proof) list;
+      orp0 : ortho_proof;
+      orp1 : ortho_proof;
+      perm0 : int list;
+      perm1 : int list;
+      iso : bool;
+      un : bool;
+    }
 
 (** A data structure representing a mixed program typing judgment proof. *)
 and mixed_prog_typing_proof =
@@ -126,6 +137,7 @@ and erasure_proof =
 and spanning_proof =
   | SVoid
   | SUnit
+  | SUnApp of pure_prog_typing_proof * spanning_proof
   | SVar of string * exprtype
   | SSum of spanning_proof * spanning_proof
   | SPair of exprtype * exprtype * spanning_proof * spanning_proof list
@@ -160,6 +172,7 @@ let rec type_of_prog_proof (tp : prog_typing_proof) : exprtype * exprtype =
   | PureProg (TRight (t0, t1)) -> (t1, SumType (t0, t1))
   | PureProg (TPureAbs { t; t'; _ }) -> (t, t')
   | PureProg (TRphase { t; _ }) -> (t, t)
+  | PureProg (TPmatch { t0; t1; _ }) -> (t0, t1)
   | MixedProg (TChannel tp') -> type_of_prog_proof (PureProg tp')
   | MixedProg (TMixedAbs { t; t'; _ }) -> (t, t')
 
@@ -225,7 +238,8 @@ let is_iso_pure_prog_proof (tp : pure_prog_typing_proof) : bool =
   | TRight _ ->
       true
   | TRphase { iso; _ }
-  | TPureAbs { iso; _ } ->
+  | TPureAbs { iso; _ }
+  | TPmatch { iso; _ } ->
       iso
 
 (** Obtains the isometry judgment information from a mixed program typing
@@ -264,7 +278,8 @@ let is_un_pure_prog_proof (tp : pure_prog_typing_proof) : bool =
   | TRight _ ->
       false
   | TRphase { un; _ }
-  | TPureAbs { un; _ } ->
+  | TPureAbs { un; _ }
+  | TPmatch { un; _ } ->
       un
 
 (** Determines if an expression is classical (does not use [U3] or [Rphase]). *)
@@ -274,7 +289,7 @@ let rec expr_is_classical (e : expr) : bool =
   | Var _ ->
       true
   | Qpair (e0, e1) -> expr_is_classical e0 && expr_is_classical e1
-  | Ctrl (e', _, l, _) ->
+  | Ctrl (e', _, _, l) ->
       expr_is_classical e'
       && List.for_all
            (fun (ej, ej') -> expr_is_classical ej && expr_is_classical ej')
@@ -292,6 +307,10 @@ and prog_is_classical (f : prog) : bool =
   | Right _ ->
       true
   | Lambda (e0, _, e1) -> expr_is_classical e0 && expr_is_classical e1
+  | Pmatch (_, _, l) ->
+      List.for_all
+        (fun (ej, ej') -> expr_is_classical ej && expr_is_classical ej')
+        l
 
 (** Checks if an orthogonality proof directly corresponds to a spanning proof
     (if the corresponding expressions form a full spanning set). *)
@@ -307,7 +326,7 @@ let rec free_vars (e : expr) : StringSet.t =
   | Qpair (e1, e2)
   | Try (e1, e2) ->
       StringSet.union (free_vars e1) (free_vars e2)
-  | Ctrl (e', _, l, _) ->
+  | Ctrl (e', _, _, l) ->
       List.fold_right
         (fun (ej, ej') rest ->
           (* The free variables of the left-hand side patterns in a control
@@ -320,7 +339,7 @@ let rec free_vars (e : expr) : StringSet.t =
 let rec dephase (e : expr) : expr list =
   match e with
   | Apply (Rphase (_, _, r0, r1), e') when r0 = r1 -> dephase e'
-  | Ctrl (_, _, l, _) ->
+  | Ctrl (_, _, _, l) ->
       List.flatten (List.map (fun (_, ej') -> dephase ej') l)
   | _ -> [e]
 
@@ -352,7 +371,7 @@ let rec erases_check (x : string) (l : expr list) (t : exprtype) :
         end
       | _ -> None
 
-(** Given a list l of expressionsexpected to be of type [SumType (t0, t1)],
+(** Given a list l of expressions expected to be of type [SumType (t0, t1)],
     splits the list into two lists - one containing all the "left" expressions
     of type [t0] and one containing all the "right" exressions of type [t1]. *)
 let rec split_sum_list (t0 : exprtype) (t1 : exprtype) (l : expr list) :
@@ -400,35 +419,74 @@ let rec spread_qpair_list (l : expr list) : (expr * expr list) list option =
   | _ -> None
 
 (** Comparison for two expressions (assumed to be of the same type). If the
-    expressions can't both be on the left-hand side of a control block, the
-    output is meaningless. *)
-and expr_compare (e0 : expr) (e1 : expr) =
+    expressions can't both be on the left-hand side of a control or pmatch
+    block, the output is meaningless. *)
+let rec expr_compare (e0 : expr) (e1 : expr) =
   match (e0, e1) with
   | Null, Null -> 0
   | Apply (Left _, _), Apply (Right _, _) -> -1
   | Apply (Right _, _), Apply (Left _, _) -> 1
-  | Apply (Left _, e0), Apply (Left _, e1) -> expr_compare e0 e1
-  | Apply (Right _, e0), Apply (Right _, e1) -> expr_compare e0 e1
+  | Apply (f0, e0), Apply (f1, e1) when f0 = f1 -> expr_compare e0 e1
   | Qpair (e00, e01), Qpair (e10, e11) ->
       let c0 = expr_compare e00 e10 in
         if c0 = 0 then expr_compare e01 e11 else c0
   | _ -> 0
 
+(** Checks if every element in the given list is an application of the same
+    unitary program to something, and if so, returns the program, its typing
+    proof, and the list with the applications removed. *)
+let rec check_unapp (l : expr list) :
+    (prog * pure_prog_typing_proof * expr list) option =
+  match
+    all_or_nothing
+      (List.map
+         (fun e ->
+           match e with
+           | Apply (f, e') -> Some (f, e')
+           | _ -> None)
+         l)
+  with
+  | None -> None
+  | Some fs_l' -> begin
+      let fs, l' = List.split fs_l' in
+        if fs = [] then
+          None
+        else if not (List.for_all (fun f -> f = List.hd fs) fs) then
+          None
+        else
+          let f = List.hd fs in
+          let tpf = prog_type_check f in
+            match tpf with
+            | SomeE (PureProg tpf) ->
+                if is_un_pure_prog_proof tpf then Some (f, tpf, l') else None
+            | _ -> None
+    end
+
 (** If possible, fills the missing span for a given list of expressions to make
-    the spanning judgment hold. *)
-let missing_span (t : exprtype) (l : expr list) :
+    the spanning judgment hold. Also returns the corresponding spanning proof
+    structure. *)
+and missing_span (t : exprtype) (l : expr list) (allow_quantum : bool) :
     (expr list * spanning_proof) option =
   let rec missing_span_helper (t : exprtype) (l : expr list) (fv : StringSet.t)
       : (expr list * spanning_proof) option =
-    match (t, l) with
-    | Void, [] -> Some ([], SVoid)
-    | Qunit, [] -> Some ([Null], SUnit)
-    | Qunit, [Null] -> Some ([], SUnit)
-    | _, [] ->
+    match (t, l, check_unapp l) with
+    | _, _, Some (f, tpf, l') when allow_quantum -> begin
+        match
+          missing_span_helper (fst (type_of_prog_proof (PureProg tpf))) l' fv
+        with
+        | None -> None
+        | Some (l'', sp) ->
+            Some (List.map (fun e -> Apply (f, e)) l'', SUnApp (tpf, sp))
+      end
+    | Void, [], _ -> Some ([], SVoid)
+    | Qunit, [], _ -> Some ([Null], SUnit)
+    | Qunit, [Null], _ -> Some ([], SUnit)
+    | _, [], _ ->
         let x = fresh_string "$" fv in
           Some ([Var x], SVar (x, t))
-    | _, [Var x] -> if StringSet.mem x fv then None else Some ([], SVar (x, t))
-    | SumType (t0, t1), _ -> begin
+    | _, [Var x], _ ->
+        if StringSet.mem x fv then None else Some ([], SVar (x, t))
+    | SumType (t0, t1), _, _ -> begin
         match split_sum_list t0 t1 l with
         | None -> None
         | Some (l0, l1) -> begin
@@ -443,7 +501,7 @@ let missing_span (t : exprtype) (l : expr list) :
             | _, _ -> None
           end
       end
-    | ProdType (t0, t1), _ -> begin
+    | ProdType (t0, t1), _, _ -> begin
         match spread_qpair_list l with
         | None -> None
         | Some l' -> begin
@@ -477,22 +535,24 @@ let missing_span (t : exprtype) (l : expr list) :
               end
           end
       end
-    | _, _ -> None
+    | _, _, _ -> None
   in
     missing_span_helper t l StringSet.empty
 
 (** Given an expression type [t] and list [l] of expressions, expected to be of
     type [t], extends the list to one "spanning" [t], if possible. *)
-let span_list (t : exprtype) (l : expr list) : expr list option =
-  match missing_span t l with
+and span_list (t : exprtype) (l : expr list) (allow_quantum : bool) :
+    expr list option =
+  match missing_span t l allow_quantum with
   | Some (l', _) -> Some (List.sort expr_compare (l @ l'))
   | None -> None
 
 (** Checks if the given expression list [l] satisfies the orthogonality
     judgment, and if so, outputs an orthogonality judgment proof data
     structure. *)
-let ortho_check (t : exprtype) (l : expr list) : ortho_proof option =
-  match missing_span t l with
+and ortho_check (t : exprtype) (l : expr list) (allow_quantum : bool) :
+    ortho_proof option =
+  match missing_span t l allow_quantum with
   | Some (l', sp) ->
       let span_list = List.sort expr_compare (l @ l') in
       let ortho_list = List.sort expr_compare l in
@@ -504,8 +564,8 @@ let ortho_check (t : exprtype) (l : expr list) : ortho_proof option =
     quantum context of [ej] has to be some [gj] with no classical context -
     then, with the classical context obtained by merging [g] and [gj], this
     finds the quantum context of [ej']. *)
-let rec first_pattern_context_check (g : context) (t : exprtype)
-    (t' : exprtype) (ej : expr) (ej' : expr) : context optionE =
+and first_pattern_context_check (g : context) (t : exprtype) (t' : exprtype)
+    (ej : expr) (ej' : expr) : context optionE =
   match context_check StringMap.empty t ej with
   | NoneE err -> NoneE err
   | SomeE gj -> begin
@@ -723,7 +783,7 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                 NoneE (err ^ "\nin Qpair")
     end
   (* T-CTRL *)
-  | Ctrl (e', t0, l, t1) -> begin
+  | Ctrl (e', t0, t1, l) -> begin
       let l = List.sort (fun (e0, _) (e1, _) -> expr_compare e0 e1) l in
       let fve' = free_vars e' in
       let g0, g' = map_partition g fve' in
@@ -734,7 +794,7 @@ and pure_type_check (g : context) (d : context) (e : expr) :
         | SomeE g0d0 -> begin
             match mixed_type_check g0d0 e' with
             | SomeE tpe' when type_of_mixed_expr_proof tpe' = t0 -> begin
-                match ortho_check t0 ejs with
+                match ortho_check t0 ejs false with
                 | None -> NoneE "Ortho check failed in Ctrl"
                 | Some orp -> begin
                     match
@@ -764,7 +824,7 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                                    end
                                 && is_spanning_ortho_proof orp
                                 && begin
-                                     match ortho_check t1 ej's with
+                                     match ortho_check t1 ej's false with
                                      | None -> false
                                      | Some orp' ->
                                          is_spanning_ortho_proof orp'
@@ -912,7 +972,7 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
           NoneE (err ^ "\nin Qpair")
     end
   (* T-CTRL *)
-  | Ctrl (e', t0, l, t1), _ -> begin
+  | Ctrl (e', t0, t1, l), _ -> begin
       match (mixed_context_check t0 e', l) with
       | NoneE err, _ -> NoneE (err ^ "\nin Ctrl")
       | SomeE d, [] -> SomeE d
@@ -927,7 +987,7 @@ and context_check (g : context) (t : exprtype) (e : expr) : context optionE =
                   let ej, ej' = List.split l in
                     if not (map_is_inclusion d gd0) then
                       NoneE "Context inclusion failed in Ctrl"
-                    else if ortho_check t0 ej = None then
+                    else if ortho_check t0 ej false = None then
                       NoneE "Ortho check failed in Ctrl"
                     else if
                       not
@@ -1047,6 +1107,60 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
                 SomeE (PureProg (TRphase { t; e = tpe'; r0; r1; iso; un }))
           | _ -> NoneE "Type mismatch in Rphase"
         end
+    end
+  | Pmatch (t0, t1, l) -> begin
+      let ejs = List.map fst l in
+      let ej's = List.map snd l in
+      let perm0 =
+        List.map snd
+          (List.sort
+             (fun (e0, _) (e1, _) -> expr_compare e0 e1)
+             (List.combine ejs (range (List.length l))))
+      in
+      let perm1 =
+        List.map snd
+          (List.sort
+             (fun (e0, _) (e1, _) -> expr_compare e0 e1)
+             (List.combine ej's (range (List.length l))))
+      in
+        match
+          all_or_nothing
+            (List.map
+               (fun (ej, ej') ->
+                 match
+                   ( context_check StringMap.empty t0 ej,
+                     context_check StringMap.empty t1 ej' )
+                 with
+                 | SomeE d0, SomeE d1 ->
+                     if StringMap.equal ( = ) d0 d1 then begin
+                       match
+                         ( pure_type_check StringMap.empty d0 ej,
+                           pure_type_check StringMap.empty d0 ej' )
+                       with
+                       | SomeE tp0, SomeE tp1 -> Some (d0, tp0, tp1)
+                       | _ -> None
+                     end
+                     else
+                       None
+                 | _ -> None)
+               l)
+        with
+        | None -> NoneE "Context mismatch in Pmatch"
+        | Some l' -> begin
+            match
+              ( ortho_check t0 (List.map fst l) true,
+                ortho_check t1 (List.map snd l) true )
+            with
+            | Some orp0, Some orp1 -> begin
+                let iso = is_spanning_ortho_proof orp0 in
+                let un = iso && is_spanning_ortho_proof orp1 in
+                  SomeE
+                    (PureProg
+                       (TPmatch
+                          { t0; t1; l = l'; orp0; orp1; perm0; perm1; iso; un }))
+              end
+            | _ -> NoneE "Ortho check failed in Pmatch"
+          end
     end
 
 (** Typechecks a pure expression, throwing an exception in the case of a

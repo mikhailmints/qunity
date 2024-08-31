@@ -23,6 +23,7 @@ while :; do
             analyze=true
             ;;
         --debug)
+            export OCAMLRUNPARAM=b
             debug=true
             ;;
         --annotate)
