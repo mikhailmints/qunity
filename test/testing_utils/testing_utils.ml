@@ -2,6 +2,7 @@ open Qunity
 open Util
 open Syntax
 open Gate
+open Binary_tree
 open Compilation
 
 module Alcotest = struct

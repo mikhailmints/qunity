@@ -10,6 +10,7 @@
   semantics
   extended_syntax
   gate
+  binary_tree
   compilation
   gate_semantics
   parser

@@ -1,0 +1,5 @@
+BitPlus |>
+pmatch {Bit, Bit} [
+    BitPlus -> Bit0;
+    BitMinus -> Bit1
+]

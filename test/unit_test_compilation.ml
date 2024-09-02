@@ -4,11 +4,6 @@ open Syntax
 open Compilation
 open Testing_utils
 
-let example_tree =
-  Node
-    ( Node (Node (Leaf, Leaf), Node (Node (Leaf, Leaf), Leaf)),
-      Node (Node (Leaf, Node (Leaf, Node (Leaf, Leaf))), Node (Leaf, Leaf)) )
-
 let example_type =
   ProdType
     ( ProdType (SumType (ProdType (bit, bit), bit), bit),
@@ -34,52 +29,6 @@ let settings0 = { reset_flag = true; reset_garb = true; iso = false }
 let () =
   Alcotest.run "compilation"
     [
-      ( "tree_size",
-        [
-          test "tree_size_1" (fun () ->
-              Alcotest.(check int "") 1 (tree_size Leaf));
-          test "tree_size_2" (fun () ->
-              Alcotest.(check int "") 2 (tree_size (Node (Leaf, Leaf))));
-          test "tree_size_3" (fun () ->
-              Alcotest.(check int "")
-                5
-                (tree_size
-                   (Node (Node (Leaf, Node (Leaf, Leaf)), Node (Leaf, Leaf)))));
-          test "tree_size_4" (fun () ->
-              Alcotest.(check int "") 11 (tree_size example_tree));
-        ] );
-      ( "tree_height",
-        [
-          test "tree_height_1" (fun () ->
-              Alcotest.(check int "") 0 (tree_height Leaf));
-          test "tree_height_2" (fun () ->
-              Alcotest.(check int "") 1 (tree_height (Node (Leaf, Leaf))));
-          test "tree_height_3" (fun () ->
-              Alcotest.(check int "")
-                3
-                (tree_height
-                   (Node (Node (Leaf, Node (Leaf, Leaf)), Node (Leaf, Leaf)))));
-          test "tree_height_3" (fun () ->
-              Alcotest.(check int "") 5 (tree_height example_tree));
-        ] );
-      ( "tree_multiply",
-        [
-          test "tree_multiply_1" (fun () ->
-              Alcotest.(check binary_tree "")
-                example_tree
-                (tree_multiply Leaf [example_tree]));
-          test "tree_multiply_2" (fun () ->
-              Alcotest.(check binary_tree "")
-                example_tree
-                (tree_multiply example_tree
-                   (list_constant Leaf (tree_size example_tree))));
-          test "tree_multiply_3" (fun () ->
-              Alcotest.(check binary_tree "")
-                (Node (Node (Leaf, Leaf), Node (Leaf, Node (Leaf, Leaf))))
-                (tree_multiply
-                   (Node (Leaf, Leaf))
-                   [Node (Leaf, Leaf); Node (Leaf, Node (Leaf, Leaf))]));
-        ] );
       ( "type_size",
         [
           test "void" (fun () -> Alcotest.(check int "") 0 (type_size Void));

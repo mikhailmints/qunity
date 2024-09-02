@@ -459,6 +459,14 @@ and pure_prog_semantics (tp : pure_prog_typing_proof) : matrix =
                    (Complex.polar 1. (float_of_real r1))
                    (mat_minus (mat_identity (type_dimension t)) er_proj))
           end
+        | TPmatch { t0; t1; l; _ } -> begin
+            mat_sum (type_dimension t1) (type_dimension t0)
+              (List.map
+                 (fun (_, ej, ej') ->
+                   pure_expr_semantics ej' StringMap.empty
+                   *@ mat_adjoint (pure_expr_semantics ej StringMap.empty))
+                 l)
+          end
       end
     in
       Hashtbl.add pure_prog_sem_memo tp res;

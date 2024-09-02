@@ -18,7 +18,7 @@ type expr =
   | Null
   | Var of string
   | Qpair of (expr * expr)
-  | Ctrl of (expr * exprtype * (expr * expr) list * exprtype)
+  | Ctrl of (expr * exprtype * exprtype * (expr * expr) list)
   | Try of (expr * expr)
   | Apply of (prog * expr)
 
@@ -29,6 +29,7 @@ and prog =
   | Right of (exprtype * exprtype)
   | Lambda of (expr * exprtype * expr)
   | Rphase of (exprtype * expr * real * real)
+  | Pmatch of (exprtype * exprtype * (expr * expr) list)
 
 type context = exprtype StringMap.t
 (** A context, mapping variable names to types. *)
@@ -68,7 +69,7 @@ let rec string_of_expr (e : expr) : string =
   | Var x -> x
   | Qpair (e1, e2) ->
       Printf.sprintf "(%s, %s)" (string_of_expr e1) (string_of_expr e2)
-  | Ctrl (e0, t0, l, t1) ->
+  | Ctrl (e0, t0, t1, l) ->
       Printf.sprintf "ctrl {%s, %s} %s [%s]" (string_of_type t0)
         (string_of_type t1) (string_of_expr e0)
         (List.fold_left
@@ -102,6 +103,17 @@ and string_of_prog (f : prog) : string =
   | Rphase (t, e, r0, r1) ->
       Printf.sprintf "rphase{%s, %s, %s, %s}" (string_of_type t)
         (string_of_expr e) (string_of_real r0) (string_of_real r1)
+  | Pmatch (t0, t1, l) ->
+      Printf.sprintf "pmatch {%s, %s} [%s]" (string_of_type t0)
+        (string_of_type t1)
+        (List.fold_left
+           (fun s1 s2 -> if s1 = "" then s2 else s1 ^ "; " ^ s2)
+           ""
+           (List.map
+              (fun (ej, ej') ->
+                Printf.sprintf "(%s) -> (%s)" (string_of_expr ej)
+                  (string_of_expr ej'))
+              l))
 
 (** String representation of a program type. *)
 let string_of_progtype (ft : progtype) : string =
@@ -134,7 +146,7 @@ and ocaml_string_of_expr (e : expr) : string =
   | Qpair (e0, e1) ->
       Printf.sprintf "Qpair (%s, %s)" (ocaml_string_of_expr e0)
         (ocaml_string_of_expr e1)
-  | Ctrl (e0, t0, l, t1) ->
+  | Ctrl (e0, t0, t1, l) ->
       Printf.sprintf "Ctrl (%s, %s, %s, %s)" (ocaml_string_of_expr e0)
         (ocaml_string_of_type t0)
         (string_of_list
@@ -173,6 +185,14 @@ and ocaml_string_of_prog (f : prog) : string =
       Printf.sprintf "Rphase (%s, %s, %s, %s)" (ocaml_string_of_type t)
         (ocaml_string_of_expr e) (ocaml_string_of_real r0)
         (ocaml_string_of_real r1)
+  | Pmatch (t0, t1, l) ->
+      Printf.sprintf "Pmatch (%s, %s, %s)" (ocaml_string_of_type t0)
+        (ocaml_string_of_type t1)
+        (string_of_list
+           (fun (ej, ej') ->
+             Printf.sprintf "(%s, %s)" (ocaml_string_of_expr ej)
+               (ocaml_string_of_expr ej'))
+           l)
 
 (** String representation of a context. *)
 let string_of_context (d : context) =

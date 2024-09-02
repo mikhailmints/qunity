@@ -1,11 +1,12 @@
 (tests
  (names
   unit_test_util
+  unit_test_binary_tree
   unit_test_compilation
   test_typechecking
   test_semantics
   test_compilation)
- (libraries qunity unix alcotest testing_utils)
+ (libraries qunity unix alcotest qcheck qcheck-alcotest testing_utils)
  (deps
   (glob_files ../qunitylib/*)
   (glob_files ../examples/*)))
