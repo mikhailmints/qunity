@@ -114,6 +114,12 @@ let gate_is_x (u : gate) : bool =
   | U3Gate (i, _, _, _) -> gate_equal u (gate_paulix i)
   | _ -> false
 
+(** Whether the given gate is a global phase gate. *)
+let gate_is_gphase (u : gate) : bool =
+  match u with
+  | GphaseGate _ -> true
+  | _ -> false
+
 (** Given a gate, outputs the set of qubits used by the gate. *)
 let rec gate_qubits_used (u : gate) : IntSet.t =
   match u with
@@ -566,23 +572,140 @@ let rec gate_classical_propagation (ul : gate list)
         | _ -> u' :: gate_classical_propagation ul' cl err
     end
 
+(** Checks if two gates can be cancelled either completely or into one smaller
+    gate. *)
+let gate_cancellation (u : gate) (u' : gate) : gate option =
+  match (u, u') with
+  | _ when gate_is_unitary u && gate_equal u' (gate_adjoint u) -> Some Identity
+  | Controlled (l0, bl0, u0), Controlled (l1, bl1, u1)
+    when gate_equal u0 u1 && List.sort ( - ) l0 = List.sort ( - ) l1 -> begin
+      let lbl0 = List.combine l0 bl0 in
+      let lbl1 = List.combine l1 bl1 in
+      let lbl0 = List.sort (fun (i, _) (j, _) -> i - j) lbl0 in
+      let lbl1 = List.sort (fun (i, _) (j, _) -> i - j) lbl1 in
+      let unequal_indices =
+        List.filter_map
+          (fun ((i, b0), (j, b1)) ->
+            assert (i = j);
+            if b0 <> b1 then Some i else None)
+          (List.combine lbl0 lbl1)
+      in
+        if List.length unequal_indices <> 1 then
+          None
+        else
+          let remove_i = List.hd unequal_indices in
+          let lbl0 = List.remove_assoc remove_i lbl0 in
+          let l, bl = List.split lbl0 in
+            if List.length l = 0 then
+              Some u0
+            else
+              Some (Controlled (l, bl, u0))
+    end
+  | _ -> None
+
+(** Commutes one gate to the right through the given list, until it cancels
+    with something or it can't commute further. If it cancels, this returns the
+    updated list. Otherwise this returns [None]. *)
+let rec gate_commutation_pass (ul : gate list) : gate list option =
+  match ul with
+  | []
+  | [_] ->
+      None
+  | a :: b :: ul' -> begin
+      match gate_cancellation a b with
+      | Some Identity -> Some ul'
+      | Some u' -> Some (u' :: ul')
+      | None -> begin
+          let commuted =
+            begin
+              match (a, b) with
+              | _
+                when IntSet.inter (gate_qubits_used a) (gate_qubits_used b)
+                     = IntSet.empty ->
+                  Some (b, a)
+              | _, GphaseGate _
+              | GphaseGate _, _
+              | _, Annotation _
+              | Annotation _, _ ->
+                  Some (b, a)
+              | U3Gate (i, _, _, _), Controlled (_, _, u0)
+                when a = gate_paulix i && u0 = gate_paulix i ->
+                  Some (b, a)
+              | Controlled (_, _, u0), U3Gate (i, _, _, _)
+                when b = gate_paulix i && u0 = gate_paulix i ->
+                  Some (b, a)
+              | U3Gate (i, _, _, _), Controlled (l, bl, u0)
+                when a = gate_paulix i
+                     && List.mem i l
+                     && not (List.length l = 1 && gate_is_gphase u0) -> begin
+                  let ind = list_index ( = ) l i in
+                  let bl0, bl1 = list_split_at_i bl ind in
+                    Some
+                      ( Controlled
+                          (l, bl0 @ (not (List.hd bl1) :: List.tl bl1), u0),
+                        a )
+                end
+              | Controlled (l, bl, u0), U3Gate (i, _, _, _)
+                when b = gate_paulix i
+                     && List.mem i l
+                     && not (List.length l = 1 && gate_is_gphase u0) -> begin
+                  let ind = list_index ( = ) l i in
+                  let bl0, bl1 = list_split_at_i bl ind in
+                    Some
+                      ( b,
+                        Controlled
+                          (l, bl0 @ (not (List.hd bl1) :: List.tl bl1), u0) )
+                end
+              | Controlled (l0, bl0, u0), Controlled (l1, bl1, u1)
+                when ((gate_is_x u0 && gate_is_x u1)
+                     || begin
+                          let map0 = IntMap.of_list (List.combine l0 bl0) in
+                          let map1 = IntMap.of_list (List.combine l1 bl1) in
+                            IntMap.cardinal
+                              (IntMap.filter
+                                 (fun i b ->
+                                   IntMap.find_opt i map1 = Some (not b))
+                                 map0)
+                            > 0
+                        end)
+                     && IntSet.for_all
+                          (fun x -> not (List.mem x l1))
+                          (gate_qubits_used u0)
+                     && IntSet.for_all
+                          (fun x -> not (List.mem x l0))
+                          (gate_qubits_used u1) ->
+                  Some (b, a)
+              | _ -> None
+            end
+          in
+            match commuted with
+            | None -> None
+            | Some (b', a') -> begin
+                match gate_commutation_pass (a' :: ul') with
+                | None -> None
+                | Some ul'' -> Some (b' :: ul'')
+              end
+        end
+    end
+
 (** An optimization pass that iterates though the given gate list [ul], making
     various gate simplifications. This can also modify the resulting [out_reg]
     when it eliminates SWAP gates. *)
 let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
     gate list * int list * bool =
-  match ul with
-  | [] -> ([], out_reg, false)
-  (* Cancel adjacent adjoint gates *)
-  | u :: u' :: ul' when gate_is_unitary u && gate_equal u' (gate_adjoint u) ->
+  match (ul, gate_commutation_pass ul) with
+  | [], _ -> ([], out_reg, false)
+  | _, Some [] -> ([], out_reg, true)
+  | _, Some ul' -> begin
       let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
         (ul'', out_reg', true)
+    end
   (* Remove global phases *)
-  | GphaseGate _ :: ul' ->
+  | GphaseGate _ :: ul', _ ->
       let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
         (ul'', out_reg', true)
   (* Check if deletion can occur on labeled wire segment *)
-  | PotentialDeletionLabel i :: ul' -> begin
+  | PotentialDeletionLabel i :: ul', _ -> begin
       let ul0, ul1 = split_up_to_first_measurements ul i in
         if is_valid_to_delete ul0 i then
           let ul0' =
@@ -613,7 +736,7 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
         end
     end
   (* Removing physical swap gates and relabeling wires *)
-  | Swap (i, j) :: ul' -> begin
+  | Swap (i, j) :: ul', _ -> begin
       let ul'', out_reg', _ =
         gate_optimization_pass
           (List.map (fun u -> gate_rewire u [i; j] [j; i]) ul')
@@ -623,67 +746,7 @@ let rec gate_optimization_pass (ul : gate list) (out_reg : int list) :
       in
         (ul'', out_reg', true)
     end
-  (* Commuting single-qubit gates *)
-  | u0 :: u1 :: ul'
-    when begin
-           let i0s = IntSet.elements (gate_qubits_used u0) in
-           let i1s = IntSet.elements (gate_qubits_used u1) in
-             if List.length i0s = 1 && List.length i1s = 1 then
-               List.hd i1s < List.hd i0s
-             else
-               false
-         end ->
-      let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
-        (u1 :: u0 :: ul'', out_reg', true)
-  (* Combining controlled and anti-controlled gate *)
-  | Controlled (l0, bl0, u0) :: Controlled (l1, bl1, u1) :: ul'
-    when gate_equal u0 u1 && List.sort ( - ) l0 = List.sort ( - ) l1 -> begin
-      let lbl0 = List.combine l0 bl0 in
-      let lbl1 = List.combine l1 bl1 in
-      let lbl0 = List.sort (fun (i, _) (j, _) -> i - j) lbl0 in
-      let lbl1 = List.sort (fun (i, _) (j, _) -> i - j) lbl1 in
-      let unequal_indices =
-        List.filter_map
-          (fun ((i, b0), (j, b1)) ->
-            assert (i = j);
-            if b0 <> b1 then Some i else None)
-          (List.combine lbl0 lbl1)
-      in
-        if List.length unequal_indices <> 1 then
-          let ul'', out_reg', changes_made =
-            gate_optimization_pass (Controlled (l1, bl1, u1) :: ul') out_reg
-          in
-            (Controlled (l0, bl0, u0) :: ul'', out_reg', changes_made)
-        else
-          let remove_i = List.hd unequal_indices in
-          let lbl0 = List.remove_assoc remove_i lbl0 in
-          let l, bl = List.split lbl0 in
-          let newgate =
-            if List.length l = 0 then
-              u0
-            else
-              Controlled (l, bl, u0)
-          in
-          let ul'', out_reg', _ = gate_optimization_pass ul' out_reg in
-            (newgate :: ul'', out_reg', true)
-    end
-  (* Commuting CNOT gates *)
-  | Controlled (l0, bl0, u0) :: Controlled (l1, bl1, u1) :: ul'
-    when gate_is_x u0 && gate_is_x u1
-         && begin
-              IntSet.for_all
-                (fun x -> not (List.mem x l1))
-                (gate_qubits_used u0)
-              && IntSet.for_all
-                   (fun x -> not (List.mem x l0))
-                   (gate_qubits_used u1)
-            end
-         && List.hd (List.sort ( - ) l1) < List.hd (List.sort ( - ) l0) ->
-      let ul'', out_reg', _ =
-        gate_optimization_pass (Controlled (l0, bl0, u0) :: ul') out_reg
-      in
-        (Controlled (l1, bl1, u1) :: ul'', out_reg', true)
-  | u :: ul' ->
+  | u :: ul', _ ->
       let ul'', out_reg', changes_made = gate_optimization_pass ul' out_reg in
         (u :: ul'', out_reg', changes_made)
 
@@ -705,6 +768,8 @@ let rec gate_list_optimize (ul : gate list) (out_reg : int list)
     if changes_made then
       gate_list_optimize ul_opt out_reg' nqubits
     else
+      (* If no changes were made in the last pass, remove all labels
+         and try one more time. *)
       let ul_no_labels =
         List.filter
           (fun u ->
@@ -714,6 +779,23 @@ let rec gate_list_optimize (ul : gate list) (out_reg : int list)
                 false
             | _ -> true)
           ul
+      in
+      (* Replace anti-controlled gphase with controlled, surrounded by
+         X gates (since that is how it will be output in QASM) before
+         optimizing further. *)
+      let ul_no_labels =
+        List.flatten
+          (List.map
+             (fun u ->
+               match u with
+               | Controlled ([i], [false], GphaseGate theta) ->
+                   [
+                     gate_paulix i;
+                     Controlled ([i], [true], GphaseGate theta);
+                     gate_paulix i;
+                   ]
+               | _ -> [u])
+             ul_no_labels)
       in
         if ul_no_labels <> ul then
           gate_list_optimize ul_no_labels out_reg nqubits

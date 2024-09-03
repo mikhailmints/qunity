@@ -349,6 +349,26 @@ let () =
                 ([1; 2; 3; 4; 5; 6; 7; 8], [])
                 (list_split_at_i [1; 2; 3; 4; 5; 6; 7; 8] 8));
         ] );
+      ( "list_split_by_sizes",
+        [
+          test "list_split_by_sizes_1" (fun () ->
+              Alcotest.(check (list (list int)) "")
+                []
+                (list_split_by_sizes [] []));
+          test "list_split_by_sizes_2" (fun () ->
+              Alcotest.(check (list (list int)) "")
+                [[]]
+                (list_split_by_sizes [] [0]));
+          test "list_split_by_sizes_3" (fun () ->
+              Alcotest.(check (list (list int)) "")
+                [[1; 2; 3]; [4; 5]; []]
+                (list_split_by_sizes [1; 2; 3; 4; 5] [3; 2; 0]));
+          test "list_split_by_sizes_4" (fun () ->
+              Alcotest.(check (list (list int)) "")
+                [[]; [1; 2; 3]; []; []; [4; 5]; [6]; [7; 8]]
+                (list_split_by_sizes [1; 2; 3; 4; 5; 6; 7; 8]
+                   [0; 3; 0; 0; 2; 1; 2]));
+        ] );
       ( "list_split3",
         [
           test "list_split3_1" (fun () ->

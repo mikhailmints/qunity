@@ -223,6 +223,14 @@ let list_split_at_i (l : 'a list) (i : int) : 'a list * 'a list =
   let l0, l1 = iter [] l i in
     (List.rev l0, l1)
 
+(** Splits a list [l] into parts, of sizes given by another list. *)
+let rec list_split_by_sizes (l : 'a list) (sizes : int list) : 'a list list =
+  match sizes with
+  | [] -> if l <> [] then failwith "Expected empty list" else []
+  | size :: rest ->
+      let l0, l1 = list_split_at_i l size in
+        l0 :: list_split_by_sizes l1 rest
+
 (** Splits a list of triples into three lists. *)
 let rec list_split3 (l : ('a * 'b * 'c) list) : 'a list * 'b list * 'c list =
   match l with

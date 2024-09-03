@@ -202,16 +202,10 @@ def IncrementLE <N> :=
         if N = [0] then
             Qid <qunit>
         else
-            lambda (x0, x') {NTensorT <N, Bit>} ->
-                ctrl {Bit, Bit * NTensorT <N, Bit>} x0 [
-                    Bit0 -> (x0, (Bit1, x'));
-                    Bit1 -> (x0, (Bit0, x' |> IncrementLE <[N - 1]>))
-                ] |> lambda (
-                    ctrl {NTensorT <N, Bit>, Bit * NTensorT <N, Bit>} y [
-                        (Bit0, _) -> (Bit1, y);
-                        (Bit1, _) -> (Bit0, y)
-                    ]
-                ) {Bit * NTensorT <N, Bit>} -> y
+            pmatch {NTensorT <N, Bit>, NTensorT <N, Bit>} [
+                (Bit0, x) -> (Bit1, x);
+                (Bit1, x) -> (Bit0, x |> IncrementLE <[N - 1]>)
+            ]
         endif
     endif
 end
