@@ -153,9 +153,7 @@ let () =
     let skipped_files =
       [
         "boolean_formula_walk.qunity";
-        "fourier_transform.qunity";
-        "grover.qunity";
-        "phase_estimation.qunity";
+        "grover_decoherent_oracle.qunity";
         "retry_example.qunity";
         "walk_1d.qunity";
       ]

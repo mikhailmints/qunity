@@ -58,11 +58,12 @@ let () =
                                 Printf.printf "Isometry: %b\n"
                                   (is_iso_prog_proof tp);
                                 begin
-                                  match tp with
-                                  | PureProg tp' ->
-                                      Printf.printf "Unitary: %b\n\n%!"
-                                        (is_un_pure_prog_proof tp')
-                                  | _ -> ()
+                                  let un =
+                                    match tp with
+                                    | PureProg tp' -> is_un_pure_prog_proof tp'
+                                    | _ -> false
+                                  in
+                                    Printf.printf "Unitary: %b\n\n%!" un
                                 end;
                                 Printf.printf "Pure semantics:\n%!";
                                 begin

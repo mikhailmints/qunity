@@ -32,10 +32,10 @@ Quantum oracle representing a function acting on N bits that outputs
 */
 def F :=
     lambda x {NTensorT <N, Bit>} ->
-    match {NTensorT <N, Bit>, Bit} x [
-        Answer -> Bit1;
-        else -> Bit0
-    ]
+    try
+        x |> lambda Answer {NTensorT <N, Bit>} -> Bit1
+    catch
+        Bit0
 end
 
 Grover <N, F, [2]>

@@ -144,9 +144,9 @@ type inter_op =
   | IContextDiscard of context
       (** Discards the input register, associated with a context. *)
   | IPurify of inter_op  (** Purification of an operator. *)
-  | IMarkAsIso of bool * inter_op
-      (** Marks an operator as an isometry, changing the corresponding
-          instantiation settings. *)
+  | IMarkAsIso of bool * bool * inter_op
+      (** Marks an operator as an isometry or unitary, changing the
+          corresponding instantiation settings. *)
   | IContextPartition of context * StringSet.t
       (** Partitions a register corresponding to a context into two according
           to a given set. *)
@@ -169,10 +169,18 @@ and inter_com = string list * inter_op * string list
 (** Alias for [ISequence]. *)
 let ( @&& ) a b = ISequence (a, b)
 
-(** Wrapper for [ILambda], also adding an option to mark it as an isometry. *)
-let inter_lambda (name : string) (iso : bool) (arglist : (string * int) list)
+(** Wrapper for [ILambda]. *)
+let inter_lambda (name : string) (arglist : (string * int) list)
     (body : inter_com list) (ret : (string * int) list) : inter_op =
-  IMarkAsIso (iso, ILambda (name, arglist, body, ret))
+  ILambda (name, arglist, body, ret)
+
+(** Wrapper for [ILambda], also adding an option to mark it as an isometry or
+    unitary. *)
+let inter_lambda_marked (name : string) (iso : bool) (un : bool)
+    (arglist : (string * int) list) (body : inter_com list)
+    (ret : (string * int) list) : inter_op =
+  if un && not iso then failwith "If un holds, iso must also hold";
+  IMarkAsIso (iso, un, ILambda (name, arglist, body, ret))
 
 (** Alias for construcing an [inter_com]. *)
 let inter_letapp (target : string list) (op : inter_op) (args : string list) :
@@ -1602,7 +1610,8 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
   | IDiscard t -> circuit_discard (type_size t)
   | IContextDiscard d -> circuit_discard (context_size d)
   | IPurify op' -> circuit_purify (compile_inter_op_to_circuit op')
-  | IMarkAsIso (iso, op') ->
+  | IMarkAsIso (iso, un, op') ->
+      if un && not iso then failwith "If un holds, iso must also hold";
       circuit_mark_as_iso iso (compile_inter_op_to_circuit op')
   | IContextPartition (d, fv) -> circuit_context_partition d fv
   | IContextMerge (d0, d1) -> circuit_context_merge d0 d1
@@ -1611,8 +1620,12 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
       compile_inter_op_to_circuit (ISequence (IAdjoint op1, IAdjoint op0))
   | IAdjoint (IDirsum (op0, op1)) ->
       compile_inter_op_to_circuit (IDirsum (IAdjoint op0, IAdjoint op1))
-  | IAdjoint (IMarkAsIso (_, op')) ->
+  | IAdjoint (IMarkAsIso (_, false, op')) ->
       compile_inter_op_to_circuit (IAdjoint op')
+  | IAdjoint (IMarkAsIso (false, true, _)) ->
+      failwith "If un holds, iso must also hold"
+  | IAdjoint (IMarkAsIso (true, true, op')) ->
+      circuit_mark_as_iso true (compile_inter_op_to_circuit (IAdjoint op'))
   | IAdjoint (ILambda (name, args, icl, ret)) -> begin
       let icl' =
         List.rev_map
@@ -1801,7 +1814,7 @@ let rec big_distr_right_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
   match t0 with
   | _ when t0 = stop -> IIdentity (ProdType (t0, t1))
   | SumType (t00, t01) -> begin
-      inter_lambda "big_distr_right" false
+      inter_lambda "big_distr_right"
         [("(t00+t01)*t1", type_size (ProdType (t0, t1)))]
         [
           inter_letapp ["t00+t01"; "t1"]
@@ -1836,7 +1849,7 @@ let rec big_distr_left_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
   match t1 with
   | _ when t1 = stop -> IIdentity (ProdType (t0, t1))
   | SumType (t10, t11) -> begin
-      inter_lambda "big_distr_left" false
+      inter_lambda "big_distr_left"
         [("t0*(t10+t11)", type_size (ProdType (t0, t1)))]
         [
           inter_letapp ["t0"; "t10+t11"]
@@ -1953,7 +1966,7 @@ let rec tree_level_op (tree : binary_tree) (h : int) (l : int list) : inter_op
     =
   match (tree, l) with
   | Leaf, [s] -> begin
-      inter_lambda "tree_level" true
+      inter_lambda "tree_level"
         [("t", s)]
         [
           inter_letapp ["padding"] (IPrepReg h) [];
@@ -2056,7 +2069,7 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
                 begin
                   let g0_size = context_size g0 in
                   let g1_size = context_size g1 in
-                    inter_lambda "SPair_final_merge" true
+                    inter_lambda "SPair_final_merge"
                       [("g0,blank0,g1,blank1", gl0_max_size + gl1_max_size)]
                       [
                         inter_letapp ["g0,blank0"; "g1,blank1"]
@@ -2102,7 +2115,7 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
                            (List.map fake_type_of_context gl1)))
                     (List.combine l_tree1 l_gl1)))
           in
-            ( inter_lambda "SPair" true
+            ( inter_lambda "SPair"
                 [("t0,t1", type_size (ProdType (t0, t1)))]
                 [
                   inter_letapp ["t0"; "t1"]
@@ -2121,7 +2134,7 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
               gl_res )
         end
         else
-          ( inter_lambda "SPair" true
+          ( inter_lambda "SPair"
               [("t0,t1", type_size (ProdType (t0, t1)))]
               [
                 inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t0,t1"];
@@ -2225,7 +2238,7 @@ and compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     match erp with
     | EVar t -> begin
         let tsize = type_size t in
-          inter_lambda "EVar" false
+          inter_lambda "EVar"
             [("x", xsize); ("t", tsize)]
             [inter_letapp ["res"] (IAdjoint (IShare t)) ["t"; "x"]]
             [("res", tsize)]
@@ -2233,7 +2246,7 @@ and compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     | EPair0 (t0, t1, erp') -> begin
         let tsize = type_size (ProdType (t0, t1)) in
         let op' = compile_single_erasure_to_inter_op x xtype erp' in
-          inter_lambda "EPair0" false
+          inter_lambda "EPair0"
             [("x", xsize); ("t", tsize)]
             [
               inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t"];
@@ -2245,7 +2258,7 @@ and compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
     | EPair1 (t0, t1, erp') -> begin
         let tsize = type_size (ProdType (t0, t1)) in
         let op' = compile_single_erasure_to_inter_op x xtype erp' in
-          inter_lambda "EPair1" false
+          inter_lambda "EPair1"
             [("x", xsize); ("t", tsize)]
             [
               inter_letapp ["t0"; "t1"] (IAdjoint (IPair (t0, t1))) ["t"];
@@ -2262,7 +2275,7 @@ and compile_erasure_to_inter_op (d : context) (t : exprtype)
   let tsize = type_size t in
     match l with
     | [] -> begin
-        inter_lambda "erasure_empty" false
+        inter_lambda "erasure_empty"
           [("d", dsize); ("t", tsize)]
           [inter_letapp [] (IAdjoint IEmpty) ["d"]]
           [("t", tsize)]
@@ -2272,7 +2285,7 @@ and compile_erasure_to_inter_op (d : context) (t : exprtype)
         let rest_d = StringMap.remove x d in
         let rest_op = compile_erasure_to_inter_op rest_d t l' in
         let cur_op = compile_single_erasure_to_inter_op x xtype erp in
-          inter_lambda "erasure" false
+          inter_lambda "erasure"
             [("d", dsize); ("t", tsize)]
             [
               inter_letapp ["x"; "rest_d"]
@@ -2295,14 +2308,14 @@ and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
   let tsize = type_size t in
     match tp with
     | TUnit _ -> begin
-        inter_lambda "TUnit" true
+        inter_lambda_marked "TUnit" true true
           [("g", gsize); ("d", dsize)]
           []
           [("g", gsize); ("d", tsize)]
       end
     | TCvar { t; g; x } -> begin
         let xreg, grest = map_partition g (StringSet.singleton x) in
-          inter_lambda "TCvar" true
+          inter_lambda_marked "TCvar" true false
             [("g", gsize); ("d", dsize)]
             [
               inter_letapp ["x"; "rest"]
@@ -2315,15 +2328,15 @@ and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
             [("g", gsize); ("res", tsize)]
       end
     | TQvar _ -> begin
-        inter_lambda "TQvar" true
+        inter_lambda_marked "TQvar" true true
           [("g", gsize); ("d", dsize)]
           []
           [("g", gsize); ("d", tsize)]
       end
-    | TPurePair { t0; t1; d; d0; d1; e0; e1; iso; _ } -> begin
+    | TPurePair { t0; t1; d; d0; d1; e0; e1; iso; un; _ } -> begin
         let op0 = compile_pure_expr_to_inter_op e0 in
         let op1 = compile_pure_expr_to_inter_op e1 in
-          inter_lambda "TPurePair" iso
+          inter_lambda_marked "TPurePair" iso un
             [("g", gsize); ("dd0d1", dsize)]
             [
               inter_comment "Starting TPurePair";
@@ -2343,11 +2356,11 @@ and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
             ]
             [("g", gsize); ("res", tsize)]
       end
-    | TCtrl { t1; g; g'; d; d'; e; l; orp; erp; iso; _ } -> begin
+    | TCtrl { t1; g; g'; d; d'; e; l; orp; erp; iso; un; _ } -> begin
         let n = List.length l in
         let gg'dd' = map_merge_noopt false g_whole d_whole in
           if n = 0 then
-            inter_lambda "TCtrl_Void" iso
+            inter_lambda_marked "TCtrl_Void" iso un
               [("gg*", gsize); ("dd*", dsize)]
               [
                 inter_comment "Starting TCtrl";
@@ -2378,7 +2391,7 @@ and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
               fake_type_of_context_list ortho_tree
                 (List.map (fun gj -> map_merge_noopt false g_whole gj) gjs)
             in
-              inter_lambda "TCtrl" iso
+              inter_lambda_marked "TCtrl" iso un
                 [("gg*", gsize); ("dd*", dsize)]
                 [
                   inter_comment "Starting TCtrl";
@@ -2428,10 +2441,10 @@ and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
                 ]
                 [("gg*", gsize); ("t1", tsize)]
       end
-    | TPureApp { f; e; iso; _ } -> begin
+    | TPureApp { f; e; iso; un; _ } -> begin
         let e_op = compile_pure_expr_to_inter_op e in
         let f_op = compile_pure_prog_to_inter_op f in
-          inter_lambda "TPureApp" iso
+          inter_lambda_marked "TPureApp" iso un
             [("g", gsize); ("d", dsize)]
             [
               inter_comment "Starting TPureApp";
@@ -2453,7 +2466,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
     match tp with
     | TMix tp' -> begin
         let tp'_op = compile_pure_expr_to_inter_op tp' in
-          inter_lambda "TMix" false
+          inter_lambda "TMix"
             [("d", dsize)]
             [
               inter_comment "Starting TMix";
@@ -2467,7 +2480,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
     | TMixedPair { t0; t1; d; d0; d1; e0; e1; iso } -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
-          inter_lambda "TMixedPair" iso
+          inter_lambda_marked "TMixedPair" iso false
             [("dd0d1", dsize)]
             [
               inter_comment "Starting TMixedPair";
@@ -2495,7 +2508,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
           if iso0 then
             compile_mixed_expr_to_inter_op e0
           else if iso1 then
-            inter_lambda "TTry" iso
+            inter_lambda_marked "TTry" iso false
               [("d", dsize)]
               [
                 inter_comment "Starting TTry";
@@ -2513,7 +2526,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
               ]
               [("t", tsize)]
           else
-            inter_lambda "TTry" iso
+            inter_lambda_marked "TTry" iso false
               [("d", dsize)]
               [
                 inter_comment "Starting TTry";
@@ -2547,7 +2560,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
     | TMixedApp { f; e; iso; _ } -> begin
         let e_op = compile_mixed_expr_to_inter_op e in
         let f_op = compile_mixed_prog_to_inter_op f in
-          inter_lambda "TMixedApp" iso
+          inter_lambda_marked "TMixedApp" iso false
             [("d", dsize)]
             [
               inter_comment "Starting TMixedApp";
@@ -2562,12 +2575,12 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
 and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
   match tp with
   | TGate (theta, phi, lambda) -> IU3 (theta, phi, lambda)
-  | TLeft (t0, t1) -> ILeft (t0, t1)
-  | TRight (t0, t1) -> IRight (t0, t1)
-  | TPureAbs { t; t'; e; e'; iso; _ } -> begin
+  | TLeft (t0, t1) -> IMarkAsIso (true, false, ILeft (t0, t1))
+  | TRight (t0, t1) -> IMarkAsIso (true, false, IRight (t0, t1))
+  | TPureAbs { t; t'; e; e'; iso; un; _ } -> begin
       let e_op = compile_pure_expr_to_inter_op e in
       let e'_op = compile_pure_expr_to_inter_op e' in
-        inter_lambda "TPureAbs" iso
+        inter_lambda_marked "TPureAbs" iso un
           [("t", type_size t)]
           [
             inter_comment "Starting TPureAbs";
@@ -2579,13 +2592,13 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
           ]
           [("res", type_size t')]
     end
-  | TRphase { t; e; r0; r1; iso; _ } -> begin
+  | TRphase { t; e; r0; r1; iso; un; _ } -> begin
       let _, d = context_of_pure_expr_proof e in
       let e_op = compile_pure_expr_to_inter_op e in
       let e_op_no_g = make_pure_op_take_one_reg StringMap.empty d t e_op in
-        IMarkAsIso (iso, IRphase (t, e_op_no_g, r0, r1))
+        IMarkAsIso (iso, un, IRphase (t, e_op_no_g, r0, r1))
     end
-  | TPmatch { orp0; orp1; perm0; perm1; iso; _ } -> begin
+  | TPmatch { orp0; orp1; perm0; perm1; iso; un; _ } -> begin
       let ortho_op0, tree0, djs0 = compile_ortho_to_inter_op orp0 in
       let ortho_op1, tree1, _ = compile_ortho_to_inter_op orp1 in
       let djs0 =
@@ -2599,7 +2612,7 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
         inter_op_of_tree_transformation trans
           (assign_values_to_tree tree0 djs0)
       in
-        IMarkAsIso (iso, ortho_op0 @&& reshape_op @&& IAdjoint ortho_op1)
+        IMarkAsIso (iso, un, ortho_op0 @&& reshape_op @&& IAdjoint ortho_op1)
     end
 
 (** Compiles a mixed program into the intermediate representation. *)
@@ -2612,7 +2625,7 @@ and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
       let e_op = compile_pure_expr_to_inter_op e in
       let e_op_no_g = make_pure_op_take_one_reg StringMap.empty dd0 t e_op in
       let e'_op = compile_mixed_expr_to_inter_op e' in
-        inter_lambda "TMixedAbs" iso
+        inter_lambda_marked "TMixedAbs" iso false
           [("t", type_size t)]
           [
             inter_letapp ["d"] (IAdjoint e_op_no_g) ["t"];

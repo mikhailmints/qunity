@@ -13,10 +13,12 @@ let execute_expr (e : expr) : unit =
         (string_of_type (type_of_mixed_expr_proof tp));
       Printf.printf "Isometry: %b\n%!" (is_iso_mixed_expr_proof tp);
       begin
-        match tp with
-        | TMix tp' ->
-            Printf.printf "Unitary: %b\n\n%!" (is_un_pure_expr_proof tp')
-        | _ -> ()
+        let un =
+          match pure_type_check StringMap.empty StringMap.empty e with
+          | SomeE tp' -> is_un_pure_expr_proof tp'
+          | _ -> false
+        in
+          Printf.printf "Unitary: %b\n\n%!" un
       end;
       Printf.printf "Pure semantics:\n%!";
       begin

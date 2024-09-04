@@ -17,4 +17,4 @@ def PhaseEstimation <N, P> :=
     |> Reverse <N, Bit>
 end
 
-PhaseEstimation <[2], [1/3]>
+PhaseEstimation <[5], [1/3]>

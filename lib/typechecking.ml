@@ -811,7 +811,6 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                               (List.map option_of_optionE pattern_result)
                           with
                           | Some l' ->
-                              let gjs = List.map fst3 l' in
                               let un =
                                 expr_is_classical e' && g = StringMap.empty
                                 && begin
@@ -823,21 +822,10 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                                      | _ -> false
                                    end
                                 && is_spanning_ortho_proof orp
-                                && begin
-                                     match ortho_check t1 ej's false with
-                                     | None -> false
-                                     | Some orp' ->
-                                         is_spanning_ortho_proof orp'
-                                   end
                                 && List.for_all
-                                     (fun (ej', gj) ->
-                                       match
-                                         context_check StringMap.empty t1 ej'
-                                       with
-                                       | NoneE _ -> false
-                                       | SomeE dj ->
-                                           StringMap.equal ( = ) gj dj)
-                                     (List.combine ej's gjs)
+                                     (fun (_, _, tpej') ->
+                                       is_iso_pure_expr_proof tpej')
+                                     l'
                               in
                               let iso =
                                 un

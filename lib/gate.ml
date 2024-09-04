@@ -509,14 +509,17 @@ let rec gate_classical_propagation (ul : gate list)
         | PotentialDeletionLabel _
         | Annotation _ ->
             u
-        | MeasureAsErr i ->
-            begin
-              match (cl.(i), !err) with
-              | Classical true, _ -> err := Classical true
-              | Quantum, Classical false -> err := Quantum
-              | _ -> ()
-            end;
-            u
+        | MeasureAsErr i -> begin
+            match (cl.(i), !err) with
+            | Classical true, _ ->
+                err := Classical true;
+                u
+            | Quantum, Classical false ->
+                err := Quantum;
+                u
+            | Classical false, _ -> Identity
+            | _ -> u
+          end
         | Sequence _ -> failwith "Sequences should not be present"
         | U3Gate (i, _, _, _) when u = gate_paulix i -> begin
             match cl.(i) with
@@ -528,7 +531,13 @@ let rec gate_classical_propagation (ul : gate list)
         | U3Gate (i, _, _, _) ->
             cl.(i) <- Quantum;
             u
-        | Reset i
+        | Reset i -> begin
+            match cl.(i) with
+            | Classical false -> Identity
+            | _ ->
+                cl.(i) <- Classical false;
+                u
+          end
         | ZeroStateLabel i ->
             cl.(i) <- Classical false;
             u
