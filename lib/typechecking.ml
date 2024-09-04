@@ -371,6 +371,100 @@ let rec erases_check (x : string) (l : expr list) (t : exprtype) :
         end
       | _ -> None
 
+(** Removes a variable from an expression, following a given erasure proof, and
+    replaces it with [Var "$"]. Also returns the updated type of the
+    expression. *)
+let rec remove_erased_variable_from_expr (e : expr) (erp : erasure_proof) :
+    expr =
+  match (e, erp) with
+  | Apply (_, e'), _ ->
+      remove_erased_variable_from_expr e'
+        erp (* Program assumed to be gphase *)
+  | Var _, EVar _ -> Var "$"
+  | Qpair (e0, e1), EPair0 (_, _, erp') ->
+      let e0' = remove_erased_variable_from_expr e0 erp' in
+        Qpair (e0', e1)
+  | Qpair (e0, e1), EPair1 (_, _, erp') ->
+      let e1' = remove_erased_variable_from_expr e1 erp' in
+        Qpair (e0, e1')
+  | Ctrl (e', t0, t1, l), EPair0 _
+  | Ctrl (e', t0, t1, l), EPair1 _ ->
+      let l' =
+        List.map
+          (fun (ej, ej') -> (ej, remove_erased_variable_from_expr ej' erp))
+          l
+      in
+        Ctrl (e', t0, t1, l')
+  | _ -> failwith "Error in removing erased variable"
+
+(** Removes [Var "$"] from an expression, in places where it could have occured
+    in satisfaction of the erasure judgment. Also returns the updated type of
+    the expression. If the entire expression consists of only [Var "$"],
+    returns [Null]. *)
+let rec remove_dollar_from_expr (e : expr) (t : exprtype) :
+    (expr * exprtype) option =
+  match (e, t) with
+  | Var "$", _ -> None
+  | Var _, _ -> Some (e, t)
+  | Qpair (e0, e1), ProdType (t0, t1) -> begin
+      match (remove_dollar_from_expr e0 t0, remove_dollar_from_expr e1 t1) with
+      | Some (e0', t0'), Some (e1', t1') ->
+          Some (Qpair (e0', e1'), ProdType (t0', t1'))
+      | Some (e0', t0'), None -> Some (e0', t0')
+      | None, Some (e1', t1') -> Some (e1', t1')
+      | None, None -> None
+    end
+  | Ctrl (e', t0, t1, l), _ -> begin
+      match
+        all_or_nothing
+          (List.map
+             (fun (ej, ej') ->
+               match remove_dollar_from_expr ej' t1 with
+               | None -> None
+               | Some (ej'', t1') -> Some ((ej, ej''), t1'))
+             l)
+      with
+      | Some l'l_t1 ->
+          let l', l_t1' = List.split l'l_t1 in
+          let t1' = List.hd l_t1' in
+            Some (Ctrl (e', t0, t1', l'), t1')
+      | None -> None
+    end
+  | _ -> Some (e, t)
+
+(** Removes variables from an expression, following a given list of erasure
+    proofs, replacing them with [Var "$"]. *)
+let rec remove_erased_variables_from_expr (e : expr)
+    (erps : erasure_proof list) : expr =
+  match erps with
+  | [] -> e
+  | erp :: erps' -> begin
+      let e' = remove_erased_variable_from_expr e erp in
+        remove_erased_variables_from_expr e' erps'
+    end
+
+(** Completely removes variables from a list of expressions, following a list
+    of erasure proofs. If a given expression only contains erased variables, it
+    is removed. This also returns the updated type of the expressions, which
+    becomes [Void] if the returned list is empty. *)
+let remove_erased_variables_from_expr_list (l : expr list) (t : exprtype)
+    (erps : erasure_proof list) : expr list * exprtype =
+  let rec iter (l : expr list) (t : exprtype) (erps : erasure_proof list) :
+      (expr * exprtype) list =
+    match l with
+    | [] -> []
+    | e :: l' -> begin
+        match
+          remove_dollar_from_expr (remove_erased_variables_from_expr e erps) t
+        with
+        | Some (e', t') -> (e', t') :: iter l' t erps
+        | None -> iter l' t erps
+      end
+  in
+  let l', tl = List.split (iter l t erps) in
+  let t' = if tl = [] then Void else List.hd tl in
+    (l', t')
+
 (** Given a list l of expressions expected to be of type [SumType (t0, t1)],
     splits the list into two lists - one containing all the "left" expressions
     of type [t0] and one containing all the "right" exressions of type [t1]. *)
@@ -803,6 +897,10 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                     with
                     | None -> NoneE "Erasure check failed in Ctrl"
                     | Some erp -> begin
+                        let ej's_erased, t' =
+                          remove_erased_variables_from_expr_list ej's t1
+                            (List.map snd (StringMap.bindings erp))
+                        in
                         let pattern_result =
                           List.map (pattern_type_check g d t0 t1) l
                         in
@@ -822,10 +920,14 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                                      | _ -> false
                                    end
                                 && is_spanning_ortho_proof orp
-                                && List.for_all
-                                     (fun (_, _, tpej') ->
-                                       is_iso_pure_expr_proof tpej')
-                                     l'
+                                && begin
+                                     match
+                                       ortho_check t' ej's_erased false
+                                     with
+                                     | Some orp' ->
+                                         is_spanning_ortho_proof orp'
+                                     | None -> false
+                                   end
                               in
                               let iso =
                                 un

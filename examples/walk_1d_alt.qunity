@@ -1,0 +1,34 @@
+def Step <N> :=
+    lambda (x, velocity) {NTensorT <N, Bit> * Bit} ->
+    ctrl {NTensorT <N, Bit> * Bit, (NTensorT <N, Bit> * Bit) * Maybe <Bit>} (x, velocity) [
+        (NTensorE <N, Bit0>, Bit0) -> ((x, velocity), Just <Bit> of Bit0);
+        (NTensorE <N, Bit1>, Bit1) -> ((x, velocity), Just <Bit> of Bit1);
+        else -> ((x, velocity), Nothing <Bit>);
+    ]
+    |> lambda ((x, velocity), label) {(NTensorT <N, Bit> * Bit) * Maybe <Bit>} -> 
+    match {Maybe <Bit>, (NTensorT <N, Bit> * Bit)} label [
+        Just <Bit> of Bit0 -> (IncrementLE <N> of x, Qnot of velocity);
+        Just <Bit> of Bit1 -> (DecrementLE <N> of x, Qnot of velocity);
+        Nothing <Bit> -> ctrl {Bit, NTensorT <N, Bit> * Bit} velocity [
+            Bit0 -> (DecrementLE <N> of x, velocity);
+            Bit1 -> (IncrementLE <N> of x, velocity)
+        ]
+    ]
+end
+
+def Walk <N, Nsteps> :=
+    if Nsteps = [0] then
+        Qid <NTensorT <N, Bit> * Bit>
+    else
+        lambda (x, velocity) {NTensorT <N, Bit> * Bit} ->
+        (x, velocity) |> Step <N> |> Walk <N, [Nsteps - 1]>
+    endif
+end
+
+def N := [3] end
+def Nsteps := [1] end
+
+(NTensorE <N, BitPlus>, Bit0 |> u3 {pi/4, 0, 0})
+|> Walk <N, Nsteps>
+|> Fst <NTensorT <N, Bit>, Bit>
+|> Reverse <N, Bit>

@@ -156,6 +156,8 @@ let () =
         "grover_decoherent_oracle.qunity";
         "retry_example.qunity";
         "walk_1d.qunity";
+        "walk_1d_alt.qunity";
+        "walk_1d_alt1.qunity";
       ]
     in
       Array.iter
