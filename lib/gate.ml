@@ -341,7 +341,9 @@ let rec split_up_to_first_measurements (ul : gate list) (i : int) :
     {m |0\rangle} state and is measured at the end. *)
 let rec is_valid_to_delete (ul : gate list) (i : int) =
   match ul with
-  | [] -> true
+  | [] ->
+      false
+      (* This could only have been reached if the qubit of interest is an output qubit *)
   | u :: ul' ->
       if is_valid_to_delete ul' i = false then
         false

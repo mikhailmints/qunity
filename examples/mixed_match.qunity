@@ -1,0 +1,5 @@
+BitPlus |> lambda x {Bit} -> (x, x)
+|> lambda (x, y) {Bit * Bit} -> match {Bit, Bit} x [
+    Bit0 -> y;
+    Bit1 -> try y |> lambda BitPlus {Bit} -> BitPlus catch Bit1 
+]

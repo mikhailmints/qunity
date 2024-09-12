@@ -137,8 +137,8 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
           end
       end
   in
-  let ctrl_eval (xe0 : xexpr) (xt0 : xexpr) (xl : (xexpr * xexpr) list)
-      (xt1 : xexpr) (xelseopt : xexpr option) :
+  let ctrl_eval (xe0 : xexpr) (xt0 : xexpr) (xt1 : xexpr)
+      (xl : (xexpr * xexpr) list) (xelseopt : xexpr option) :
       (expr * exprtype * (expr * expr) list * exprtype) optionE =
     match
       ( xexpr_eval xe0 dm xv,
@@ -175,27 +175,14 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
         | _, _ -> RNone "Expected expression"
       end
     | XCtrl (xe0, xt0, xt1, xl, xelseopt) -> begin
-        match ctrl_eval xe0 xt0 xl xt1 xelseopt with
+        match ctrl_eval xe0 xt0 xt1 xl xelseopt with
         | SomeE (e0, t0, l, t1) -> RExpr (Ctrl (e0, t0, t1, l))
         | NoneE err -> RNone err
       end
     | XMatch (xe0, xt0, xt1, xl, xelseopt) -> begin
-        let xelseopt' =
-          begin
-            match xelseopt with
-            | Some xelse -> Some (XQpair (xe0, xelse))
-            | None -> None
-          end
-        in
-        let xl' = List.map (fun (xej, xej') -> (xej, XQpair (xe0, xej'))) xl in
-          xexpr_eval
-            (XApply
-               ( XLambda
-                   ( XQpair (XVar "$x0", XVar "$x1"),
-                     XProdType (xt0, xt1),
-                     XVar "$x1" ),
-                 XCtrl (xe0, xt0, XProdType (xt0, xt1), xl', xelseopt') ))
-            dm xv
+        match ctrl_eval xe0 xt0 xt1 xl xelseopt with
+        | SomeE (e0, t0, l, t1) -> RExpr (Match (e0, t0, t1, l))
+        | NoneE err -> RNone err
       end
     | XPMatch (xt0, xt1, xl) -> begin
         match
