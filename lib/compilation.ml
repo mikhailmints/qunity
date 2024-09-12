@@ -2581,13 +2581,13 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
                              inter_letapp ["gj,hj"]
                                (ISizePair (context_size gj, garb_size))
                                ["gj"; "hj"];
-                             inter_letapp ["g,t1,gj,hj"]
+                             inter_letapp ["gj,hj,g,t1"]
                                (ISizePair
-                                  ( context_size g + type_size t1,
-                                    context_size gj + garb_size ))
-                               ["g,t1"; "gj,hj"];
+                                  ( context_size gj + garb_size,
+                                    context_size g + type_size t1 ))
+                               ["gj,hj"; "g,t1"];
                            ]
-                           [("g,t1,gj,hj", total_size)]
+                           [("gj,hj,g,t1", total_size)]
                    end
                    (List.combine gjs garb_sizes))
             in
@@ -2622,20 +2622,19 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
                        (map_merge_noopt false g (map_merge_noopt false d d1)))
                     ["sum(gj)"; "gdd1"];
                   inter_letapp ["sum(ggj,t1,hj)"] ej'_sum_op ["sum(ggjdd1)"];
-                  inter_letapp ["sum(g,t1,gj,hj)"] final_rearrange_op
+                  inter_letapp ["sum(gj,hj,g,t1)"] final_rearrange_op
                     ["sum(ggj,t1,hj)"];
-                  inter_letapp ["g,t1,garb"]
+                  inter_letapp ["garb,g,t1"]
                     (IAdjoint
-                       (big_distr_left_op Qunit
-                          (ProdType (fake_type_of_context g, t1))
-                          discarded_type))
-                    ["sum(g,t1,gj,hj)"];
-                  inter_letapp ["g,t1"; "garb"]
+                       (big_distr_right_op Qunit discarded_type
+                          (ProdType (fake_type_of_context g, t1))))
+                    ["sum(gj,hj,g,t1)"];
+                  inter_letapp ["garb"; "g,t1"]
                     (IAdjoint
                        (ISizePair
-                          ( context_size g + type_size t1,
-                            type_size discarded_type )))
-                    ["g,t1,garb"];
+                          ( type_size discarded_type,
+                            context_size g + type_size t1 )))
+                    ["garb,g,t1"];
                   inter_letapp ["g"; "t1"]
                     (IAdjoint (ISizePair (context_size g, type_size t1)))
                     ["g,t1"];
