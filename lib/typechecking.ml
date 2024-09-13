@@ -137,7 +137,6 @@ and mixed_prog_typing_proof =
       t : exprtype;
       t' : exprtype;
       d : context;
-      d0 : context;
       e : pure_expr_typing_proof;
       e' : mixed_expr_typing_proof;
       iso : bool;
@@ -1331,32 +1330,29 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
                           un;
                         }))
           | _ -> begin
-              let d', d0 = map_partition d (free_vars e') in
-                match
-                  ( pure_type_check StringMap.empty d e,
-                    mixed_type_check StringMap.empty d' e' )
-                with
-                | NoneE err, _
-                | _, NoneE err ->
-                    NoneE (err ^ "\nin Lambda")
-                (* T-MIXEDABS *)
-                | SomeE tpe, SomeE tpe' ->
-                    let iso =
-                      is_iso_pure_expr_proof tpe
-                      && is_iso_mixed_expr_proof tpe'
-                    in
-                      SomeE
-                        (MixedProg
-                           (TMixedAbs
-                              {
-                                t;
-                                t' = type_of_mixed_expr_proof tpe';
-                                d = d';
-                                d0;
-                                e = tpe;
-                                e' = tpe';
-                                iso;
-                              }))
+              match
+                ( pure_type_check StringMap.empty d e,
+                  mixed_type_check StringMap.empty d e' )
+              with
+              | NoneE err, _
+              | _, NoneE err ->
+                  NoneE (err ^ "\nin Lambda")
+              (* T-MIXEDABS *)
+              | SomeE tpe, SomeE tpe' ->
+                  let iso =
+                    is_iso_pure_expr_proof tpe && is_iso_mixed_expr_proof tpe'
+                  in
+                    SomeE
+                      (MixedProg
+                         (TMixedAbs
+                            {
+                              t;
+                              t' = type_of_mixed_expr_proof tpe';
+                              d;
+                              e = tpe;
+                              e' = tpe';
+                              iso;
+                            }))
             end
         end
     end

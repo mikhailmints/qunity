@@ -565,9 +565,7 @@ and mixed_prog_semantics (tp : mixed_prog_typing_proof) : superoperator =
                   let v = index_to_basis_state t i in
                   let v' = index_to_basis_state t j in
                     pure_sem *@ v *@ mat_adjoint v' *@ mat_adjoint pure_sem)
-        | TMixedAbs { t; t'; d; d0; e; e'; _ } -> begin
-            let dd0 = map_merge_noopt false d d0 in
-            let fve' = map_dom d in
+        | TMixedAbs { t; t'; e; e'; _ } -> begin
             let e_pure_sem = pure_expr_semantics e StringMap.empty in
             let e'_sem = mixed_expr_semantics e' StringMap.empty in
               superop_from_basis_action (type_dimension t') (type_dimension t)
@@ -575,9 +573,8 @@ and mixed_prog_semantics (tp : mixed_prog_typing_proof) : superoperator =
                   let v = index_to_basis_state t i in
                   let v' = index_to_basis_state t j in
                     superop_apply e'_sem
-                      (context_partial_trace dd0 fve'
-                         (mat_adjoint e_pure_sem *@ v *@ mat_adjoint v'
-                        *@ e_pure_sem)))
+                      (mat_adjoint e_pure_sem *@ v *@ mat_adjoint v'
+                     *@ e_pure_sem))
           end
       end
     in

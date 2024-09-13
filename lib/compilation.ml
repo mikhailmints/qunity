@@ -2777,9 +2777,7 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
 and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
   match tp with
   | TChannel tp' -> compile_pure_prog_to_inter_op tp'
-  | TMixedAbs { t; t'; d; d0; e; e'; iso } -> begin
-      let dd0 = map_merge_noopt false d d0 in
-      let fve' = map_dom d in
+  | TMixedAbs { t; t'; e; e'; iso; _ } -> begin
       let e_op = compile_pure_expr_to_inter_op e in
       let e'_op = compile_mixed_expr_to_inter_op e' in
         inter_lambda_marked "TMixedAbs" iso false
@@ -2788,9 +2786,7 @@ and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
             inter_comment "Starting TMixedAbs";
             inter_letapp ["g"] IEmpty [];
             inter_letapp ["g"; "d"] (IAdjoint e_op) ["g"; "t"];
-            inter_letapp ["d*"; "d0"] (IContextPartition (dd0, fve')) ["d"];
-            inter_letapp ["g"; "res"] e'_op ["g"; "d*"];
-            inter_letapp [] (IContextDiscard d0) ["d0"];
+            inter_letapp ["g"; "res"] e'_op ["g"; "d"];
             inter_letapp [] (IAdjoint IEmpty) ["g"];
             inter_comment "Finished TMixedAbs";
           ]
