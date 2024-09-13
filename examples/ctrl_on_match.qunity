@@ -1,0 +1,5 @@
+(BitPlus, BitPlus) |> lambda (
+ctrl {Bit, Bit * Bit} (match {Bit, Bit} x [Bit0 -> BitPlus; Bit1 -> BitMinus]) [
+    Bit0 -> (x, Bit1);
+    Bit1 -> (x, Bit0);
+]) {Bit * Bit} -> x

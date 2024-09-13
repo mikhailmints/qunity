@@ -79,7 +79,7 @@ let expect_expr_mixedtype (testname : string) (e : expr) (t : exprtype) : unit
   test_equality_optionE testname
     begin
       fun () ->
-        match mixed_type_check StringMap.empty e with
+        match mixed_type_check StringMap.empty StringMap.empty e with
         | SomeE tp -> SomeE (type_of_mixed_expr_proof tp)
         | NoneE err -> NoneE err
     end
@@ -101,7 +101,7 @@ let typecheck_file (testname : string) (filename : string) : unit =
     match get_expr_from_file filename with
     | NoneE err -> failwith err
     | SomeE e -> begin
-        match mixed_type_check StringMap.empty e with
+        match mixed_type_check StringMap.empty StringMap.empty e with
         | SomeE _ -> Printf.printf "passed\n"
         | NoneE err -> failwith err
       end

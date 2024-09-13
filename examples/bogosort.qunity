@@ -1,0 +1,89 @@
+def Split <N, T, I> :=
+    if I = [0] then
+        lambda x {NTensorT <N, T>} -> ((), x)
+    else
+        lambda (x, x') {NTensorT <N, T>} ->
+            let (x, (x0, x1)) {T * (NTensorT <[I - 1], T> * NTensorT <[N - I], T>)} =
+                (x, Split <[N - 1], T, [I - 1]> of x') in
+            ((x, x0), x1)
+    endif
+end
+
+def Swap <N, T, I> :=
+    if I = [0] then
+        Qid <NTensorT <N, T>>
+    else
+        lambda (x, x') {NTensorT <N, T>} ->
+            let (x, (x0, (xi, x1))) {T * (NTensorT <[I - 1], T> * NTensorT <[N - I], T>)} =
+                (x, Split <[N - 1], T, [I - 1]> of x') in
+            (xi, Concat <[I - 1], [N - I], T> of (x0, (x, x1)))
+    endif
+end
+
+def RandomizePassIter <N, T, I> :=
+    if I = N then
+        Qid <NTensorT <N, T>>
+    else
+        lambda x {NTensorT <N, T>} ->
+            match {Bit, NTensorT <N, T>} BitPlus [
+                Bit0 -> x |> Swap <N, T, I>;
+                Bit1 -> x
+            ] |> RandomizePassIter <N, T, [I + 1]>
+    endif
+end
+
+def RandomizePass <N, T> :=
+    if N = [0] then
+        Qid <qunit>
+    else
+        lambda (x, x') {NTensorT <N, T>} ->
+            let (x, x') {NTensorT <N, T>} = RandomizePassIter <N, T, [1]> of (x, x') in
+            (x, RandomizePass <[N - 1], T> of x')
+    endif
+end
+
+def RandomizeIter <N, T, Niter> :=
+    if Niter = [0] then
+        Qid <NTensorT <N, T>>
+    else
+        lambda x {NTensorT <N, T>} ->
+            x |> RandomizePass <N, T> |> RandomizeIter <N, T, [Niter - 1]>
+    endif
+end
+
+def Randomize <N, T> :=
+    RandomizeIter <N, T, N>
+end
+
+def IsSorted <N, T, Compare> :=
+    if N = [0] then
+        lambda () {qunit} -> Bit1
+    else
+        if N = [1] then
+            lambda (x, ()) {T * qunit} -> Bit1
+        else
+            lambda (x0, (x1, x')) {NTensorT <N, T>} ->
+                match {Bit, Bit} (Compare of (x0, x1)) [
+                    Bit0 -> Bit0;
+                    Bit1 -> IsSorted <[N - 1], T, Compare> of (x1, x')
+                ]
+        endif
+    endif
+end
+
+def BitCompare :=
+    lambda (a, b) {Bit * Bit} -> match {Bit * Bit, Bit} (a, b) [
+        (Bit1, Bit0) -> Bit0;
+        else -> Bit1
+    ]
+end
+
+def Bogosort <N, T, Compare> :=
+    lambda x {NTensorT <N, T>} ->
+        let x' {NTensorT <N, T>} = Randomize <N, T> of x in
+        match {Bit, NTensorT <N, T>} (IsSorted <N, T, Compare> of x') [
+            Bit1 -> x'
+        ]
+end
+
+Bogosort <[4], Bit, BitCompare> of (Bit0, (Bit1, (Bit0, (Bit1, ()))))

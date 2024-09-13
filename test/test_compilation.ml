@@ -152,6 +152,7 @@ let () =
     let example_files = Sys.readdir "examples" in
     let skipped_files =
       [
+        "bogosort.qunity";
         "boolean_formula_walk.qunity";
         "grover_decoherent_oracle.qunity";
         "retry_example.qunity";

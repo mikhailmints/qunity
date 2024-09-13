@@ -1,0 +1,3 @@
+(BitPlus, BitPlus) |> lambda (a, b) {Bit * Bit} -> ctrl {Bit * Bit, Bit * Bit} (a, b) [
+    (Bit0, x) -> (a, ctrl {Bit, Bit} x [Bit0 -> b])
+]

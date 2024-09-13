@@ -121,6 +121,15 @@ def Append <N, T> :=
     endif
 end
 
+def Concat <N0, N1, T> :=
+    if N1 = [0] then
+        lambda (a, ()) {NTensorT <N0, T> * qunit} -> a
+    else
+        lambda (a, (b, b')) {NTensorT <N0, T> * NTensorT <N1, T>} ->
+            Concat <[N0 + 1], [N1 - 1], T> of (Append <N0, T> of (a, b), b')
+    endif
+end
+
 def Reverse <N, T> :=
     if N lt [0] then
         fail

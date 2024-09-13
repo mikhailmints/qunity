@@ -19,6 +19,7 @@ type expr =
   | Var of string
   | Qpair of (expr * expr)
   | Ctrl of (expr * exprtype * exprtype * (expr * expr) list)
+  | Match of (expr * exprtype * exprtype * (expr * expr) list)
   | Try of (expr * expr)
   | Apply of (prog * expr)
 
@@ -71,6 +72,17 @@ let rec string_of_expr (e : expr) : string =
       Printf.sprintf "(%s, %s)" (string_of_expr e1) (string_of_expr e2)
   | Ctrl (e0, t0, t1, l) ->
       Printf.sprintf "ctrl {%s, %s} %s [%s]" (string_of_type t0)
+        (string_of_type t1) (string_of_expr e0)
+        (List.fold_left
+           (fun s1 s2 -> if s1 = "" then s2 else s1 ^ "; " ^ s2)
+           ""
+           (List.map
+              (fun (ej, ej') ->
+                Printf.sprintf "(%s) -> (%s)" (string_of_expr ej)
+                  (string_of_expr ej'))
+              l))
+  | Match (e0, t0, t1, l) ->
+      Printf.sprintf "match {%s, %s} %s [%s]" (string_of_type t0)
         (string_of_type t1) (string_of_expr e0)
         (List.fold_left
            (fun s1 s2 -> if s1 = "" then s2 else s1 ^ "; " ^ s2)
@@ -148,13 +160,20 @@ and ocaml_string_of_expr (e : expr) : string =
         (ocaml_string_of_expr e1)
   | Ctrl (e0, t0, t1, l) ->
       Printf.sprintf "Ctrl (%s, %s, %s, %s)" (ocaml_string_of_expr e0)
-        (ocaml_string_of_type t0)
+        (ocaml_string_of_type t0) (ocaml_string_of_type t1)
         (string_of_list
            (fun (ej, ej') ->
              Printf.sprintf "(%s, %s)" (ocaml_string_of_expr ej)
                (ocaml_string_of_expr ej'))
            l)
-        (ocaml_string_of_type t1)
+  | Match (e0, t0, t1, l) ->
+      Printf.sprintf "Match (%s, %s, %s, %s)" (ocaml_string_of_expr e0)
+        (ocaml_string_of_type t0) (ocaml_string_of_type t1)
+        (string_of_list
+           (fun (ej, ej') ->
+             Printf.sprintf "(%s, %s)" (ocaml_string_of_expr ej)
+               (ocaml_string_of_expr ej'))
+           l)
   | Try (e0, e1) ->
       Printf.sprintf "Try (%s, %s)" (ocaml_string_of_expr e0)
         (ocaml_string_of_expr e1)
