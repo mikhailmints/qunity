@@ -438,6 +438,16 @@ and mixed_expr_semantics (tp : mixed_expr_typing_proof) (sigma : valuation) :
                     let tau' = index_to_context_basis_state d_whole j in
                       pure_sem *@ tau *@ mat_adjoint tau'
                       *@ mat_adjoint pure_sem)
+          | TDiscard { d; d0; e; _ } -> begin
+              let dd0 = map_merge_noopt false d d0 in
+              let fve = map_dom d in
+              let e_sem = mixed_expr_semantics e sigma in
+                superop_from_basis_action tdim ddim (fun i j ->
+                    let v = index_to_context_basis_state dd0 i in
+                    let v' = index_to_context_basis_state dd0 j in
+                      superop_apply e_sem
+                        (context_partial_trace dd0 fve (v *@ mat_adjoint v')))
+            end
           | TMixedPair { d; d0; d1; e0; e1; _ } -> begin
               let dd0 = map_merge_noopt false d d0 in
               let dd1 = map_merge_noopt false d d1 in

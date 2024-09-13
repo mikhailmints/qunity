@@ -46,6 +46,14 @@ type pure_expr_typing_proof =
 (** A data structure representing a mixed expression typing judgment proof. *)
 and mixed_expr_typing_proof =
   | TMix of pure_expr_typing_proof
+  | TDiscard of {
+      t : exprtype;
+      g : context;
+      d : context;
+      d0 : context;
+      e : mixed_expr_typing_proof;
+      iso : bool;
+    }
   | TMixedPair of {
       t0 : exprtype;
       t1 : exprtype;
@@ -173,6 +181,7 @@ let type_of_pure_expr_proof (tp : pure_expr_typing_proof) : exprtype =
 let type_of_mixed_expr_proof (tp : mixed_expr_typing_proof) : exprtype =
   match tp with
   | TMix p -> type_of_pure_expr_proof p
+  | TDiscard { t; _ } -> t
   | TMixedPair { t0; t1; _ } -> ProdType (t0, t1)
   | TMatch { t1; _ } -> t1
   | TTry { t; _ } -> t
@@ -216,6 +225,7 @@ let context_of_mixed_expr_proof (tp : mixed_expr_typing_proof) :
     context * context =
   match tp with
   | TMix tp' -> context_of_pure_expr_proof tp'
+  | TDiscard { g; d; d0; _ } -> (g, map_merge_noopt false d d0)
   | TMixedPair { g; d; d0; d1; _ } ->
       (g, map_merge_noopt false d (map_merge_noopt false d0 d1))
   | TMatch { g; d; d0; d1; _ } ->
@@ -241,6 +251,7 @@ let is_iso_pure_expr_proof (tp : pure_expr_typing_proof) : bool =
 let is_iso_mixed_expr_proof (tp : mixed_expr_typing_proof) : bool =
   match tp with
   | TMix tp' -> is_iso_pure_expr_proof tp'
+  | TDiscard { iso; _ }
   | TMixedPair { iso; _ }
   | TMatch { iso; _ }
   | TTry { iso; _ }
@@ -738,11 +749,52 @@ and mixed_pattern_type_check (d : context) (t : exprtype) (t' : exprtype)
           NoneE err
     end
 
+(** In T-MATCH, finds the quantum context shared by all the RHS expressions. *)
+and match_dd1_context_check (t0 : exprtype) (t1 : exprtype)
+    (l : (expr * expr) list) =
+  match
+    all_or_nothing
+      (List.map
+         (fun (ej, e'j) ->
+           begin
+             match
+               ( pure_context_check StringMap.empty t0 ej,
+                 mixed_context_check t1 e'j )
+             with
+             | SomeE dj, SomeE dd1dj ->
+                 Some
+                   (StringMap.filter
+                      (fun x _ -> not (StringSet.mem x (map_dom dj)))
+                      dd1dj)
+             | _ -> None
+           end)
+         l)
+  with
+  | None -> None
+  | Some l -> Some (List.fold_left (map_merge_noopt true) StringMap.empty l)
+
 (** Typechecks a mixed expression [e] with a classical context [g] and a
     quantum context [d]. *)
 and mixed_type_check (g : context) (d : context) (e : expr) :
     mixed_expr_typing_proof optionE =
   match e with
+  (* T-DISCARD *)
+  | _ when map_exclusion d (free_vars e) <> StringMap.empty -> begin
+      let d, d0 = map_partition d (free_vars e) in
+        match mixed_type_check g d e with
+        | SomeE tpe ->
+            SomeE
+              (TDiscard
+                 {
+                   t = type_of_mixed_expr_proof tpe;
+                   g;
+                   d;
+                   d0;
+                   e = tpe;
+                   iso = is_iso_mixed_expr_proof tpe;
+                 })
+        | NoneE err -> NoneE err
+    end
   (* T-MIXEDPAIR *)
   | Qpair (e0, e1) -> begin
       let fv0 = free_vars e0 in
@@ -790,24 +842,7 @@ and mixed_type_check (g : context) (d : context) (e : expr) :
       let fve' = free_vars e' in
       let ejs, _ = List.split l in
       let dd0, d1 = map_partition d fve' in
-      let dd1 =
-        begin
-          match l with
-          | [] -> Some StringMap.empty
-          | (ej, e'j) :: _ -> begin
-              match
-                ( pure_context_check StringMap.empty t0 ej,
-                  mixed_context_check t1 e'j )
-              with
-              | SomeE dj, SomeE dd1dj ->
-                  Some
-                    (StringMap.filter
-                       (fun x _ -> not (StringSet.mem x (map_dom dj)))
-                       dd1dj)
-              | _ -> None
-            end
-        end
-      in
+      let dd1 = match_dd1_context_check t0 t1 l in
         match (mixed_type_check g dd0 e', dd1) with
         | SomeE tpe', Some dd1 when type_of_mixed_expr_proof tpe' = t0 -> begin
             let d = map_exclusion dd1 (map_dom d1) in
@@ -1155,7 +1190,12 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
           NoneE (err ^ "\nin Try")
     end
   (* T-MATCH *)
-  | Match _, _ -> failwith "TODO"
+  | Match (e', t0, t1, l), _ -> begin
+      match (mixed_context_check t0 e', match_dd1_context_check t0 t1 l) with
+      | NoneE err, _ -> NoneE (err ^ "\nin Match")
+      | _, None -> NoneE "Context mismatch in Match"
+      | SomeE dd0, Some dd1 -> SomeE (map_merge_noopt true dd0 dd1)
+    end
   (* T-MIXEDAPP *)
   | Apply (f, e'), _ -> begin
       match prog_type_check f with

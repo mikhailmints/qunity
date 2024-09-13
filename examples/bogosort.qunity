@@ -64,8 +64,7 @@ def IsSorted <N, T, Compare> :=
         else
             lambda (x0, (x1, x')) {NTensorT <N, T>} ->
                 match {Bit, Bit} (Compare of (x0, x1)) [
-                    // temporary solution
-                    Bit0 -> (x1, x') |> lambda _ {NTensorT <[N - 1], T>} -> Bit0;
+                    Bit0 -> Bit0;
                     Bit1 -> IsSorted <[N - 1], T, Compare> of (x1, x')
                 ]
         endif

@@ -2474,6 +2474,21 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             ]
             [("g", gsize); ("res", tsize)]
       end
+    | TDiscard { d; d0; e; iso; _ } -> begin
+        let e_op = compile_mixed_expr_to_inter_op e in
+          inter_lambda_marked "TDiscard" iso false
+            [("g", gsize); ("dd0", dsize)]
+            [
+              inter_comment "Starting TDiscard";
+              inter_letapp ["d"; "d0"]
+                (IAdjoint (IContextMerge (d, d0)))
+                ["dd0"];
+              inter_letapp [] (IContextDiscard d0) ["d0"];
+              inter_letapp ["g"; "res"] e_op ["g"; "d"];
+              inter_comment "Finished TDiscard";
+            ]
+            [("g", gsize); ("res", tsize)]
+      end
     | TMixedPair { t0; t1; d; d0; d1; e0; e1; iso; _ } -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
