@@ -1,0 +1,3 @@
+match {Bit, Bit} BitPlus [
+    x -> ctrl {Bit, Bit} x [Bit0 -> Bit0]
+]

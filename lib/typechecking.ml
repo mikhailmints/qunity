@@ -754,17 +754,14 @@ and match_dd1_context_check (t0 : exprtype) (t1 : exprtype)
   match
     all_or_nothing
       (List.map
-         (fun (ej, e'j) ->
+         (fun (ej, ej') ->
            begin
-             match
-               ( pure_context_check StringMap.empty t0 ej,
-                 mixed_context_check t1 e'j )
-             with
-             | SomeE dj, SomeE dd1dj ->
-                 Some
-                   (StringMap.filter
-                      (fun x _ -> not (StringSet.mem x (map_dom dj)))
-                      dd1dj)
+             match pure_context_check StringMap.empty t0 ej with
+             | SomeE gj -> begin
+                 match mixed_context_check gj t1 ej' with
+                 | SomeE dj -> Some dj
+                 | _ -> None
+               end
              | _ -> None
            end)
          l)
@@ -847,7 +844,7 @@ and mixed_type_check (g : context) (d : context) (e : expr) :
             let d = map_exclusion dd1 (map_dom d1) in
             let d0 = map_exclusion dd0 (map_dom d) in
               match ortho_check t0 ejs false with
-              | None -> NoneE "Ortho check failed in Ctrl"
+              | None -> NoneE "Ortho check failed in Match"
               | Some orp -> begin
                   let pattern_result =
                     List.map (mixed_pattern_type_check dd1 t0 t1) l
@@ -1167,13 +1164,14 @@ and pure_type_check (g : context) (d : context) (e : expr) :
           NoneE (err ^ "\nin Apply")
     end
 
-(** Given a mixed expression [e] expected to be of type [t], finds the quantum
-    context of the expression. *)
-and mixed_context_check (t : exprtype) (e : expr) : context optionE =
+(** Given a mixed expression [e] expected to be of type [t] with classical
+    context [g], finds the quantum context of the expression. *)
+and mixed_context_check (g : context) (t : exprtype) (e : expr) :
+    context optionE =
   match (e, t) with
   (* T-MIXEDPAIR *)
   | Qpair (e0, e1), ProdType (t0, t1) -> begin
-      match (mixed_context_check t0 e0, mixed_context_check t1 e1) with
+      match (mixed_context_check g t0 e0, mixed_context_check g t1 e1) with
       | SomeE d0, SomeE d1 -> map_merge true d0 d1
       | NoneE err, _
       | _, NoneE err ->
@@ -1182,7 +1180,7 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
   | Qpair _, _ -> NoneE "Expected product type in mixed Qpair"
   (* T-TRY *)
   | Try (e0, e1), _ -> begin
-      match (mixed_context_check t e0, mixed_context_check t e1) with
+      match (mixed_context_check g t e0, mixed_context_check g t e1) with
       | SomeE d0, SomeE d1 -> map_merge false d0 d1
       | NoneE err, _
       | _, NoneE err ->
@@ -1190,7 +1188,7 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
     end
   (* T-MATCH *)
   | Match (e', t0, t1, l), _ -> begin
-      match (mixed_context_check t0 e', match_dd1_context_check t0 t1 l) with
+      match (mixed_context_check g t0 e', match_dd1_context_check t0 t1 l) with
       | NoneE err, _ -> NoneE (err ^ "\nin Match")
       | _, None -> NoneE "Context mismatch in Match"
       | SomeE dd0, Some dd1 -> SomeE (map_merge_noopt true dd0 dd1)
@@ -1201,13 +1199,13 @@ and mixed_context_check (t : exprtype) (e : expr) : context optionE =
       | SomeE tpf -> begin
           let t0, t1 = type_of_prog_proof tpf in
             if t = t1 then
-              mixed_context_check t0 e'
+              mixed_context_check g t0 e'
             else
               NoneE "Type mismatch in mixed Apply"
         end
       | NoneE err -> NoneE (err ^ "\nin mixed Apply")
     end
-  | _, _ -> pure_context_check StringMap.empty t e
+  | _, _ -> pure_context_check g t e
 
 (** Given a pure expression [e] expected to be of type [t] with classical
     context [g], finds the quantum context of the expression. *)
@@ -1237,7 +1235,7 @@ and pure_context_check (g : context) (t : exprtype) (e : expr) :
     end
   (* T-CTRL *)
   | Ctrl (e', t0, t1, l), _ -> begin
-      match (mixed_context_check t0 e', l) with
+      match (mixed_context_check g t0 e', l) with
       | NoneE err, _ -> NoneE (err ^ "\nin Ctrl")
       | SomeE d, [] -> SomeE d
       | SomeE d, (e0, e0') :: _ -> begin
