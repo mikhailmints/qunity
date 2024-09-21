@@ -153,6 +153,9 @@ type inter_op =
   | IContextMerge of context * context
       (** Merges contexts assumed to be disjoint, ensuring proper ordering of
           variables. *)
+  | IClassicalTryCatch of inter_op * inter_op
+      (** Measures the flag register output by the first operator, and if it is
+          nonzero, replaces the output with that of the second operator. *)
   | ILambda of
       string * (string * int) list * inter_com list * (string * int) list
       (** A user-defined operator. Consists of a name, a list of argument names
@@ -1259,6 +1262,48 @@ let circuit_pure_error_handling (cs : circuit_spec) : circuit_spec =
         end;
     }
 
+(** Measures the flag register output by the first circuit, and if it is
+    nonzero, replaces the output with that of the second circuit. *)
+let circuit_classical_try_catch (cs0 : circuit_spec) (cs1 : circuit_spec) :
+    circuit_spec =
+  if cs0.in_sizes <> cs1.in_sizes || cs0.out_sizes <> cs1.out_sizes then
+    failwith "circuit_classical_try_catch: expected matching sizes";
+  {
+    in_sizes = cs0.in_sizes;
+    out_sizes = cs0.out_sizes;
+    circ_fun =
+      begin
+        fun in_regs used_wires settings ->
+          let circ0, used_wires0 =
+            build_circuit cs0 in_regs used_wires settings
+          in
+          let circ1, used_wires1 =
+            build_circuit cs1 in_regs used_wires settings
+          in
+            (* let out_regs, used_wires = fresh_int_lists used_wires cs0.out_sizes in
+               let flag_reg, used_wires = fresh_int_list (List.length circ1.flag_reg) in *)
+            ( {
+                name = "classical_try_catch";
+                in_regs;
+                prep_reg = int_list_union circ0.prep_reg circ1.prep_reg;
+                out_regs = circ0.out_regs;
+                flag_reg = circ1.flag_reg;
+                garb_reg = int_list_union circ0.garb_reg circ1.garb_reg;
+                gate =
+                  gate_if_reg_nonzero circ0.flag_reg circ0.gate
+                    (List.fold_left ( @& ) Identity
+                       (List.map gate_reset_reg
+                          (circ0.out_regs @ [circ0.flag_reg]))
+                    @& circ1.gate
+                    @& List.fold_left ( @& ) Identity
+                         (List.map
+                            (fun (a, b) -> gate_swap_regs a b)
+                            (List.combine circ1.out_regs circ0.out_regs)));
+              },
+              used_wires )
+      end;
+  }
+
 (** Relative phase circuit, using a given circuit specification to define a
     subspace of the given type - different phases are applied to states inside
     and outside the subspace. *)
@@ -1623,6 +1668,10 @@ and compile_inter_op_to_circuit (op : inter_op) : circuit_spec =
       circuit_mark_as_iso iso (compile_inter_op_to_circuit op')
   | IContextPartition (d, fv) -> circuit_context_partition d fv
   | IContextMerge (d0, d1) -> circuit_context_merge d0 d1
+  | IClassicalTryCatch (op0, op1) ->
+      circuit_classical_try_catch
+        (compile_inter_op_to_circuit op0)
+        (compile_inter_op_to_circuit op1)
   | IAdjoint (IAdjoint op) -> compile_inter_op_to_circuit op
   | IAdjoint (ISequence (op0, op1)) ->
       compile_inter_op_to_circuit (ISequence (IAdjoint op1, IAdjoint op0))
@@ -2382,7 +2431,7 @@ and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
               ]
               [("g", gsize); ("res", 0)]
           else
-            let e_op = compile_mixed_expr_to_inter_op e in
+            let e_op = compile_mixed_expr_to_inter_op e false in
             let gjs = List.map fst3 l in
             let ej's = List.map trd3 l in
             let ortho_op, ortho_tree, _ = compile_ortho_to_inter_op orp in
@@ -2456,7 +2505,8 @@ and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
 (** Compiles a mixed expression into the intermediate representation. This
     creates a circuit that takes in one register, corresponding to the quantum
     context. *)
-and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
+and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof)
+    (classical : bool) : inter_op =
   let t = type_of_mixed_expr_proof tp in
   let g_whole, d_whole = context_of_mixed_expr_proof tp in
   let gsize = context_size g_whole in
@@ -2475,7 +2525,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             [("g", gsize); ("res", tsize)]
       end
     | TDiscard { d; d0; e; iso; _ } -> begin
-        let e_op = compile_mixed_expr_to_inter_op e in
+        let e_op = compile_mixed_expr_to_inter_op e classical in
           inter_lambda_marked "TDiscard" iso false
             [("g", gsize); ("dd0", dsize)]
             [
@@ -2490,8 +2540,8 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
             [("g", gsize); ("res", tsize)]
       end
     | TMixedPair { t0; t1; d; d0; d1; e0; e1; iso; _ } -> begin
-        let op0 = compile_mixed_expr_to_inter_op e0 in
-        let op1 = compile_mixed_expr_to_inter_op e1 in
+        let op0 = compile_mixed_expr_to_inter_op e0 classical in
+        let op1 = compile_mixed_expr_to_inter_op e1 classical in
           inter_lambda_marked "TMixedPair" iso false
             [("g", gsize); ("dd0d1", dsize)]
             [
@@ -2525,11 +2575,13 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
               ]
               [("g", gsize); ("res", 0)]
           else
-            let e_op = compile_mixed_expr_to_inter_op e in
+            let e_op = compile_mixed_expr_to_inter_op e false in
             let gjs = List.map fst3 l in
             let ej's = List.map trd3 l in
             let ortho_op, ortho_tree, _ = compile_ortho_to_inter_op orp in
-            let ej'_ops = List.map compile_mixed_expr_to_inter_op ej's in
+            let ej'_ops =
+              List.map (fun x -> compile_mixed_expr_to_inter_op x false) ej's
+            in
             let garb_sizes =
               List.map
                 begin
@@ -2659,12 +2711,14 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
                 [("g", gsize); ("t1", tsize)]
       end
     | TTry { t; d0; e0; e1; iso; _ } -> begin
-        let op0 = compile_mixed_expr_to_inter_op e0 in
-        let op1 = compile_mixed_expr_to_inter_op e1 in
+        let op0 = compile_mixed_expr_to_inter_op e0 classical in
+        let op1 = compile_mixed_expr_to_inter_op e1 classical in
         let iso0 = is_iso_mixed_expr_proof e0 in
         let iso1 = is_iso_mixed_expr_proof e1 in
-          if iso0 then
-            compile_mixed_expr_to_inter_op e0
+          if classical then
+            IClassicalTryCatch (op0, op1)
+          else if iso0 then
+            op0
           else if iso1 then
             inter_lambda_marked "TTry" iso false
               [("g", gsize); ("d", dsize)]
@@ -2716,8 +2770,8 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
               [("g", gsize); ("t", tsize)]
       end
     | TMixedApp { f; e; iso; _ } -> begin
-        let e_op = compile_mixed_expr_to_inter_op e in
-        let f_op = compile_mixed_prog_to_inter_op f in
+        let e_op = compile_mixed_expr_to_inter_op e classical in
+        let f_op = compile_mixed_prog_to_inter_op f classical in
           inter_lambda_marked "TMixedApp" iso false
             [("g", gsize); ("d", dsize)]
             [
@@ -2774,12 +2828,13 @@ and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
     end
 
 (** Compiles a mixed program into the intermediate representation. *)
-and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
+and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof)
+    (classical : bool) : inter_op =
   match tp with
   | TChannel tp' -> compile_pure_prog_to_inter_op tp'
   | TMixedAbs { t; t'; e; e'; iso; _ } -> begin
       let e_op = compile_pure_expr_to_inter_op e in
-      let e'_op = compile_mixed_expr_to_inter_op e' in
+      let e'_op = compile_mixed_expr_to_inter_op e' classical in
         inter_lambda_marked "TMixedAbs" iso false
           [("t", type_size t)]
           [
@@ -2799,7 +2854,7 @@ and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =
     circuit's gate and additional relevant information. *)
 let expr_compile (e : expr) : gate * int * int list =
   let tp = mixed_type_check_noopt e in
-  let op = compile_mixed_expr_to_inter_op tp in
+  let op = compile_mixed_expr_to_inter_op tp true in
   let cs = compile_inter_op_to_circuit op in
   let circ, _ =
     build_circuit cs [[]; []] IntSet.empty
