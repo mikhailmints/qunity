@@ -1,7 +1,7 @@
 [![ci](https://github.com/mikhailmints/qunity/actions/workflows/ci.yml/badge.svg?event=push)](https://github.com/mikhailmints/qunity/actions/workflows/ci.yml)
 [![docs](https://img.shields.io/badge/docs-odoc-blue)](https://mikhailmints.github.io/qunity/qunity/Qunity/index.html)
 
-This is a prototype simulator and compiler for the Qunity quantum programming language, based on the paper by Voichick et al. (https://arxiv.org/abs/2204.12384), and the typechecker implementation in Coq (https://gitlab.umiacs.umd.edu/finn/qunity). This project is done as part of Caltech's SURF program, supervised by Robert Rand at UChicago.
+This is a prototype simulator and compiler for the Qunity quantum programming language, based on the paper by Voichick et al. (https://arxiv.org/abs/2204.12384), and the typechecker implementation in Coq (https://gitlab.umiacs.umd.edu/finn/qunity). This project is done as part of Caltech's SURF program, supervised by Robert Rand at UChicago. It is supported by the Samuel P. and Frances Krown SURF Fellowship.
 
 To run the tests:
 ```bash

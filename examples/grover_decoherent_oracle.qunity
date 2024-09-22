@@ -38,4 +38,4 @@ def F :=
         Bit0
 end
 
-Grover <N, F, [2]>
+Grover <N, F, [4]>

@@ -21,4 +21,4 @@ end
 def N := [5] end
 def Answer := (Bit0, (Bit1, (Bit1, (Bit0, (Bit0, ()))))) end
 
-Grover <N, Answer, [2]>
+Grover <N, Answer, [4]>
