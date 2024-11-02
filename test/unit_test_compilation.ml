@@ -32,7 +32,7 @@ let () =
       ( "type_size",
         [
           test "void" (fun () -> Alcotest.(check int "") 0 (type_size Void));
-          test "qunit" (fun () -> Alcotest.(check int "") 0 (type_size Qunit));
+          test "unit" (fun () -> Alcotest.(check int "") 0 (type_size Qunit));
           test "bit" (fun () -> Alcotest.(check int "") 1 (type_size bit));
           test "trit" (fun () ->
               Alcotest.(check int "") 2 (type_size (SumType (Qunit, bit))));
@@ -45,7 +45,7 @@ let () =
         [
           test "empty" (fun () ->
               Alcotest.(check int "") 0 (context_size StringMap.empty));
-          test "qunit" (fun () ->
+          test "unit" (fun () ->
               Alcotest.(check int "")
                 0
                 (context_size (StringMap.singleton "x" Qunit)));

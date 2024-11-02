@@ -17,7 +17,7 @@ end
 
 def Walk <N, Nsteps> :=
     if Nsteps = [0] then
-        Qid <NTensorT <N, Bit> * Bit>
+        Id <NTensorT <N, Bit> * Bit>
     else
         lambda (x, velocity) {NTensorT <N, Bit> * Bit} ->
         (x, velocity) |> Step <N> |> Walk <N, [Nsteps - 1]>

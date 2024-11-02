@@ -55,7 +55,7 @@ let rec string_of_type (t : exprtype) =
   match t with
   | _ when t = bit -> "Bit"
   | Void -> "void"
-  | Qunit -> "qunit"
+  | Qunit -> "unit"
   | SumType (t0, t1) ->
       Printf.sprintf "(%s) + (%s)" (string_of_type t0) (string_of_type t1)
   | ProdType (t0, t1) ->
@@ -101,7 +101,7 @@ let rec string_of_expr (e : expr) : string =
 and string_of_prog (f : prog) : string =
   match f with
   | _ when f = had -> "Had"
-  | _ when f = qnot -> "Qnot"
+  | _ when f = qnot -> "Not"
   | U3 (theta, phi, lambda) ->
       Printf.sprintf "u3{%s, %s, %s}" (string_of_real theta)
         (string_of_real phi) (string_of_real lambda)

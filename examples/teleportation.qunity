@@ -11,8 +11,8 @@ in
 let result {Bit} =
     ctrl {NTensorT <[2], Bit>, NTensorT <[2], Bit> * Bit} toSend [
         (Bit0, (Bit0, ())) -> (toSend, bellBob);
-        (Bit0, (Bit1, ())) -> (toSend, bellBob |> Qnot);
+        (Bit0, (Bit1, ())) -> (toSend, bellBob |> Not);
         (Bit1, (Bit0, ())) -> (toSend, bellBob |> PauliZ);
-        (Bit1, (Bit1, ())) -> (toSend, bellBob |> Qnot |> PauliZ)
+        (Bit1, (Bit1, ())) -> (toSend, bellBob |> Not |> PauliZ)
     ] |> Snd <NTensorT <[2], Bit>, Bit>
 in result

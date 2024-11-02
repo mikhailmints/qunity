@@ -11,7 +11,7 @@ end
 
 def Swap <N, T, I> :=
     if I = [0] then
-        Qid <NTensorT <N, T>>
+        Id <NTensorT <N, T>>
     else
         lambda (x, x') {NTensorT <N, T>} ->
             let (x, (x0, (xi, x1))) {T * (NTensorT <[I - 1], T> * NTensorT <[N - I], T>)} =
@@ -22,7 +22,7 @@ end
 
 def RandomizePassIter <N, T, I> :=
     if I = N then
-        Qid <NTensorT <N, T>>
+        Id <NTensorT <N, T>>
     else
         lambda x {NTensorT <N, T>} ->
             match {Bit, NTensorT <N, T>} BitPlus [
@@ -34,7 +34,7 @@ end
 
 def RandomizePass <N, T> :=
     if N = [0] then
-        Qid <qunit>
+        Id <unit>
     else
         lambda (x, x') {NTensorT <N, T>} ->
             let (x, x') {NTensorT <N, T>} = RandomizePassIter <N, T, [1]> of (x, x') in
@@ -44,7 +44,7 @@ end
 
 def RandomizeIter <N, T, Niter> :=
     if Niter = [0] then
-        Qid <NTensorT <N, T>>
+        Id <NTensorT <N, T>>
     else
         lambda x {NTensorT <N, T>} ->
             x |> RandomizePass <N, T> |> RandomizeIter <N, T, [Niter - 1]>
@@ -57,10 +57,10 @@ end
 
 def IsSorted <N, T, Compare> :=
     if N = [0] then
-        lambda () {qunit} -> Bit1
+        lambda () {unit} -> Bit1
     else
         if N = [1] then
-            lambda (x, ()) {T * qunit} -> Bit1
+            lambda (x, ()) {T * unit} -> Bit1
         else
             lambda (x0, (x1, x')) {NTensorT <N, T>} ->
                 match {Bit, Bit} (Compare of (x0, x1)) [

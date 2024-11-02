@@ -13,7 +13,7 @@ def Vertex <N> :=
     if N = [0] then
         void
     else
-        qunit + (Vertex <[N - 1]> * Child)
+        unit + (Vertex <[N - 1]> * Child)
     endif
 end
 
@@ -22,7 +22,7 @@ Type: Vertex <[N + 1]>
 Empty list that can contain up to N elements
 */
 def Root <N> :=
-    left {qunit, Vertex <N> * Child} of ()
+    left {unit, Vertex <N> * Child} of ()
 end
 
 /*
@@ -31,7 +31,7 @@ E0 : Child
 Type: Vertex <[N + 1]>
 */
 def Qcons <E, N, E0> :=
-    right {qunit, Vertex <N> * Child} of (E, E0)
+    right {unit, Vertex <N> * Child} of (E, E0)
 end
 
 /*
@@ -179,7 +179,7 @@ end
 
 def RunQuantumWalk <N, F, Niter> :=
     if Niter = [0] then
-        Qid <Coin * Vertex <[N + 2]>>
+        Id <Coin * Vertex <[N + 2]>>
     else
         lambda x {Coin * Vertex <[N + 2]>} ->
             x |> Diffusion <N, F> |> Walk <N>
@@ -195,7 +195,7 @@ def InitialTState <Tbits> :=
         |> rphase {NTensorT <[Tbits], Bit>, (Bit1, _), -pi / 2, 0}
         |>
         if Tbits = [1] then
-            Qid <NTensorT <[Tbits], Bit>>
+            Id <NTensorT <[Tbits], Bit>>
         else
             rphase {NTensorT <[Tbits], Bit>, (_0, (Bit1, _1)), pi, 0}
         endif
@@ -209,7 +209,7 @@ the register is in state t, coherently.
 */
 def ControlledWalk <Tbits, N, F> :=
     if Tbits = [0] then
-        Qid <NTensorT <[Tbits], Bit> * (Coin * Vertex <[N + 2]>)>
+        Id <NTensorT <[Tbits], Bit> * (Coin * Vertex <[N + 2]>)>
     else
         lambda ((t0, trest), (c, v))
         {NTensorT <[Tbits], Bit> * (Coin * Vertex <[N + 2]>)} ->

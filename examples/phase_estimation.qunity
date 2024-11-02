@@ -1,6 +1,6 @@
 def ApplyPhase <N, P> :=
     if N = [0] then
-        Qid <qunit>
+        Id <unit>
     else
         lambda (x0, x') {NTensorT <N, Bit>} ->
             (ctrl {Bit, Bit} x0 [

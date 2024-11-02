@@ -1,8 +1,8 @@
-(left {qunit, (qunit + Bit) * Bit} of ())
-|> lambda x {qunit + ((qunit + Bit) * Bit)} ->
-    ctrl {qunit + ((qunit + Bit) * Bit), qunit + ((qunit + Bit) * Bit)} x [
-        right {qunit, (qunit + Bit) * Bit} of (right {qunit, Bit} of a, b) -> x;
-        right {qunit, (qunit + Bit) * Bit} of (left {qunit, Bit} of (), Bit0) -> x;
-        right {qunit, (qunit + Bit) * Bit} of (left {qunit, Bit} of (), Bit1) -> x;
-        left {qunit, (qunit + Bit) * Bit} of () -> x;
+(left {unit, (unit + Bit) * Bit} of ())
+|> lambda x {unit + ((unit + Bit) * Bit)} ->
+    ctrl {unit + ((unit + Bit) * Bit), unit + ((unit + Bit) * Bit)} x [
+        right {unit, (unit + Bit) * Bit} of (right {unit, Bit} of a, b) -> x;
+        right {unit, (unit + Bit) * Bit} of (left {unit, Bit} of (), Bit0) -> x;
+        right {unit, (unit + Bit) * Bit} of (left {unit, Bit} of (), Bit1) -> x;
+        left {unit, (unit + Bit) * Bit} of () -> x;
     ]

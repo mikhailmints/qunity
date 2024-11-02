@@ -7,8 +7,8 @@ def Step <N> :=
     ]
     |> lambda ((x, velocity), label) {(NTensorT <N, Bit> * Bit) * Maybe <Bit>} -> 
     match {Maybe <Bit>, (NTensorT <N, Bit> * Bit)} label [
-        Just <Bit> of Bit0 -> (IncrementLE <N> of x, Qnot of velocity);
-        Just <Bit> of Bit1 -> (DecrementLE <N> of x, Qnot of velocity);
+        Just <Bit> of Bit0 -> (IncrementLE <N> of x, Not of velocity);
+        Just <Bit> of Bit1 -> (DecrementLE <N> of x, Not of velocity);
         Nothing <Bit> -> ctrl {Bit, NTensorT <N, Bit> * Bit} velocity [
             Bit0 -> (DecrementLE <N> of x, velocity);
             Bit1 -> (IncrementLE <N> of x, velocity)
@@ -18,7 +18,7 @@ end
 
 def Walk <N, Nsteps> :=
     if Nsteps = [0] then
-        Qid <NTensorT <N, Bit> * Bit>
+        Id <NTensorT <N, Bit> * Bit>
     else
         lambda (x, velocity) {NTensorT <N, Bit> * Bit} ->
         (x, velocity) |> Step <N> |> Walk <N, [Nsteps - 1]>

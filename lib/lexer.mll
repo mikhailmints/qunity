@@ -53,7 +53,7 @@ and read = parse
     | ">" {RANGLE}
     | "of" {OF}
     | "void" {VOID}
-    | "qunit" {QUNIT}
+    | "unit" {QUNIT}
     | "u3" {U3}
     | "left" {LEFT}
     | "right" {RIGHT}

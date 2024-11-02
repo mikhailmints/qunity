@@ -2,11 +2,11 @@
 Qunity standard library definitions, added to the start of every file
 */
 
-def Bit := qunit + qunit end
+def Bit := unit + unit end
 
-def Bit0 := left {qunit, qunit} of () end
+def Bit0 := left {unit, unit} of () end
 
-def Bit1 := right {qunit, qunit} of () end
+def Bit1 := right {unit, unit} of () end
 
 def BitPlus := Had of Bit0 end
 
@@ -14,7 +14,7 @@ def BitMinus := Had of Bit1 end
 
 def Had := u3 {pi/2, 0, pi} end
 
-def Qnot := u3 {pi, 0, pi} end
+def Not := u3 {pi, 0, pi} end
 
 def PauliZ := u3 {0, pi, 0} end
 
@@ -30,7 +30,7 @@ def RightAdj <T0, T1> :=
     lambda (right {T0, T1} of x) {T0 + T1} -> x
 end
 
-def Qid <T> :=
+def Id <T> :=
     lambda x {T} -> x
 end
 
@@ -51,15 +51,15 @@ def Snd <T0, T1> :=
 end
 
 def Maybe <T> :=
-    qunit + T
+    unit + T
 end
 
 def Nothing <T> :=
-    left {qunit, T} of ()
+    left {unit, T} of ()
 end
 
 def Just <T> :=
-    right {qunit, T}
+    right {unit, T}
 end
 
 /*
@@ -70,7 +70,7 @@ def NTensorT <N, T> :=
         fail
     else
         if N = [0] then
-            qunit
+            unit
         else
             T * NTensorT <[N - 1], T>
         endif
@@ -100,7 +100,7 @@ def NTensorF <N, F, T> :=
         fail
     else
         if N = [0] then
-            Qid <qunit>
+            Id <unit>
         else
             lambda (x, x') {NTensorT <N, T>} ->
             (F of x, NTensorF <[N - 1], F, T> of x')
@@ -113,7 +113,7 @@ def Append <N, T> :=
         fail
     else
         if N = [0] then
-            lambda (y, x) {qunit * T} -> (x, y)
+            lambda (y, x) {unit * T} -> (x, y)
         else
             lambda ((y0, y1), x) {NTensorT <N, T> * T} ->
                 (y0, Append <[N - 1], T> of (y1, x))
@@ -123,7 +123,7 @@ end
 
 def Concat <N0, N1, T> :=
     if N1 = [0] then
-        lambda (a, ()) {NTensorT <N0, T> * qunit} -> a
+        lambda (a, ()) {NTensorT <N0, T> * unit} -> a
     else
         lambda (a, (b, b')) {NTensorT <N0, T> * NTensorT <N1, T>} ->
             Concat <[N0 + 1], [N1 - 1], T> of (Append <N0, T> of (a, b), b')
@@ -135,7 +135,7 @@ def Reverse <N, T> :=
         fail
     else
         if N = [0] then
-            Qid <qunit>
+            Id <unit>
         else
             lambda (x, y) {NTensorT <N, T>} ->
                 Append <[N - 1], T> of (Reverse <[N - 1], T> of y, x)
@@ -209,7 +209,7 @@ def IncrementLE <N> :=
         fail
     else
         if N = [0] then
-            Qid <qunit>
+            Id <unit>
         else
             pmatch {NTensorT <N, Bit>, NTensorT <N, Bit>} [
                 (Bit0, x) -> (Bit1, x);
@@ -274,7 +274,7 @@ end
 
 def Rotations <N> :=
     if N = [0] then
-        Qid <qunit>
+        Id <unit>
     else
         if N = [1] then
             lambda (x, ()) {NTensorT <[1], Bit>} -> (Had of x, ())
@@ -293,7 +293,7 @@ Quantum Fourier Transform on N bits
 */
 def Qft <N> :=
     if N = [0] then
-        Qid <qunit>
+        Id <unit>
     else
         lambda x {NTensorT <N, Bit>} ->
         let (x0, x') {NTensorT <N, Bit>} =
@@ -346,5 +346,5 @@ def Controlled1Q <N, I, J, F> :=
 end
 
 def Cnot <N, I, J> :=
-    Controlled1Q <N, I, J, Qnot>
+    Controlled1Q <N, I, J, Not>
 end

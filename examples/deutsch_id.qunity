@@ -7,4 +7,4 @@ def Deutsch <F> :=
     ) |> Had
 end
 
-Deutsch <Qid <Bit>>
+Deutsch <Id <Bit>>

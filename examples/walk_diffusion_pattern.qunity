@@ -13,7 +13,7 @@ def Vertex <N> :=
     if N = [0] then
         void
     else
-        qunit + (Vertex <[N - 1]> * Child)
+        unit + (Vertex <[N - 1]> * Child)
     endif
 end
 
@@ -22,7 +22,7 @@ Type: Vertex <[N + 1]>
 Empty list that can contain up to N elements
 */
 def Root <N> :=
-    left {qunit, Vertex <N> * Child} of ()
+    left {unit, Vertex <N> * Child} of ()
 end
 
 /*
@@ -31,7 +31,7 @@ E0 : Child
 Type: Vertex <[N + 1]>
 */
 def Qcons <E, N, E0> :=
-    right {qunit, Vertex <N> * Child} of (E, E0)
+    right {unit, Vertex <N> * Child} of (E, E0)
 end
 
 /*

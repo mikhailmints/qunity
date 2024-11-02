@@ -1368,6 +1368,7 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
           | _ -> NoneE "Type mismatch in Rphase"
         end
     end
+  (* T-PMATCH *)
   | Pmatch (t0, t1, l) -> begin
       let ejs = List.map fst l in
       let ej's = List.map snd l in
