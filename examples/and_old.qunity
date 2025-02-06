@@ -1,0 +1,6 @@
+(BitPlus, BitPlus)
+|> lambda x {Bit * Bit} -> ctrl {Bit * Bit, Bit * (Bit * Bit)} x [
+    (Bit1, Bit1) -> (Bit1, x);
+    else -> (Bit0, x)
+]
+|> Fst <Bit, Bit * Bit>

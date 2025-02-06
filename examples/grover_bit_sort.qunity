@@ -26,6 +26,29 @@ end
 def N := [5] end
 def Answer := (Bit0, (Bit1, (Bit1, (Bit0, (Bit0, ()))))) end
 
+def IsSorted <N, T, Compare> :=
+    if N = [0] then
+        lambda () {unit} -> Bit1
+    else
+        if N = [1] then
+            lambda (x, ()) {T * unit} -> Bit1
+        else
+            lambda (x0, (x1, x')) {NTensorT <N, T>} ->
+                match {Bit, Bit} (Compare of (x0, x1)) [
+                    Bit0 -> Bit0;
+                    Bit1 -> IsSorted <[N - 1], T, Compare> of (x1, x')
+                ]
+        endif
+    endif
+end
+
+def BitCompare :=
+    lambda (a, b) {Bit * Bit} -> match {Bit * Bit, Bit} (a, b) [
+        (Bit1, Bit0) -> Bit0;
+        else -> Bit1
+    ]
+end
+
 /*
 Quantum oracle representing a function acting on N bits that outputs
 1 for the input Answer and 0 for other inputs
@@ -38,4 +61,4 @@ def F :=
         Bit0
 end
 
-Grover <N, F, [4]>
+Grover <N, IsSorted <N, Bit, BitCompare>, [4]>

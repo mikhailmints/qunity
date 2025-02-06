@@ -41,7 +41,7 @@ def draw_circuit(circuit, basename):
         circuit.draw(
             "mpl",
             filename=out_filename,
-            fold=-1,
+            fold=100,
         )
     except Exception:
         circuit.draw("mpl", scale=0.2, filename=out_filename)

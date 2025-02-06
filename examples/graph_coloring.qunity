@@ -1,0 +1,139 @@
+def AdjacencyMatrix <N> :=
+    NTensorT <N, NTensorT <N, Bit>>
+end
+
+def Coloring <N, K> :=
+    NTensorT <N, NTensorT <K, Bit>>
+end
+
+def IsConnectedHelperCols <C, J> :=
+    lambda (x, x') {NTensorT <C, Bit>} ->
+    if J = [0] then
+        x
+    else
+        IsConnectedHelperCols <[C - 1], [J - 1]> of x'
+    endif
+end
+
+def IsConnectedHelperRows <R, C, I, J> :=
+    lambda (x, x') {NTensorT <R, NTensorT <C, Bit>>} ->
+    if I = [0] then
+        IsConnectedHelperCols <C, J> of x
+    else
+        IsConnectedHelperRows <[R - 1], C, [I - 1], J> of x'
+    endif
+end
+
+def IsConnected <N, I, J> :=
+    IsConnectedHelperRows <N, N, I, J>
+end
+
+def GetColor <N, K, I> :=
+    lambda (x, x') {Coloring <N, K>} ->
+    if I = [0] then
+        x
+    else
+        GetColor <[N - 1], K, [I - 1]> of x'
+    endif
+end
+
+def EqualColors <K> :=
+    if K = [0] then
+        lambda _ {unit * unit} -> Bit1
+    else
+        lambda ((x, x'), (y, y')) {NTensorT <K, Bit> * NTensorT <K, Bit>} ->
+        And of (
+            match {Bit * Bit, Bit} (x, y) [
+                (Bit0, Bit0) -> Bit1;
+                (Bit1, Bit1) -> Bit1;
+                else -> Bit0
+            ],
+            EqualColors <[K - 1]> of (x', y')
+        )
+    endif
+end
+
+def ValidColoringAtEdge <N, K, I, J> :=
+    lambda (adj, color) {AdjacencyMatrix <N> * Coloring <N, K>} ->
+    Not of (
+    And of (
+        IsConnected <N, I, J> of adj,
+        EqualColors <K> of (GetColor <N, K, I> of color, GetColor <N, K, J> of color)
+    ))
+end
+
+def ValidColoringCols <N, K, I, J> :=
+    lambda (adj, color) {AdjacencyMatrix <N> * Coloring <N, K>} ->
+    if J = I then
+        Bit1
+    else
+        And of (ValidColoringCols <N, K, I, [J - 1]> of (adj, color),
+        ValidColoringAtEdge <N, K, I, [J - 1]> of (adj, color))
+    endif
+end
+
+def ValidColoringRows <N, K, I> :=
+    lambda (adj, color) {AdjacencyMatrix <N> * Coloring <N, K>} ->
+    if I = [0] then
+        Bit1
+    else
+        And of (ValidColoringRows <N, K, [I - 1]> of (adj, color),
+        ValidColoringCols <N, K, [I - 1], N> of (adj, color))
+    endif
+end
+
+def ValidColoring <N, K> :=
+    ValidColoringRows <N, K, N>
+end
+
+def GroverIter <N, K, F> :=
+    lambda x {Coloring <N, K>} ->
+    ctrl {Bit, Coloring <N, K>} (F of x) [
+        Bit0 -> x;
+        Bit1 -> x |> gphase {Coloring <N, K>, pi}
+    ] |>
+    Reflect <Coloring <N, K>, NTensorE <N, NTensorE <K, BitPlus>>>
+end
+
+def Grover <N, K, F, Niter> :=
+    if Niter = [0] then
+        NTensorE <N, NTensorE <K, BitPlus>>
+    else
+        Grover <N, K, F, [Niter - 1]> |> GroverIter <N, K, F>
+    endif
+end
+
+def N := [2] end
+
+def K := [1] end
+
+// def Adj := (
+// (Bit0, (Bit1, (Bit1, (Bit1, (Bit1, (Bit1, ())))))),(
+// (Bit1, (Bit0, (Bit1, (Bit1, (Bit1, (Bit0, ())))))),(
+// (Bit1, (Bit1, (Bit0, (Bit0, (Bit1, (Bit1, ())))))),(
+// (Bit1, (Bit1, (Bit0, (Bit0, (Bit1, (Bit0, ())))))),(
+// (Bit1, (Bit1, (Bit1, (Bit1, (Bit0, (Bit1, ())))))),(
+// (Bit1, (Bit0, (Bit1, (Bit0, (Bit1, (Bit0, ())))))),()
+// ))))))
+// end
+
+// def Adj := (
+// (Bit0, (Bit1, (Bit0, (Bit1, ())))),(
+// (Bit1, (Bit0, (Bit1, (Bit0, ())))),(
+// (Bit0, (Bit1, (Bit0, (Bit1, ())))),(
+// (Bit1, (Bit0, (Bit1, (Bit0, ())))),()
+// ))))
+// end
+
+def Adj := (
+(Bit0, (Bit1, ())),(
+(Bit1, (Bit0, ())),()
+))
+end
+
+def ColoringOracle :=
+    lambda x {Coloring <N, K>} -> ValidColoring <N, K> of (Adj, x)
+end
+
+Grover <N, K, ColoringOracle, [1]>
+

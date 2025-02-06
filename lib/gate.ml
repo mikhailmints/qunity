@@ -16,6 +16,8 @@ type gate =
   | Annotation of int list * string
   | Controlled of (int list * bool list * gate)
   | Sequence of (gate * gate)
+  | IfNonzero of int list
+  | Endif
 
 (** Alias for [Sequence]. *)
 let ( @& ) a b = Sequence (a, b)
@@ -43,6 +45,9 @@ let rec string_of_gate (u : gate) : string =
   | Sequence (u0, u1) ->
       Printf.sprintf "Sequence (%s, %s)" (string_of_gate u0)
         (string_of_gate u1)
+  | IfNonzero l ->
+      Printf.sprintf "IfNonzero %s" (string_of_list string_of_int l)
+  | Endif -> "Endif"
 
 (** A type used to track whether a qubit is in a classical state during
     optimization passes. *)
@@ -81,6 +86,8 @@ let rec gate_adjoint (u : gate) : gate =
   | GphaseGate theta -> GphaseGate (Negate theta)
   | Reset _ -> failwith "Can't take adjoint of reset"
   | MeasureAsErr _ -> failwith "Can't take adjoint of measurement"
+  | IfNonzero _ -> failwith "Can't take adjoint of classical if"
+  | Endif -> failwith "Can't take adjoint of endif"
   | PotentialDeletionLabel _
   | ZeroStateLabel _ ->
       Identity
@@ -137,6 +144,8 @@ let rec gate_qubits_used (u : gate) : IntSet.t =
       IntSet.union (IntSet.of_list l) (gate_qubits_used u0)
   | Sequence (u0, u1) ->
       IntSet.union (gate_qubits_used u0) (gate_qubits_used u1)
+  | IfNonzero l -> IntSet.of_list l
+  | Endif -> IntSet.empty
 
 (** Given a gate, outputs the number of qubits necessary to apply the gate -
     that is, the maximum qubit index used by the gate plus one. *)
@@ -177,6 +186,8 @@ let rec gate_rewire (u : gate) (source : int list) (target : int list) : gate =
             gate_rewire u0 source target )
     | Sequence (u0, u1) ->
         Sequence (gate_rewire u0 source target, gate_rewire u1 source target)
+    | IfNonzero l -> IfNonzero (List.map (int_map_find_or_keep rewiring) l)
+    | Endif -> Endif
 
 (** Removes all identity gates from a circuit, unless the entire circuit is
     equivalent to an identity, in which case this returns the identity gate. *)
@@ -415,7 +426,9 @@ let rec is_valid_during_share (ul : gate list) (i : int) (j : int)
             when (not (IntSet.mem i (gate_qubits_used u)))
                  && not (IntSet.mem j (gate_qubits_used u)) ->
               true
-          | U3Gate _ when u = gate_paulix i || u = gate_paulix j -> true
+          | U3Gate _
+            when u = gate_paulix i || u = gate_paulix j || u = gate_pauliz i ->
+              true
           | U3Gate _
           | Reset _
           | MeasureAsErr _
@@ -577,6 +590,8 @@ let rec gate_classical_propagation (ul : gate list)
                   Controlled (l', bl', u0)
               end
           end
+        | IfNonzero _ -> failwith "TODO"
+        | Endif -> failwith "TODO"
       in
         match (u', ul') with
         | Identity, ul' -> gate_classical_propagation ul' cl err
@@ -769,11 +784,12 @@ let rec gate_list_optimize (ul : gate list) (out_reg : int list)
     (nqubits : int) : gate list * int list =
   if !optimization_print then
     Printf.printf ".%!";
-  let ul =
+  (* TODO: make classical propagation work with classical ifs *)
+  (* let ul =
     gate_classical_propagation ul
       (Array.of_list (List.map (fun _ -> Classical false) (range nqubits)))
       (ref (Classical false))
-  in
+  in *)
   let ul = gate_list_shift_deletion_labels_left ul in
   let ul_opt, out_reg', changes_made = gate_optimization_pass ul out_reg in
     if changes_made then

@@ -42,6 +42,9 @@ let rec gate_to_qasm_str (u : gate) (err_num : int) : string * int =
         | PotentialDeletionLabel _
         | ZeroStateLabel _ ->
             ("", err_num)
+        | IfNonzero _
+        | Endif ->
+            failwith "Should not have controlled classical ifs"
         | _ -> begin
             let l, bl, (s, l0), apply_x =
               begin
@@ -91,6 +94,10 @@ let rec gate_to_qasm_str (u : gate) (err_num : int) : string * int =
     | PotentialDeletionLabel i ->
         (Printf.sprintf "// Potential deletion %d\n" i, err_num)
     | ZeroStateLabel i -> (Printf.sprintf "// Zero state %d\n" i, err_num)
+    | IfNonzero [] -> (Printf.sprintf "if (true) {\n", err_num)
+    | IfNonzero l ->
+        (Printf.sprintf "meas_result = measure q[%d];\nif (meas_result) {\n" (List.hd l), err_num)
+    | Endif -> ("}\n", err_num)
     | _ ->
         let s, l = simple_gate_to_qasm_str u in
           ( Printf.sprintf "%s%s;\n" s (List.fold_left arglist_fold "" l),
@@ -106,7 +113,8 @@ let gate_to_qasm_file (u : gate) (nqubits : int) (out_reg : int list) : string
        include \"stdgates.inc\";\n\
        qubit[%d] q;\n\
        bit[%d] out;\n\
-       bit[%d] err;\n"
+       bit[%d] err;\n\
+       bit meas_result;\n"
       nqubits n_out n_flag
   in
   let body, _ = if u = Identity then ("", 0) else gate_to_qasm_str u 0 in
