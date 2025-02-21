@@ -1,2 +1,2 @@
-**.svg binary
-**.qasm binary
+**.svg filter=lfs diff=lfs merge=lfs -text
+**.qasm filter=lfs diff=lfs merge=lfs -text
