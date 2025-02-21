@@ -1,2 +1,2 @@
-diagrams/* linguist-generated=true
-qasm_out/* linguist-generated=true
+**.svg binary
+**.qasm binary
