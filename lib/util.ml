@@ -18,17 +18,34 @@ let option_of_optionE (optE : 'a optionE) : 'a option =
 
 (** Outputs [None] if any of the elements of [l] are [None], otherwise removes
     the option constructors from the elements. *)
-let all_or_nothing (l : 'a option list) : 'a list option =
-  if List.for_all (fun a -> a <> None) l then
-    Some
-      (List.map
-         (fun a ->
-           match a with
-           | Some a' -> a'
-           | None -> failwith "unreachable")
-         l)
-  else
-    None
+let rec all_or_nothing (l : 'a option list) : 'a list option =
+  match l with
+  | [] -> Some []
+  | h :: t -> begin
+      match h with
+      | None -> None
+      | Some h' -> begin
+          match all_or_nothing t with
+          | None -> None
+          | Some t' -> Some (h' :: t')
+        end
+    end
+
+(** Outputs [NoneE] with the first encountered error if any of the elements of
+    [l] are [NoneE], otherwise removes the option constructors from the
+    elements. *)
+let rec all_or_nothing_optionE (l : 'a optionE list) : 'a list optionE =
+  match l with
+  | [] -> SomeE []
+  | h :: t -> begin
+      match h with
+      | NoneE err -> NoneE err
+      | SomeE h' -> begin
+          match all_or_nothing_optionE t with
+          | NoneE err -> NoneE err
+          | SomeE t' -> SomeE (h' :: t')
+        end
+    end
 
 (** Outputs [None] if any of the values of [d] are [None], otherwise removes
     the option constructors from the values. *)

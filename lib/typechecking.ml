@@ -1385,7 +1385,7 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
              (List.combine ej's (range (List.length l))))
       in
         match
-          all_or_nothing
+          all_or_nothing_optionE
             (List.map
                (fun (ej, ej') ->
                  match
@@ -1398,16 +1398,20 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
                          ( pure_type_check StringMap.empty d0 ej,
                            pure_type_check StringMap.empty d0 ej' )
                        with
-                       | SomeE tp0, SomeE tp1 -> Some (d0, tp0, tp1)
-                       | _ -> None
+                       | SomeE tp0, SomeE tp1 -> SomeE (d0, tp0, tp1)
+                       | NoneE err, _
+                       | _, NoneE err ->
+                           NoneE err
                      end
                      else
-                       None
-                 | _ -> None)
+                       NoneE "Context mismatch in Pmatch"
+                 | NoneE err, _
+                 | _, NoneE err ->
+                     NoneE err)
                l)
         with
-        | None -> NoneE "Context mismatch in Pmatch"
-        | Some l' -> begin
+        | NoneE err -> NoneE err
+        | SomeE l' -> begin
             match
               ( ortho_check t0 (List.map fst l) true,
                 ortho_check t1 (List.map snd l) true )

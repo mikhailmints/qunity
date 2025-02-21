@@ -155,6 +155,8 @@ let () =
         "bogosort.qunity";
         "boolean_formula_walk.qunity";
         "grover_decoherent_oracle.qunity";
+        "list_example.qunity";
+        "list_length.qunity";
         "retry_example.qunity";
         "walk_1d.qunity";
         "walk_1d_alt.qunity";

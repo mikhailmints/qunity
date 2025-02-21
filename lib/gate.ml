@@ -415,6 +415,10 @@ let rec is_valid_during_share (ul : gate list) (i : int) (j : int)
             when (not (IntSet.mem i (gate_qubits_used u)))
                  && not (IntSet.mem j (gate_qubits_used u)) ->
               true
+          | _
+            when IntSet.mem i (gate_qubits_used u)
+                 && IntSet.mem j (gate_qubits_used u) ->
+              false
           | U3Gate _ when u = gate_paulix i || u = gate_paulix j -> true
           | U3Gate _
           | Reset _
@@ -769,11 +773,11 @@ let rec gate_list_optimize (ul : gate list) (out_reg : int list)
     (nqubits : int) : gate list * int list =
   if !optimization_print then
     Printf.printf ".%!";
-  let ul =
-    gate_classical_propagation ul
-      (Array.of_list (List.map (fun _ -> Classical false) (range nqubits)))
-      (ref (Classical false))
-  in
+  (* let ul =
+       gate_classical_propagation ul
+         (Array.of_list (List.map (fun _ -> Classical false) (range nqubits)))
+         (ref (Classical false))
+     in *)
   let ul = gate_list_shift_deletion_labels_left ul in
   let ul_opt, out_reg', changes_made = gate_optimization_pass ul out_reg in
     if changes_made then
