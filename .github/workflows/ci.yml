@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout tree
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Set-up OCaml
         uses: ocaml/setup-ocaml@v3
