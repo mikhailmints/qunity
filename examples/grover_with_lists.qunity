@@ -1,0 +1,67 @@
+def EqualSuperposList <N> :=
+    if N = [0] then
+        EmptyList <[0], Bit>
+    else
+        Bit0
+        |> u3 {2 * arccos(sqrt(1 / (2 ^ (N + 1) - 1))), 0, 0}
+        |> pmatch {Bit, Maybe <Bit>} [
+            Bit0 -> Nothing <Bit>;
+            Bit1 -> Just <Bit> of BitPlus
+        ]
+        |> lambda m {Maybe <Bit>} -> ctrl {Maybe <Bit>, Maybe <Bit> * List <N, Bit>} m [
+            Nothing <Bit> -> (m, EmptyList <N, Bit>);
+            Just <Bit> of x -> (m, ListCons <[N - 1], Bit, x, EqualSuperposList <[N - 1]>>)            
+        ]
+        |> lambda (
+            ctrl {List <N, Bit>, Maybe <Bit> * List <N, Bit>} l [
+                EmptyList <N, Bit> -> (Nothing <Bit>, l);
+                ListCons <[N - 1], Bit, x, _> -> (Just <Bit> of x, l);
+            ]) {Maybe <Bit> * List <N, Bit>} -> l
+    endif
+end
+
+/*
+A single Grover iteration for oracle F on list of length N
+*/
+def GroverIter <N, F> :=
+    lambda x {List <N, Bit>} ->
+    // Apply F as a phase oracle
+    ctrl {Bit, List <N, Bit>} (F of x) [
+        Bit0 -> x;
+        Bit1 -> x |> gphase {List <N, Bit>, pi}
+    ] |>
+    // Grover diffusion operator
+    Reflect <List <N, Bit>, EqualSuperposList <N>>
+end
+
+/*
+Run Grover's algorithm for Niter iterations
+*/
+def Grover <N, F, Niter> :=
+    if Niter = [0] then
+        EqualSuperposList <N>
+    else
+        Grover <N, F, [Niter - 1]> |> GroverIter <N, F>
+    endif
+end
+
+def N := [2] end
+
+/*
+Quantum oracle representing a function acting on a list of N bits that outputs
+1 if the sum of the elements is even.
+*/
+def IsEvenSum <N> :=
+    if N = [0] then
+        lambda l {List <N, Bit>} -> Bit1
+    else
+        lambda l {List <N, Bit>} ->
+        match {List <N, Bit>, Bit} l [
+            EmptyList <N, Bit> -> Bit1;
+            ListCons <[N - 1], Bit, Bit0, l'> -> IsEvenSum <[N - 1]> of l';
+            ListCons <[N - 1], Bit, Bit1, l'> -> Not of (IsEvenSum <[N - 1]> of l');
+        ]
+    endif
+end
+
+Grover <N, IsEvenSum <N>, [3]>

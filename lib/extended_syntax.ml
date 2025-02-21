@@ -161,7 +161,7 @@ and xexpr_eval (v : xexpr) (dm : defmap) (xv : xvaluation) : xresult =
     | _, RNone err, _, _
     | _, _, _, RNone err ->
         NoneE err
-    | _ -> NoneE "Preprocessing error in Ctrl"
+    | _ -> NoneE "Preprocessing error in Ctrl or Match"
   in
     match v with
     | XNull -> RExpr Null

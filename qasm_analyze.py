@@ -7,6 +7,8 @@ import timeout_decorator
 from qiskit import qasm3, transpile
 from qiskit_aer import Aer
 from qiskit.visualization import plot_histogram
+import matplotlib
+matplotlib.use("svg")
 import matplotlib.pyplot as plt
 
 RED = "\033[0;31m"
@@ -36,12 +38,12 @@ def format_label(x):
 @timeout_decorator.timeout(DRAW_TIMEOUT, use_signals=False)
 def draw_circuit(circuit, basename):
     print("Drawing circuit")
-    out_filename = "diagrams/circuits/" + basename + ".png"
+    out_filename = "diagrams/circuits/" + basename + ".svg"
     try:
         circuit.draw(
             "mpl",
             filename=out_filename,
-            fold=-1,
+            fold=100,
         )
     except Exception:
         circuit.draw("mpl", scale=0.2, filename=out_filename)
@@ -78,7 +80,7 @@ def simulate_circuit(circuit, basename):
             if x not in counts:
                 counts[x] = 0
             counts[x] += y
-    out_filename = "diagrams/sim_results/" + basename + "_sim_results.png"
+    out_filename = "diagrams/sim_results/" + basename + "_sim_results.svg"
     fig, ax = plt.subplots()
     plot_histogram(counts, ax=ax)
     fig.savefig(out_filename)

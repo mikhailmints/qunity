@@ -348,3 +348,119 @@ end
 def Cnot <N, I, J> :=
     Controlled1Q <N, I, J, Not>
 end
+
+def List <N, T> :=
+    if N = [0] then
+        unit
+    else
+        unit + (T * List <[N - 1], T>)
+    endif
+end
+
+def EmptyList <N, T> :=
+    if N = [0] then
+        ()
+    else
+        left {unit, (T * List <[N - 1], T>)} of ()
+    endif
+end
+
+// Given L of type List <N, T> and X of type T, outputs List <N + 1, T>
+def ListCons <N, T, X, L> :=
+    right {unit, (T * List <N, T>)} of (X, L)
+end
+
+def ListAppend <N, T> :=
+    if N = [0] then
+        lambda (l, x) {List <N, T> * T} -> ctrl {unit, unit} () []
+    else
+        lambda (l, x) {List <N, T> * T} ->
+            match {List <N, T>, List <N, T>} l [
+                EmptyList <N, T> -> ListCons <[N - 1], T, x, EmptyList <[N - 1], T>>;
+                ListCons <[N - 1], T, x', l'> -> ListCons <[N - 1], T, x', ListAppend <[N - 1], T> of (l', x)>
+            ]
+    endif
+end
+
+def ListAppendConst <N, T, X> :=
+    if N = [0] then
+        lambda l {List <N, T>} -> ctrl {unit, unit} () []
+    else
+        lambda l {List <N, T>} ->
+            match {List <N, T>, List <N, T>} l [
+                EmptyList <N, T> -> ListCons <[N - 1], T, X, EmptyList <[N - 1], T>>;
+                ListCons <[N - 1], T, x', l'> -> ListCons <[N - 1], T, x', ListAppend <[N - 1], T> of (l', X)>
+            ]
+    endif
+end
+
+// Cast a List <N, T> to a List <[N + 1], T>
+def ListUpcast <N, T> :=
+    if N = [0] then
+        lambda () {unit} -> EmptyList <[1], T>
+    else
+        lambda l {List <N, T>} ->
+        match {List <N, T>, List <[N + 1], T>} l [
+            EmptyList <N, T> -> EmptyList <[N + 1], T>;
+            ListCons <[N - 1], T, x', l'> -> ListCons <N, T, x', ListUpcast <[N - 1], T> of l'>
+        ]
+    endif
+end
+
+// Cast a List <N, T> to a List <[N - 1], T>
+def ListDowncast <N, T> :=
+    if N = [0] then
+        lambda () {unit} -> ctrl {unit, unit} () []
+    else
+        if N = [1] then
+            lambda EmptyList <N, T> {List <N, T>} -> EmptyList <[N - 1], T>
+        else
+            lambda l {List <N, T>} -> match {List <N, T>, List <[N - 1], T>} l [
+                EmptyList <N, T> -> EmptyList <[N - 1], T>;
+                ListCons <[N - 1], T, x', l'> -> ListCons <[N - 2], T, x', ListDowncast <[N - 1], T> of l'>
+            ]
+        endif
+    endif
+end
+
+// Cast a List <N, T> to a List <N', T>
+def ListCastTo <N, T, N'> :=
+    if N' = N then
+        lambda l {List <N, T>} -> l
+    else
+        if N' gt N then
+            lambda l {List <N, T>} -> ListCastTo <[N + 1], T, N'> of (ListUpcast <N, T> of l)
+        else
+            lambda l {List <N, T>} -> ListCastTo <[N - 1], T, N'> of (ListDowncast <N, T> of l)
+        endif
+    endif
+end
+
+def ListHead <N, T> :=
+    if N = [0] then
+        lambda l {List <N, T>} -> ctrl {unit, unit} () []
+    else
+        lambda (ListCons <[N - 1], T, x, l'>) {List <N, T>} -> x
+    endif
+end
+
+def ListTail <N, T> :=
+    if N = [0] then
+        lambda l {List <N, T>} -> ctrl {unit, unit} () []
+    else
+        lambda (ListCons <[N - 1], T, x, l'>) {List <N, T>} -> l'
+    endif
+end
+
+def ListLength <N, T, Nbits> :=
+    if N = [0] then
+        lambda l {List <N, T>} ->
+            NumToStateLE <[0], Nbits>
+    else
+        lambda l {List <N, T>} ->
+        match {List <N, T>, NTensorT <Nbits, Bit>} l [
+            EmptyList <N, T> -> NumToStateLE <[0], Nbits>;
+            ListCons <[N - 1], T, x', l'> -> IncrementLE <Nbits> of (ListLength <[N - 1], T, Nbits> of l')
+        ]
+    endif
+end

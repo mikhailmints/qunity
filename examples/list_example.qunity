@@ -1,0 +1,7 @@
+def N := [4] end
+
+def APP <X> := ListAppendConst <N, Bit, X> end
+
+EmptyList <N, Bit> |> APP <Bit0> |> APP <Bit1> |> APP <BitPlus> |> APP <BitMinus>
+|> ListUpcast <N, Bit> |> ListTail <[N + 1], Bit> |> ListTail <N, Bit>
+|> ListHead <[N - 1], Bit>
