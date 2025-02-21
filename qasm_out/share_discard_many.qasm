@@ -1,13 +1,3 @@
-OPENQASM 3.0;
-include "stdgates.inc";
-qubit[4] q;
-bit[1] out;
-bit[0] err;
-h q[0];
-ctrl @ x q[0], q[1];
-ctrl @ x q[1], q[2];
-ctrl @ x q[2], q[3];
-reset q[0];
-reset q[1];
-reset q[3];
-out[0] = measure q[2];
+version https://git-lfs.github.com/spec/v1
+oid sha256:dfc3c37e3ab5069b39bc4541bbe12ea5305b185a584760172ea8ecce789094c8
+size 204
