@@ -1,0 +1,17 @@
+OPENQASM 3.0;
+include "stdgates.inc";
+qubit[4] q;
+bit[3] out;
+bit[0] err;
+h q[0];
+h q[1];
+h q[2];
+negctrl @ ctrl @ negctrl @ x q[0], q[1], q[2], q[3];
+z q[3];
+negctrl @ ctrl @ negctrl @ x q[0], q[1], q[2], q[3];
+h q[0];
+h q[1];
+h q[2];
+out[0] = measure q[0];
+out[1] = measure q[1];
+out[2] = measure q[2];
