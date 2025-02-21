@@ -1,19 +1,29 @@
+/*
+Equal superposition of List <N, Bit>
+*/
 def EqualSuperposList <N> :=
     if N = [0] then
         EmptyList <[0], Bit>
     else
+        // There are 2 ^ (N + 1) - 1 possible states of List <N, Bit>.
+        // One of them is the empty list and the others have Bit0 or Bit1
+        // as the first element. First, create a superposition of a qutrit
+        // representing the amplitudes of these 3 possibilities.
         Bit0
         |> u3 {2 * arccos(sqrt(1 / (2 ^ (N + 1) - 1))), 0, 0}
         |> pmatch {Bit, Maybe <Bit>} [
             Bit0 -> Nothing <Bit>;
             Bit1 -> Just <Bit> of BitPlus
         ]
+        // Build the state, controlling on the qutrit and recursively constructing
+        // the equal superposition of the remaining bits in the case where the
+        // list is not empty.
         |> lambda m {Maybe <Bit>} -> ctrl {Maybe <Bit>, Maybe <Bit> * List <N, Bit>} m [
             Nothing <Bit> -> (m, EmptyList <N, Bit>);
             Just <Bit> of x -> (m, ListCons <[N - 1], Bit, x, EqualSuperposList <[N - 1]>>)            
         ]
-        |> lambda (
-            ctrl {List <N, Bit>, Maybe <Bit> * List <N, Bit>} l [
+        // Use the specialized erasure pattern to erase the qutrit.
+        |> lambda (ctrl {List <N, Bit>, Maybe <Bit> * List <N, Bit>} l [
                 EmptyList <N, Bit> -> (Nothing <Bit>, l);
                 ListCons <[N - 1], Bit, x, _> -> (Just <Bit> of x, l);
             ]) {Maybe <Bit> * List <N, Bit>} -> l
@@ -45,23 +55,23 @@ def Grover <N, F, Niter> :=
     endif
 end
 
-def N := [2] end
-
 /*
 Quantum oracle representing a function acting on a list of N bits that outputs
-1 if the sum of the elements is even.
+1 if the sum of the elements is odd
 */
-def IsEvenSum <N> :=
+def IsOddSum <N> :=
     if N = [0] then
-        lambda l {List <N, Bit>} -> Bit1
+        lambda l {List <N, Bit>} -> Bit0
     else
         lambda l {List <N, Bit>} ->
         match {List <N, Bit>, Bit} l [
-            EmptyList <N, Bit> -> Bit1;
-            ListCons <[N - 1], Bit, Bit0, l'> -> IsEvenSum <[N - 1]> of l';
-            ListCons <[N - 1], Bit, Bit1, l'> -> Not of (IsEvenSum <[N - 1]> of l');
+            EmptyList <N, Bit> -> Bit0;
+            ListCons <[N - 1], Bit, Bit0, l'> -> IsOddSum <[N - 1]> of l';
+            ListCons <[N - 1], Bit, Bit1, l'> -> Not of (IsOddSum <[N - 1]> of l');
         ]
     endif
 end
 
-Grover <N, IsEvenSum <N>, [3]>
+def N := [2] end
+
+Grover <N, IsOddSum <N>, [3]>
