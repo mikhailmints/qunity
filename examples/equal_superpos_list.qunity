@@ -1,0 +1,23 @@
+def EqualSuperposList <N> :=
+    if N = [0] then
+        EmptyList <[0], Bit>
+    else
+        Bit0
+        |> u3 {2 * arccos(sqrt(1 / (2 ^ (N + 1) - 1))), 0, 0}
+        |> pmatch {Bit, Maybe <Bit>} [
+            Bit0 -> Nothing <Bit>;
+            Bit1 -> Just <Bit> of BitPlus
+        ]
+        |> lambda m {Maybe <Bit>} -> ctrl {Maybe <Bit>, Maybe <Bit> * List <N, Bit>} m [
+            Nothing <Bit> -> (m, EmptyList <N, Bit>);
+            Just <Bit> of x -> (m, ListCons <[N - 1], Bit, x, EqualSuperposList <[N - 1]>>)            
+        ]
+        |> lambda (
+            ctrl {List <N, Bit>, Maybe <Bit> * List <N, Bit>} l [
+                EmptyList <N, Bit> -> (Nothing <Bit>, l);
+                ListCons <[N - 1], Bit, x, _> -> (Just <Bit> of x, l);
+            ]) {Maybe <Bit> * List <N, Bit>} -> l
+    endif
+end
+
+EqualSuperposList <[1]>
