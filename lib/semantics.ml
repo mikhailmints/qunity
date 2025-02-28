@@ -7,19 +7,6 @@ open Typechecking
 (** The initial size of hash tables used for memoization. *)
 let memo_size = 1000
 
-(** The dimension of the vector space corresponding to the type [t]. *)
-let rec type_dimension (t : exprtype) : int =
-  match t with
-  | Void -> 0
-  | Qunit -> 1
-  | SumType (t0, t1) -> type_dimension t0 + type_dimension t1
-  | ProdType (t0, t1) -> type_dimension t0 * type_dimension t1
-
-(** The dimension of the vector space corresponding to the context [d]. *)
-let context_dimension (d : context) : int =
-  List.fold_left ( * ) 1
-    (List.map (fun (_, t) -> type_dimension t) (StringMap.bindings d))
-
 (** Converts a classical basis expression into a basis vector. *)
 let rec expr_to_basis_state (t : exprtype) (e : expr) : matrix =
   match (e, t) with

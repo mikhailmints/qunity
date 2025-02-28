@@ -50,6 +50,19 @@ let gphase (t : exprtype) (r : real) = Rphase (t, Var "_", r, r)
 let phaseflip (t : exprtype) = gphase t Pi
 let adjoint (t : exprtype) (f : prog) = Lambda (Apply (f, Var "x"), t, Var "x")
 
+(** The dimension of the vector space corresponding to the type [t]. *)
+let rec type_dimension (t : exprtype) : int =
+  match t with
+  | Void -> 0
+  | Qunit -> 1
+  | SumType (t0, t1) -> type_dimension t0 + type_dimension t1
+  | ProdType (t0, t1) -> type_dimension t0 * type_dimension t1
+
+(** The dimension of the vector space corresponding to the context [d]. *)
+let context_dimension (d : context) : int =
+  List.fold_left ( * ) 1
+    (List.map (fun (_, t) -> type_dimension t) (StringMap.bindings d))
+
 (** String representation of a type in Qunity syntax. *)
 let rec string_of_type (t : exprtype) =
   match t with

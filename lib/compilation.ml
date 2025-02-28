@@ -2312,6 +2312,8 @@ and compile_erasure_to_inter_op (d : context) (t : exprtype)
 and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
   let t = type_of_pure_expr_proof tp in
   let g_whole, d_whole = context_of_pure_expr_proof tp in
+  let iso = is_iso_pure_expr_proof tp in
+  let un = is_un_pure_expr_proof tp in
   let gsize = context_size g_whole in
   let dsize = context_size d_whole in
   let tsize = type_size t in
@@ -2342,7 +2344,7 @@ and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
           []
           [("g", gsize); ("d", tsize)]
       end
-    | TPurePair { t0; t1; d; d0; d1; e0; e1; iso; un; _ } -> begin
+    | TPurePair { t0; t1; d; d0; d1; e0; e1; _ } -> begin
         let op0 = compile_pure_expr_to_inter_op e0 in
         let op1 = compile_pure_expr_to_inter_op e1 in
           inter_func_marked "TPurePair" iso un
@@ -2365,7 +2367,7 @@ and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
             ]
             [("g", gsize); ("res", tsize)]
       end
-    | TCtrl { t1; g; d; d'; e; l; orp; erp; iso; un; _ } -> begin
+    | TCtrl { t1; g; d; d'; e; l; orp; erp; _ } -> begin
         let n = List.length l in
         let gdd' = map_merge_noopt false g d_whole in
           if n = 0 then
@@ -2436,7 +2438,7 @@ and compile_pure_expr_to_inter_op (tp : pure_expr_typing_proof) : inter_op =
                 ]
                 [("g", gsize); ("t1", tsize)]
       end
-    | TPureApp { f; e; iso; un; _ } -> begin
+    | TPureApp { f; e; _ } -> begin
         let e_op = compile_pure_expr_to_inter_op e in
         let f_op = compile_pure_prog_to_inter_op f in
           inter_func_marked "TPureApp" iso un
@@ -2728,47 +2730,49 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
 
 (** Compiles a pure program into the intermediate representation. *)
 and compile_pure_prog_to_inter_op (tp : pure_prog_typing_proof) : inter_op =
-  match tp with
-  | TGate (theta, phi, lambda) -> IU3 (theta, phi, lambda)
-  | TLeft (t0, t1) -> IMarkAsIso (true, false, ILeft (t0, t1))
-  | TRight (t0, t1) -> IMarkAsIso (true, false, IRight (t0, t1))
-  | TPureAbs { t; t'; e; e'; iso; un; _ } -> begin
-      let e_op = compile_pure_expr_to_inter_op e in
-      let e'_op = compile_pure_expr_to_inter_op e' in
-        inter_func_marked "TPureAbs" iso un
-          [("t", type_size t)]
-          [
-            inter_comment "Starting TPureAbs";
-            inter_letapp ["g"] IEmpty [];
-            inter_letapp ["g"; "d"] (IAdjoint e_op) ["g"; "t"];
-            inter_letapp ["g"; "res"] e'_op ["g"; "d"];
-            inter_letapp [] (IAdjoint IEmpty) ["g"];
-            inter_comment "Finished TPureAbs";
-          ]
-          [("res", type_size t')]
-    end
-  | TRphase { t; e; r0; r1; iso; un; _ } -> begin
-      let _, d = context_of_pure_expr_proof e in
-      let e_op = compile_pure_expr_to_inter_op e in
-      let e_op_no_g = make_op_take_one_reg StringMap.empty d t e_op in
-        IMarkAsIso (iso, un, IRphase (t, e_op_no_g, r0, r1))
-    end
-  | TPmatch { orp0; orp1; perm0; perm1; iso; un; _ } -> begin
-      let ortho_op0, tree0, djs0 = compile_ortho_to_inter_op orp0 in
-      let ortho_op1, tree1, _ = compile_ortho_to_inter_op orp1 in
-      let djs0 =
-        List.map fst
-          (List.sort (fun (_, a) (_, b) -> a - b) (List.combine djs0 perm0))
-      in
-      let valued_tree0 = assign_values_to_tree tree0 perm0 in
-      let valued_tree1 = assign_values_to_tree tree1 perm1 in
-      let trans = reshape_valued_tree valued_tree0 valued_tree1 in
-      let reshape_op =
-        inter_op_of_tree_transformation trans
-          (assign_values_to_tree tree0 djs0)
-      in
-        IMarkAsIso (iso, un, ortho_op0 @&& reshape_op @&& IAdjoint ortho_op1)
-    end
+  let iso = is_iso_pure_prog_proof tp in
+  let un = is_un_pure_prog_proof tp in
+    match tp with
+    | TGate (theta, phi, lambda) -> IU3 (theta, phi, lambda)
+    | TLeft (t0, t1) -> IMarkAsIso (true, false, ILeft (t0, t1))
+    | TRight (t0, t1) -> IMarkAsIso (true, false, IRight (t0, t1))
+    | TPureAbs { t; t'; e; e'; _ } -> begin
+        let e_op = compile_pure_expr_to_inter_op e in
+        let e'_op = compile_pure_expr_to_inter_op e' in
+          inter_func_marked "TPureAbs" iso un
+            [("t", type_size t)]
+            [
+              inter_comment "Starting TPureAbs";
+              inter_letapp ["g"] IEmpty [];
+              inter_letapp ["g"; "d"] (IAdjoint e_op) ["g"; "t"];
+              inter_letapp ["g"; "res"] e'_op ["g"; "d"];
+              inter_letapp [] (IAdjoint IEmpty) ["g"];
+              inter_comment "Finished TPureAbs";
+            ]
+            [("res", type_size t')]
+      end
+    | TRphase { t; e; r0; r1; _ } -> begin
+        let _, d = context_of_pure_expr_proof e in
+        let e_op = compile_pure_expr_to_inter_op e in
+        let e_op_no_g = make_op_take_one_reg StringMap.empty d t e_op in
+          IMarkAsIso (iso, un, IRphase (t, e_op_no_g, r0, r1))
+      end
+    | TPmatch { orp0; orp1; perm0; perm1; _ } -> begin
+        let ortho_op0, tree0, djs0 = compile_ortho_to_inter_op orp0 in
+        let ortho_op1, tree1, _ = compile_ortho_to_inter_op orp1 in
+        let djs0 =
+          List.map fst
+            (List.sort (fun (_, a) (_, b) -> a - b) (List.combine djs0 perm0))
+        in
+        let valued_tree0 = assign_values_to_tree tree0 perm0 in
+        let valued_tree1 = assign_values_to_tree tree1 perm1 in
+        let trans = reshape_valued_tree valued_tree0 valued_tree1 in
+        let reshape_op =
+          inter_op_of_tree_transformation trans
+            (assign_values_to_tree tree0 djs0)
+        in
+          IMarkAsIso (iso, un, ortho_op0 @&& reshape_op @&& IAdjoint ortho_op1)
+      end
 
 (** Compiles a mixed program into the intermediate representation. *)
 and compile_mixed_prog_to_inter_op (tp : mixed_prog_typing_proof) : inter_op =

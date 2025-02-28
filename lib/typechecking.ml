@@ -17,7 +17,6 @@ type pure_expr_typing_proof =
       e0 : pure_expr_typing_proof;
       e1 : pure_expr_typing_proof;
       iso : bool;
-      un : bool;
     }
   | TCtrl of {
       t0 : exprtype;
@@ -30,7 +29,6 @@ type pure_expr_typing_proof =
       orp : ortho_proof;
       erp : erasure_proof StringMap.t;
       iso : bool;
-      un : bool;
     }
   | TPureApp of {
       t : exprtype;
@@ -40,7 +38,6 @@ type pure_expr_typing_proof =
       f : pure_prog_typing_proof;
       e : pure_expr_typing_proof;
       iso : bool;
-      un : bool;
     }
 
 (** A data structure representing a mixed expression typing judgment proof. *)
@@ -108,7 +105,6 @@ and pure_prog_typing_proof =
       e : pure_expr_typing_proof;
       e' : pure_expr_typing_proof;
       iso : bool;
-      un : bool;
     }
   | TRphase of {
       t : exprtype;
@@ -116,7 +112,6 @@ and pure_prog_typing_proof =
       r0 : real;
       r1 : real;
       iso : bool;
-      un : bool;
     }
   | TPmatch of {
       t0 : exprtype;
@@ -127,7 +122,6 @@ and pure_prog_typing_proof =
       perm0 : int list;
       perm1 : int list;
       iso : bool;
-      un : bool;
     }
 
 (** A data structure representing a mixed program typing judgment proof. *)
@@ -292,10 +286,12 @@ let is_un_pure_expr_proof (tp : pure_expr_typing_proof) : bool =
   | TQvar _ ->
       true
   | TCvar _ -> false
-  | TPurePair { un; _ }
-  | TCtrl { un; _ }
-  | TPureApp { un; _ } ->
-      un
+  | TPurePair { iso; _ }
+  | TCtrl { iso; _ }
+  | TPureApp { iso; _ } ->
+      let g, d = context_of_pure_expr_proof tp in
+      let t = type_of_pure_expr_proof tp in
+        iso && g = StringMap.empty && context_dimension d = type_dimension t
 
 (** Obtains the unitary judgment information from a pure program typing
     judgment proof. *)
@@ -305,10 +301,11 @@ let is_un_pure_prog_proof (tp : pure_prog_typing_proof) : bool =
   | TLeft _
   | TRight _ ->
       false
-  | TRphase { un; _ }
-  | TPureAbs { un; _ }
-  | TPmatch { un; _ } ->
-      un
+  | TRphase { iso; _ }
+  | TPureAbs { iso; _ }
+  | TPmatch { iso; _ } ->
+      let t, t' = type_of_prog_proof (PureProg tp) in
+        iso && type_dimension t = type_dimension t'
 
 (** Determines if an expression is classical (does not use [U3] or [Rphase]). *)
 let rec expr_is_classical (e : expr) : bool =
@@ -400,102 +397,6 @@ let rec erases_check (x : string) (l : expr list) (t : exprtype) :
           | _ -> None
         end
       | _ -> None
-
-(** Removes a variable from an expression, following a given erasure proof, and
-    replaces it with [Var "$"]. Also returns the updated type of the
-    expression. *)
-let rec remove_erased_variable_from_expr (e : expr) (erp : erasure_proof) :
-    expr =
-  match (e, erp) with
-  | Apply (_, e'), _ ->
-      remove_erased_variable_from_expr e'
-        erp (* Program assumed to be gphase *)
-  | Var _, EVar _ -> Var "$"
-  | Qpair (e0, e1), EPair0 (_, _, erp') ->
-      let e0' = remove_erased_variable_from_expr e0 erp' in
-        Qpair (e0', e1)
-  | Qpair (e0, e1), EPair1 (_, _, erp') ->
-      let e1' = remove_erased_variable_from_expr e1 erp' in
-        Qpair (e0, e1')
-  | Ctrl (e', t0, t1, l), _ ->
-      let l' =
-        List.map
-          (fun (ej, ej') -> (ej, remove_erased_variable_from_expr ej' erp))
-          l
-      in
-        Ctrl (e', t0, t1, l')
-  | _ ->
-      failwith
-        (Printf.sprintf "Error in removing erased variable in expression %s"
-           (string_of_expr e))
-
-(** Removes [Var "$"] from an expression, in places where it could have occured
-    in satisfaction of the erasure judgment. Also returns the updated type of
-    the expression. If the entire expression consists of only [Var "$"],
-    returns [Null]. *)
-let rec remove_dollar_from_expr (e : expr) (t : exprtype) :
-    (expr * exprtype) option =
-  match (e, t) with
-  | Var "$", _ -> None
-  | Var _, _ -> Some (e, t)
-  | Qpair (e0, e1), ProdType (t0, t1) -> begin
-      match (remove_dollar_from_expr e0 t0, remove_dollar_from_expr e1 t1) with
-      | Some (e0', t0'), Some (e1', t1') ->
-          Some (Qpair (e0', e1'), ProdType (t0', t1'))
-      | Some (e0', t0'), None -> Some (e0', t0')
-      | None, Some (e1', t1') -> Some (e1', t1')
-      | None, None -> None
-    end
-  | Ctrl (e', t0, t1, l), _ -> begin
-      match
-        all_or_nothing
-          (List.map
-             (fun (ej, ej') ->
-               match remove_dollar_from_expr ej' t1 with
-               | None -> None
-               | Some (ej'', t1') -> Some ((ej, ej''), t1'))
-             l)
-      with
-      | Some l'l_t1 ->
-          let l', l_t1' = List.split l'l_t1 in
-          let t1' = if l_t1' = [] then Void else List.hd l_t1' in
-            Some (Ctrl (e', t0, t1', l'), t1')
-      | None -> None
-    end
-  | _ -> Some (e, t)
-
-(** Removes variables from an expression, following a given list of erasure
-    proofs, replacing them with [Var "$"]. *)
-let rec remove_erased_variables_from_expr (e : expr)
-    (erps : erasure_proof list) : expr =
-  match erps with
-  | [] -> e
-  | erp :: erps' -> begin
-      let e' = remove_erased_variable_from_expr e erp in
-        remove_erased_variables_from_expr e' erps'
-    end
-
-(** Completely removes variables from a list of expressions, following a list
-    of erasure proofs. If a given expression only contains erased variables, it
-    is removed. This also returns the updated type of the expressions, which
-    becomes [Void] if the returned list is empty. *)
-let remove_erased_variables_from_expr_list (l : expr list) (t : exprtype)
-    (erps : erasure_proof list) : expr list * exprtype =
-  let rec iter (l : expr list) (t : exprtype) (erps : erasure_proof list) :
-      (expr * exprtype) list =
-    match l with
-    | [] -> []
-    | e :: l' -> begin
-        match
-          remove_dollar_from_expr (remove_erased_variables_from_expr e erps) t
-        with
-        | Some (e', t') -> (e', t') :: iter l' t erps
-        | None -> iter l' t erps
-      end
-  in
-  let l', tl = List.split (iter l t erps) in
-  let t' = if tl = [] then Void else List.hd tl in
-    (l', t')
 
 (** Given a list l of expressions expected to be of type [SumType (t0, t1)],
     splits the list into two lists - one containing all the "left" expressions
@@ -1020,13 +921,8 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                 pure_type_check g (map_restriction d (free_vars e1)) e1 )
             with
             | SomeE tp0, SomeE tp1 ->
-                let un =
-                  d' = StringMap.empty && is_un_pure_expr_proof tp0
-                  && is_un_pure_expr_proof tp1
-                in
                 let iso =
-                  un
-                  || (is_iso_pure_expr_proof tp0 && is_iso_pure_expr_proof tp1)
+                  is_iso_pure_expr_proof tp0 && is_iso_pure_expr_proof tp1
                 in
                   SomeE
                     (TPurePair
@@ -1040,7 +936,6 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                          e0 = tp0;
                          e1 = tp1;
                          iso;
-                         un;
                        })
             | NoneE err, _
             | _, NoneE err ->
@@ -1064,10 +959,6 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                   with
                   | None -> NoneE "Erasure check failed in Ctrl"
                   | Some erp -> begin
-                      let ej's_erased, t' =
-                        remove_erased_variables_from_expr_list ej's t1
-                          (List.map snd (StringMap.bindings erp))
-                      in
                       let pattern_result =
                         List.map (pure_pattern_type_check g d t0 t1) l
                       in
@@ -1076,30 +967,14 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                             (List.map option_of_optionE pattern_result)
                         with
                         | Some l' ->
-                            let un =
-                              expr_is_classical e' && g = StringMap.empty
-                              && begin
-                                   match pure_type_check g d0 e' with
-                                   | SomeE tpe'_pure ->
-                                       is_un_pure_expr_proof tpe'_pure
-                                   | _ -> false
-                                 end
-                              && is_spanning_ortho_proof orp
-                              && begin
-                                   match ortho_check t' ej's_erased false with
-                                   | Some orp' -> is_spanning_ortho_proof orp'
-                                   | None -> false
-                                 end
-                            in
                             let iso =
-                              un
-                              || expr_is_classical e'
-                                 && is_iso_mixed_expr_proof tpe'
-                                 && is_spanning_ortho_proof orp
-                                 && List.for_all
-                                      (fun (_, _, tpej') ->
-                                        is_iso_pure_expr_proof tpej')
-                                      l'
+                              expr_is_classical e'
+                              && is_iso_mixed_expr_proof tpe'
+                              && is_spanning_ortho_proof orp
+                              && List.for_all
+                                   (fun (_, _, tpej') ->
+                                     is_iso_pure_expr_proof tpej')
+                                   l'
                             in
                               SomeE
                                 (TCtrl
@@ -1114,7 +989,6 @@ and pure_type_check (g : context) (d : context) (e : expr) :
                                      orp;
                                      erp;
                                      iso;
-                                     un;
                                    })
                         | _ -> begin
                             match
@@ -1144,17 +1018,12 @@ and pure_type_check (g : context) (d : context) (e : expr) :
           | PureProg tpf, (t0, t1) -> begin
               let t' = type_of_pure_expr_proof tpe' in
                 if t' = t0 then
-                  let un =
-                    is_un_pure_prog_proof tpf && is_un_pure_expr_proof tpe'
-                  in
                   let iso =
-                    un
-                    || is_iso_pure_prog_proof tpf
-                       && is_iso_pure_expr_proof tpe'
+                    is_iso_pure_prog_proof tpf && is_iso_pure_expr_proof tpe'
                   in
                     SomeE
                       (TPureApp
-                         { t = t0; t' = t1; g; d; f = tpf; e = tpe'; iso; un })
+                         { t = t0; t' = t1; g; d; f = tpf; e = tpe'; iso })
                 else
                   NoneE "Type mismatch in Apply"
             end
@@ -1309,9 +1178,6 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
           with
           (* T-PUREABS *)
           | SomeE tpe, SomeE tpe' ->
-              let un =
-                is_un_pure_expr_proof tpe && is_un_pure_expr_proof tpe'
-              in
               let iso =
                 is_un_pure_expr_proof tpe && is_iso_pure_expr_proof tpe'
               in
@@ -1325,7 +1191,6 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
                           e = tpe;
                           e' = tpe';
                           iso;
-                          un;
                         }))
           | _ -> begin
               match
@@ -1363,8 +1228,7 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
           | NoneE err -> NoneE (err ^ "\nin Rphase")
           | SomeE tpe' when type_of_pure_expr_proof tpe' = t ->
               let iso = is_iso_pure_expr_proof tpe' in
-              let un = iso in
-                SomeE (PureProg (TRphase { t; e = tpe'; r0; r1; iso; un }))
+                SomeE (PureProg (TRphase { t; e = tpe'; r0; r1; iso }))
           | _ -> NoneE "Type mismatch in Rphase"
         end
     end
@@ -1418,11 +1282,10 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
             with
             | Some orp0, Some orp1 -> begin
                 let iso = is_spanning_ortho_proof orp0 in
-                let un = iso && is_spanning_ortho_proof orp1 in
                   SomeE
                     (PureProg
                        (TPmatch
-                          { t0; t1; l = l'; orp0; orp1; perm0; perm1; iso; un }))
+                          { t0; t1; l = l'; orp0; orp1; perm0; perm1; iso }))
               end
             | _ -> NoneE "Ortho check failed in Pmatch"
           end
