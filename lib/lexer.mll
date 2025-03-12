@@ -13,8 +13,13 @@ let int = '-'? digit+
 let lower = ['a'-'z']
 let upper = ['A'-'Z']
 let letter = (lower | upper)
-let var = (lower | '_') (letter | digit | '_' | ''')*
-let xvar = upper (letter | digit | '_' | ''')*
+let alpha = (letter | digit | '_' | ''')
+let qvar = (lower | '_') alpha*
+let typename = upper alpha*
+let typevar = ''' alpha*
+let realvar = '#' alpha+
+let progvar = '@' alpha+
+let exprvar = '$' alpha+
 
 rule comment = parse
     | "\n" {Lexing.new_line lexbuf; comment lexbuf}
@@ -45,18 +50,12 @@ and read = parse
     | "in" {IN}
     | "|>" {PIPE}
     | "->" {ARROW}
-    | "leq" {LEQ}
-    | "geq" {GEQ}
-    | "lt" {LT}
-    | "gt" {GT}
-    | "<" {LANGLE}
-    | ">" {RANGLE}
+    | "|" {VBAR}
+    | ":" {COLON}
     | "of" {OF}
-    | "void" {VOID}
-    | "unit" {QUNIT}
+    | "Void" {VOID}
+    | "Unit" {UNIT}
     | "u3" {U3}
-    | "left" {LEFT}
-    | "right" {RIGHT}
     | "rphase" {RPHASE}
     | "gphase" {GPHASE}
     | int { CONST (int_of_string (Lexing.lexeme lexbuf)) }
@@ -82,14 +81,26 @@ and read = parse
     | "%" {MOD}
     | "def" {DEF}
     | ":=" {DEFSTART}
-    | "=" {EQUAL}
     | "end" {END}
+    | "=" {EQUAL}
+    | "!=" {NEQ}
+    | "<" {LT}
+    | "<=" {LEQ}
+    | ">" {GT}
+    | ">=" {GEQ}
+    | "&&" {AND}
+    | "||" {OR}
+    | "!" {NOT}
+    | "type" {TYPE}
     | "if" {IF}
     | "then" {THEN}
     | "else" {ELSE}
     | "endif" {ENDIF}
-    | "fail" {FAIL}
-    | var { VAR (Lexing.lexeme lexbuf) }
-    | xvar { XVAR (Lexing.lexeme lexbuf) }
+    | qvar { QVAR (Lexing.lexeme lexbuf) }
+    | typename { TYPENAME (Lexing.lexeme lexbuf) }
+    | typevar { TYPEVAR (Lexing.lexeme lexbuf) }
+    | exprvar { EXPRVAR (Lexing.lexeme lexbuf) }
+    | progvar { PROGVAR (Lexing.lexeme lexbuf) }
+    | realvar { REALVAR (Lexing.lexeme lexbuf) }
     | eof {EOF}
     | _ as c { raise (Lexing_error (Printf.sprintf "Unexpected character: %c" c)) }

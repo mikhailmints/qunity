@@ -1,33 +1,33 @@
 /*
-Equal superposition of List <N, Bit>
+Equal superposition of List{#N, Bit}
 */
-def EqualSuperposList <N> :=
-    if N = [0] then
-        EmptyList <[0], Bit>
+def $EqualSuperposList {#N} : List{#N, Bit} :=
+    if #N = 0 then
+        $ListEmpty{0, Bit}
     else
-        // There are 2 ^ (N + 1) - 1 possible states of List <N, Bit>.
-        // One of them is the empty list and the others have Bit0 or Bit1
+        // There are 2 ^ (#N + 1) - 1 possible states of List {#N, Bit}.
+        // One of them is the empty list and the others have $0 or $1
         // as the first element. First, create a superposition of a qutrit
         // representing the amplitudes of these 3 possibilities.
-        Bit0
-        |> u3 {2 * arccos(sqrt(1 / (2 ^ (N + 1) - 1))), 0, 0}
-        |> pmatch {Bit, Maybe <Bit>} [
-            Bit0 -> Nothing <Bit>;
-            Bit1 -> Just <Bit> of BitPlus
+        $0
+        |> u3 {2 * arccos(sqrt(1 / (2 ^ (#N + 1) - 1))), 0, 0}
+        |> pmatch [
+            $0 -> $Nothing{Bit};
+            $1 -> @Just{Bit}($Plus)
         ]
         // Build the state, controlling on the qutrit and recursively constructing
         // the equal superposition of the remaining bits in the case where the
         // list is not empty.
-        |> lambda m {Maybe <Bit>} -> ctrl {Maybe <Bit>, Maybe <Bit> * List <N, Bit>} m [
-            Nothing <Bit> -> (m, EmptyList <N, Bit>);
-            Just <Bit> of x -> (m, ListCons <[N - 1], Bit, x, EqualSuperposList <[N - 1]>>)            
+        |> lambda m -> ctrl m [
+            $Nothing{Bit} -> (m, $ListEmpty{#N, Bit});
+            @Just{Bit}(x) -> (m, @ListCons{#N, Bit}(x, $EqualSuperposList{#N - 1}))
         ]
         // Use the specialized erasure pattern to erase the qutrit.
-        |> lambda (ctrl {List <N, Bit>, Maybe <Bit> * List <N, Bit>} l [
-                EmptyList <N, Bit> -> (Nothing <Bit>, l);
-                ListCons <[N - 1], Bit, x, _> -> (Just <Bit> of x, l);
-            ]) {Maybe <Bit> * List <N, Bit>} -> l
+        |> lambda (ctrl l [
+            $ListEmpty{#N, Bit} -> ($Nothing{Bit}, l);
+            @ListCons{#N, Bit}(x, _) -> (@Just{Bit}(x), l)
+        ]) -> l
     endif
 end
 
-EqualSuperposList <[1]>
+$EqualSuperposList{2}

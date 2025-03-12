@@ -1,18 +1,18 @@
-let bellAlice {Bit} = BitPlus in
-let (message, (bellAlice, bellBob)) {Bit * (Bit * Bit)} =
-    (Bit0 |> u3 {2 * arccos(sqrt(1 / 3)), 0, 0}, (bellAlice, bellAlice))
+let bellAlice = $Plus in
+let (message, (bellAlice, bellBob)) =
+    ($0 |> u3 {2 * arccos(sqrt(1 / 3)), 0, 0}, (bellAlice, bellAlice))
 in
-let (bellBob, toSend) {Bit * NTensorT <[2], Bit>} = (bellBob,
+let (bellBob, toSend) = (bellBob,
     (message, (bellAlice, ()))
-    |> Cnot <[2], [0], [1]>
-    |> Gate1Q <[2], [0], Had>
+    |> @Cnot {2, 0, 1}
+    |> @Gate1Q {2, 0, @Had}
 )
 in
-let result {Bit} =
-    ctrl {NTensorT <[2], Bit>, NTensorT <[2], Bit> * Bit} toSend [
-        (Bit0, (Bit0, ())) -> (toSend, bellBob);
-        (Bit0, (Bit1, ())) -> (toSend, bellBob |> Not);
-        (Bit1, (Bit0, ())) -> (toSend, bellBob |> PauliZ);
-        (Bit1, (Bit1, ())) -> (toSend, bellBob |> Not |> PauliZ)
-    ] |> Snd <NTensorT <[2], Bit>, Bit>
+let result =
+    ctrl toSend [
+        ($0, ($0, ())) -> (toSend, bellBob);
+        ($0, ($1, ())) -> (toSend, bellBob |> @Not);
+        ($1, ($0, ())) -> (toSend, bellBob |> @PauliZ);
+        ($1, ($1, ())) -> (toSend, bellBob |> @Not |> @PauliZ)
+    ] |> @Snd {NTensorT {2, Bit}, Bit}
 in result

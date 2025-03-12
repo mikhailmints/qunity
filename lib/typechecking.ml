@@ -651,24 +651,24 @@ and mixed_pattern_type_check (d : context) (t : exprtype) (t' : exprtype)
 
 (** In T-MATCH, finds the quantum context shared by all the RHS expressions. *)
 and match_dd1_context_check (t0 : exprtype) (t1 : exprtype)
-    (l : (expr * expr) list) =
+    (l : (expr * expr) list) : context optionE =
   match
-    all_or_nothing
+    all_or_nothing_optionE
       (List.map
          (fun (ej, ej') ->
            begin
              match pure_context_check StringMap.empty t0 ej with
              | SomeE gj -> begin
                  match mixed_context_check gj t1 ej' with
-                 | SomeE dj -> Some dj
-                 | _ -> None
+                 | SomeE dj -> SomeE dj
+                 | NoneE err -> NoneE err
                end
-             | _ -> None
+             | NoneE err -> NoneE err
            end)
          l)
   with
-  | None -> None
-  | Some l -> Some (List.fold_left (map_merge_noopt true) StringMap.empty l)
+  | NoneE err -> NoneE err
+  | SomeE l -> SomeE (List.fold_left (map_merge_noopt true) StringMap.empty l)
 
 (** Typechecks a mixed expression [e] with a classical context [g] and a
     quantum context [d]. *)
@@ -741,56 +741,60 @@ and mixed_type_check (g : context) (d : context) (e : expr) :
       let dd0, d1 = map_partition d fve' in
       let dd1 = match_dd1_context_check t0 t1 l in
         match (mixed_type_check g dd0 e', dd1) with
-        | SomeE tpe', Some dd1 when type_of_mixed_expr_proof tpe' = t0 -> begin
-            let d = map_exclusion dd1 (map_dom d1) in
-            let d0 = map_exclusion dd0 (map_dom d) in
-              match ortho_check t0 ejs false with
-              | None -> NoneE "Ortho check failed in Match"
-              | Some orp -> begin
-                  let pattern_result =
-                    List.map (mixed_pattern_type_check dd1 t0 t1) l
-                  in
-                    match
-                      all_or_nothing
-                        (List.map option_of_optionE pattern_result)
-                    with
-                    | Some l' ->
-                        let iso =
-                          expr_is_classical e'
-                          && is_iso_mixed_expr_proof tpe'
-                          && is_spanning_ortho_proof orp
-                          && List.for_all
-                               (fun (_, _, tpej') ->
-                                 is_iso_mixed_expr_proof tpej')
-                               l'
-                        in
-                          SomeE
-                            (TMatch
-                               {
-                                 t0;
-                                 t1;
-                                 g;
-                                 d;
-                                 d0;
-                                 d1;
-                                 e = tpe';
-                                 l = l';
-                                 orp;
-                                 iso;
-                               })
-                    | _ -> begin
-                        match
-                          List.find
-                            (fun x -> option_of_optionE x = None)
-                            pattern_result
-                        with
-                        | NoneE err -> NoneE (err ^ "\nin Match")
-                        | _ -> failwith "unreachable"
-                      end
-                end
+        | SomeE tpe', SomeE dd1 -> begin
+            if type_of_mixed_expr_proof tpe' <> t0 then
+              NoneE "Type mismatch in Match"
+            else
+              let d = map_exclusion dd1 (map_dom d1) in
+              let d0 = map_exclusion dd0 (map_dom d) in
+                match ortho_check t0 ejs false with
+                | None -> NoneE "Ortho check failed in Match"
+                | Some orp -> begin
+                    let pattern_result =
+                      List.map (mixed_pattern_type_check dd1 t0 t1) l
+                    in
+                      match
+                        all_or_nothing
+                          (List.map option_of_optionE pattern_result)
+                      with
+                      | Some l' ->
+                          let iso =
+                            expr_is_classical e'
+                            && is_iso_mixed_expr_proof tpe'
+                            && is_spanning_ortho_proof orp
+                            && List.for_all
+                                 (fun (_, _, tpej') ->
+                                   is_iso_mixed_expr_proof tpej')
+                                 l'
+                          in
+                            SomeE
+                              (TMatch
+                                 {
+                                   t0;
+                                   t1;
+                                   g;
+                                   d;
+                                   d0;
+                                   d1;
+                                   e = tpe';
+                                   l = l';
+                                   orp;
+                                   iso;
+                                 })
+                      | _ -> begin
+                          match
+                            List.find
+                              (fun x -> option_of_optionE x = None)
+                              pattern_result
+                          with
+                          | NoneE err -> NoneE (err ^ "\nin Match")
+                          | _ -> failwith "unreachable"
+                        end
+                  end
           end
-        | NoneE err, _ -> NoneE (err ^ "\nin Match")
-        | _ -> NoneE "Type mismatch in Match"
+        | NoneE err, _
+        | _, NoneE err ->
+            NoneE (err ^ "\nin Match")
     end
   (* T-TRY *)
   | Try (e0, e1) -> begin
@@ -1058,9 +1062,10 @@ and mixed_context_check (g : context) (t : exprtype) (e : expr) :
   (* T-MATCH *)
   | Match (e', t0, t1, l), _ -> begin
       match (mixed_context_check g t0 e', match_dd1_context_check t0 t1 l) with
-      | NoneE err, _ -> NoneE (err ^ "\nin Match")
-      | _, None -> NoneE "Context mismatch in Match"
-      | SomeE dd0, Some dd1 -> SomeE (map_merge_noopt true dd0 dd1)
+      | NoneE err, _
+      | _, NoneE err ->
+          NoneE (err ^ "\nin Match")
+      | SomeE dd0, SomeE dd1 -> SomeE (map_merge_noopt true dd0 dd1)
     end
   (* T-MIXEDAPP *)
   | Apply (f, e'), _ -> begin
@@ -1090,7 +1095,11 @@ and pure_context_check (g : context) (t : exprtype) (e : expr) :
           if t = t' then
             SomeE StringMap.empty
           else
-            NoneE "Type mismatch in classical context in Var"
+            NoneE
+              (Printf.sprintf
+                 "Type mismatch in classical context: expected %s, but got %s\n\
+                  in %s" (string_of_type t) (string_of_type t')
+                 (string_of_expr e))
       (* T-QVAR *)
       | None -> SomeE (StringMap.singleton x t)
     end

@@ -1,10 +1,10 @@
-def Deutsch <F> :=
-    let x {Bit} = Bit0 |> Had in (
-        ctrl {Bit, Bit} (F of x) [
-            Bit0 -> x;
-            Bit1 -> x |> gphase {Bit, pi}
+def $Deutsch {@F : Bit -> Bit} : Bit :=
+    let x = $Plus in (
+        ctrl @F(x) [
+            $0 -> x;
+            $1 -> x |> gphase {pi}
         ]
-    ) |> Had
+    ) |> @Had
 end
 
-Deutsch <Id <Bit>>
+$Deutsch {@Id {Bit}}

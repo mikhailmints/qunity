@@ -8,7 +8,7 @@
   typechecking
   matrix
   semantics
-  extended_syntax
+  metaprogramming
   gate
   binary_tree
   compilation

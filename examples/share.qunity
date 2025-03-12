@@ -1,1 +1,3 @@
-let x {Bit} = BitPlus in (x, ((x |> gphase {Bit, pi/2}, x |> Had), (x |> Not, x |> gphase {Bit, pi/4})))
+let x = $Plus in
+(x, ((x |> gphase {pi/2}, x |> @Had),
+(x |> @Not, x |> gphase {pi/4})))

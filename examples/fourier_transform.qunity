@@ -1,2 +1,2 @@
-Qft <[6]> of (Bit0, (BitPlus, (BitPlus, (Bit0, (Bit0, (Bit0, ()))))))
-|> Reverse <[6], Bit>
+@Qft {6} ($0, ($Plus, ($Plus, ($0, ($0, ($0, ()))))))
+|> @Reverse {6, Bit}

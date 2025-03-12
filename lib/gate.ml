@@ -773,11 +773,11 @@ let rec gate_list_optimize (ul : gate list) (out_reg : int list)
     (nqubits : int) : gate list * int list =
   if !optimization_print then
     Printf.printf ".%!";
-  (* let ul =
-       gate_classical_propagation ul
-         (Array.of_list (List.map (fun _ -> Classical false) (range nqubits)))
-         (ref (Classical false))
-     in *)
+  let ul =
+    gate_classical_propagation ul
+      (Array.of_list (List.map (fun _ -> Classical false) (range nqubits)))
+      (ref (Classical false))
+  in
   let ul = gate_list_shift_deletion_labels_left ul in
   let ul_opt, out_reg', changes_made = gate_optimization_pass ul out_reg in
     if changes_made then

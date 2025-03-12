@@ -1,5 +1,5 @@
-let x {Bit} = BitPlus in
-ctrl {Bit, Bit * Bit} x [
-    Bit0 -> (x, Bit0);
-    Bit1 -> (x, BitPlus)
+let x = $Plus in
+ctrl x [
+    $0 -> (x, $0);
+    $1 -> (x, $Plus)
 ]

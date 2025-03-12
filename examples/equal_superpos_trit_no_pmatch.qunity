@@ -1,18 +1,16 @@
-Bit0
+$0
 |> u3 {2 * arccos(sqrt(1 / 3)), 0, 0}
-|> lambda x {Bit} -> ctrl {Bit, Bit * Bit} x [
-    Bit0 -> (x, Bit0);
-    Bit1 -> (x, BitPlus)
+|> lambda x -> ctrl x [
+    $0 -> (x, $0);
+    $1 -> (x, $Plus)
 ]
-|> lambda x {Bit * Bit} -> ctrl {Bit * Bit, (Bit * Bit) * Maybe <Bit>} x [
-    (Bit0, Bit0) -> (x, Nothing <Bit>);
-    (Bit1, Bit0) -> (x, Just <Bit> of Bit0);
-    (Bit1, Bit1) -> (x, Just <Bit> of Bit1)
+|> lambda x -> ctrl x [
+    ($0, $0) -> (x, $Nothing {Bit});
+    ($1, y) -> (x, @Just {Bit} (y))
 ]
 |> lambda (
-    ctrl {Maybe <Bit>, (Bit * Bit) * Maybe <Bit>} x' [
-        Nothing <Bit> -> ((Bit0, Bit0), x');
-        Just <Bit> of Bit0 -> ((Bit1, Bit0), x');
-        Just <Bit> of Bit1 -> ((Bit1, Bit1), x')
+    ctrl x' [
+        $Nothing {Bit} -> (($0, $0), x');
+        @Just {Bit} (y) -> (($1, y), x')
     ]
-) {(Bit * Bit) * Maybe <Bit>} -> x'
+) -> x'

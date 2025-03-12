@@ -1,19 +1,12 @@
-def T :=
-    Bit + (Bit * (Bit * (Bit * Bit)))
+type T :=
+    | @Tl of Bit
+    | @Tr of Bit * (Bit * (Bit * Bit))
 end
 
-def Tl :=
-    left {Bit, Bit * (Bit * (Bit * Bit))}
-end
-
-def Tr :=
-    right {Bit, Bit * (Bit * (Bit * Bit))}
-end
-
-Tr of (Bit0, (Bit1, (Bit1, Bit0)))
-|> lambda x {T} -> ctrl {T, T * T} x [
-    Tl of Bit0 -> (x, x);
-    Tl of Bit1 -> (x, x);
-    Tr of (y, (c, (a, b))) -> (x, Tr of (a, (y, (c, b))));
+@Tr ($0, ($1, ($1, $0)))
+|> lambda x -> ctrl x [
+    @Tl($0) -> (x, x);
+    @Tl($1) -> (x, x);
+    @Tr(y, (c, (a, b))) -> (x, @Tr(a, (y, (c, b))));
 ]
 

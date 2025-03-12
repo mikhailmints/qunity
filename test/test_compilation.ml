@@ -153,8 +153,8 @@ let () =
     let skipped_files =
       [
         "bogosort.qunity";
-        "boolean_formula_walk.qunity";
-        "grover_decoherent_oracle.qunity";
+        "equal_superpos_list.qunity";
+        "grover_trycatch_oracle.qunity";
         "grover_with_lists.qunity";
         "list_example.qunity";
         "list_length.qunity";

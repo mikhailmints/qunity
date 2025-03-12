@@ -1,33 +1,32 @@
-def Step <N> :=
-    lambda (x, velocity) {NTensorT <N, Bit> * Bit} ->
-    ctrl {Maybe <Bit>, (NTensorT <N, Bit> * Bit) * (NTensorT <N, Bit> * Bit)} (
-        match {NTensorT <N, Bit> * Bit, Maybe <Bit>} (x, velocity) [
-            (NTensorE <N, Bit0>, Bit0) -> Just <Bit> of Bit0;
-            (NTensorE <N, Bit1>, Bit1) -> Just <Bit> of Bit1;
-            else -> Nothing <Bit>;
-        ])[
-        Just <Bit> of Bit0 -> ((x, velocity), (IncrementLE <N> of NTensorE <N, Bit0>, Bit1));
-        Just <Bit> of Bit1 -> ((x, velocity), (DecrementLE <N> of NTensorE <N, Bit1>, Bit0));
-        Nothing <Bit> -> ((x, velocity), ctrl {Bit, NTensorT <N, Bit> * Bit} velocity [
-            Bit0 -> (DecrementLE <N> of x, velocity);
-            Bit1 -> (IncrementLE <N> of x, velocity)
+def @Step {#N} : Num{#N} * Bit -> Num{#N} * Bit :=
+    lambda (x, velocity) ->
+    ctrl (match (x, velocity) [
+        ($NTensorE {#N, Bit, $0}, $0) -> @Just{Bit}($0);
+        ($NTensorE {#N, Bit, $1}, $1) -> @Just{Bit}($1);
+        else -> $Nothing{Bit}
+    ]) [
+        @Just{Bit}($0) -> ((x, velocity), (@IncrementLE{#N}($NTensorE {#N, Bit, $0}), $1));
+        @Just{Bit}($1) -> ((x, velocity), (@DecrementLE{#N}($NTensorE {#N, Bit, $1}), $0));
+        $Nothing{Bit} -> ((x, velocity), ctrl velocity [
+            $0 -> (@DecrementLE{#N}(x), velocity);
+            $1 -> (@IncrementLE{#N}(x), velocity)
         ])
-    ] |> Snd <NTensorT <N, Bit> * Bit, NTensorT <N, Bit> * Bit>
+    ] |> @Snd {Num{#N} * Bit, Num{#N} * Bit}
 end
 
-def Walk <N, Nsteps> :=
-    if Nsteps = [0] then
-        Id <NTensorT <N, Bit> * Bit>
+def @Walk {#N, #Nsteps} : Num{#N} * Bit -> Num{#N} * Bit :=
+    if #Nsteps = 0 then
+        @Id{Num{#N} * Bit}
     else
-        lambda (x, velocity) {NTensorT <N, Bit> * Bit} ->
-        (x, velocity) |> Step <N> |> Walk <N, [Nsteps - 1]>
+        lambda (x, velocity) ->
+        (x, velocity) |> @Step{#N} |> @Walk{#N, #Nsteps - 1}
     endif
 end
 
-def N := [3] end
-def Nsteps := [1] end
+def #N := 3 end
+def #Nsteps := 1 end
 
-(NTensorE <N, BitPlus>, Bit0 |> u3 {pi/4, 0, 0})
-|> Walk <N, Nsteps>
-|> Fst <NTensorT <N, Bit>, Bit>
-|> Reverse <N, Bit>
+($NTensorE {#N, Bit, $Plus}, $0 |> u3 {pi/4, 0, 0})
+|> @Walk {#N, #Nsteps}
+|> @Fst {Num{#N}, Bit}
+|> @Reverse {#N, Bit}

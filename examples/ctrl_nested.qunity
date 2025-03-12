@@ -1,7 +1,7 @@
-ctrl {Bit * Bit, Bit} (BitPlus, BitPlus) [
-    (Bit0, Bit0) -> ctrl {Bit, Bit} BitPlus [
-        Bit0 -> ctrl {Bit, Bit} BitPlus [
-            Bit0 -> BitPlus
+ctrl ($Plus, $Plus) [
+    ($0, $0) -> ctrl $Plus [
+        $0 -> ctrl $Plus [
+            $0 -> $Plus
         ]
     ]
 ]

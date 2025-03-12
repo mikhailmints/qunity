@@ -9,6 +9,10 @@ module IntMap = Map.Make (Int)
 let fst3 (a, _, _) = a
 let snd3 (_, b, _) = b
 let trd3 (_, _, c) = c
+let fst4 (a, _, _, _) = a
+let snd4 (_, b, _, _) = b
+let trd4 (_, _, c, _) = c
+let fth4 (_, _, _, d) = d
 
 (** Converts [SomeE] to [Some] and [NoneE] to [None]. *)
 let option_of_optionE (optE : 'a optionE) : 'a option =
@@ -54,6 +58,15 @@ let map_all_or_nothing (d : 'a option StringMap.t) : 'a StringMap.t option =
     match all_or_nothing vals with
     | Some l -> Some (StringMap.of_seq (List.to_seq (List.combine keys l)))
     | _ -> None
+
+(** Outputs [NoneE] with the first encountered error if any of the values of
+    [d] are [NoneE], otherwise removes the option constructors from the values. *)
+let map_all_or_nothing_optionE (d : 'a optionE StringMap.t) :
+    'a StringMap.t optionE =
+  let keys, vals = List.split (StringMap.bindings d) in
+    match all_or_nothing_optionE vals with
+    | SomeE l -> SomeE (StringMap.of_seq (List.to_seq (List.combine keys l)))
+    | NoneE err -> NoneE err
 
 (** Creates a string that does not appear in the set [s], starting with
     [prefix]. *)
