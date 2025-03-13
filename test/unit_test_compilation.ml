@@ -14,14 +14,14 @@ let test_circuit_spec (cs : circuit_spec) (in_regs : int list list)
     (expected : circuit) (expected_used_wires : int list) =
   begin
     fun () ->
-     let used_wires =
-       IntSet.of_list (List.flatten in_regs @ additional_used_wires)
-     in
-     let circ, used_wires = build_circuit cs in_regs used_wires settings in
-       Alcotest.(check circuit "check circuit") expected circ;
-       Alcotest.(check int_set "check used_wires")
-         (IntSet.of_list expected_used_wires)
-         used_wires
+      let used_wires =
+        IntSet.of_list (List.flatten in_regs @ additional_used_wires)
+      in
+      let circ, used_wires = build_circuit cs in_regs used_wires settings in
+        Alcotest.(check circuit "check circuit") expected circ;
+        Alcotest.(check int_set "check used_wires")
+          (IntSet.of_list expected_used_wires)
+          used_wires
   end
 
 let settings0 = { reset_flag = true; reset_garb = true; iso = false }

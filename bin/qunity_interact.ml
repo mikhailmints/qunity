@@ -40,7 +40,7 @@ let () =
                         if show_ocaml_string then
                           Printf.printf "%s\n" (ocaml_string_of_expr e);
                         Printf.printf "xtype: %s\n" (string_of_xtype xt);
-                        execute_expr e
+                        execute_expr e !dm xt
                       end
                     | NoneE err ->
                         Printf.printf "Preprocessing error: %s\n\n" err

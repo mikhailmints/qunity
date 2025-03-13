@@ -4,7 +4,8 @@ open Metaprogramming
 
 module I = Parser.MenhirInterpreter
 (** Source:
-    {:https://baturin.org/blog/declarative-parse-error-reporting-with-menhir/} *)
+    {:https://baturin.org/blog/declarative-parse-error-reporting-with-menhir/}
+*)
 
 exception Syntax_error of ((int * int) option * string)
 
@@ -82,7 +83,8 @@ let parse_with_err parse_fun s : 'a optionE =
   | Lexer.Lexing_error err -> NoneE err
 
 (** Reads a file and outputs a Qunity expression. *)
-let get_expr_from_file (prog_filename : string) : expr optionE =
+let get_expr_from_file (prog_filename : string) :
+    (expr * defmap * xtype) optionE =
   let stdlib_filename = "qunitylib/stdlib.qunity" in
     match parse_with_err parse_file_qunitylib stdlib_filename with
     | NoneE err -> NoneE (err ^ "\nin " ^ stdlib_filename)
@@ -90,10 +92,10 @@ let get_expr_from_file (prog_filename : string) : expr optionE =
         match parse_with_err parse_file_qunityfile prog_filename with
         | NoneE err -> NoneE (err ^ "\nin " ^ prog_filename)
         | SomeE (dm, xe) -> begin
-            match
-              xexpr_eval (combine_defmaps stdlib_dm dm) StringMap.empty None xe
-            with
-            | SomeE (e, _, _) -> SomeE e
-            | NoneE err -> NoneE (Printf.sprintf "Preprocessing error: %s" err)
+            let dm = combine_defmaps stdlib_dm dm in
+              match xexpr_eval dm StringMap.empty None xe with
+              | SomeE (e, xt, _) -> SomeE (e, dm, xt)
+              | NoneE err ->
+                  NoneE (Printf.sprintf "Preprocessing error: %s" err)
           end
       end

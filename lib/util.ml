@@ -60,7 +60,8 @@ let map_all_or_nothing (d : 'a option StringMap.t) : 'a StringMap.t option =
     | _ -> None
 
 (** Outputs [NoneE] with the first encountered error if any of the values of
-    [d] are [NoneE], otherwise removes the option constructors from the values. *)
+    [d] are [NoneE], otherwise removes the option constructors from the values.
+*)
 let map_all_or_nothing_optionE (d : 'a optionE StringMap.t) :
     'a StringMap.t optionE =
   let keys, vals = List.split (StringMap.bindings d) in
@@ -145,7 +146,8 @@ let map_merge (allow_dup : bool) (d0 : 'a StringMap.t) (d1 : 'a StringMap.t) :
          else
            "Expected disjoint maps")
 
-(** Merges two maps, throwing an exception if it is impossible to merge them. *)
+(** Merges two maps, throwing an exception if it is impossible to merge them.
+*)
 let map_merge_noopt (allow_dup : bool) (d0 : 'a StringMap.t)
     (d1 : 'a StringMap.t) : 'a StringMap.t =
   match map_merge allow_dup d0 d1 with
@@ -274,7 +276,8 @@ let range (i : int) : int list =
   let rec iter i = if i <= 0 then [] else (i - 1) :: iter (i - 1) in
     List.rev (iter i)
 
-(** Returns the numbers from [0] (inclusive) to [i] (exclusive), as an array. *)
+(** Returns the numbers from [0] (inclusive) to [i] (exclusive), as an array.
+*)
 let range_arr (i : int) : int array = Array.of_list (range i)
 
 (** Tests whether two floats are approximately equal. *)

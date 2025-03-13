@@ -259,89 +259,94 @@ def @Cnot {#N, #I, #J} : NTensorT {#N, Bit} -> NTensorT {#N, Bit} :=
     @Controlled1Q {#N, #I, #J, @Not}
 end
 
-type List {#N, 'a} :=
+type List{#N, 'a} :=
     | $ListEmpty
-    | @ListCons of (if #N <= 0 then Void else 'a * List {#N - 1, 'a} endif)
+    | @ListCons of
+        if #N <= 0 then
+            Void
+        else
+            'a * List{#N - 1, 'a}
+        endif
 end
 
-def @ListAppend {#N, 'a} : List {#N, 'a} * 'a -> List {#N, 'a} :=
+def @ListAppend{#N, 'a} : List{#N, 'a} * 'a -> List{#N, 'a} :=
     if #N <= 0 then
         lambda _ -> ctrl () []
     else
         lambda (l, x) -> match l [
-            $ListEmpty {#N, 'a} -> @ListCons {#N, 'a} (x, $ListEmpty {#N - 1, 'a});
-            @ListCons {#N, 'a} (x', l') -> @ListCons {#N, 'a} (x', @ListAppend {#N - 1, 'a} (l', x))
+            $ListEmpty{#N, 'a} -> @ListCons{#N, 'a}(x, $ListEmpty{#N - 1, 'a});
+            @ListCons{#N, 'a}(x', l') -> @ListCons{#N, 'a}(x', @ListAppend{#N - 1, 'a}(l', x))
         ]
     endif
 end
 
-def @ListAppendConst {#N, 'a, $X : 'a} : List {#N, 'a} -> List {#N, 'a} :=
-    lambda l -> @ListAppend {#N, 'a} (l, $X)
+def @ListAppendConst{#N, 'a, $X : 'a} : List{#N, 'a} -> List{#N, 'a} :=
+    lambda l -> @ListAppend{#N, 'a}(l, $X)
 end
 
-def @ListUpcast {#N, 'a} : List {#N, 'a} -> List {#N + 1, 'a} :=
+def @ListUpcast{#N, 'a} : List{#N, 'a} -> List{#N + 1, 'a} :=
     if #N <= 0 then
-        lambda _ -> $ListEmpty {1, 'a}
+        lambda _ -> $ListEmpty{1, 'a}
     else
         lambda l -> match l [
-            $ListEmpty {#N, 'a} -> $ListEmpty {#N + 1, 'a};
-            @ListCons {#N, 'a} (x', l') ->
-                @ListCons {#N + 1, 'a} (x', @ListUpcast {#N - 1, 'a} (l'))
+            $ListEmpty{#N, 'a} -> $ListEmpty{#N + 1, 'a};
+            @ListCons{#N, 'a}(x', l') ->
+                @ListCons{#N + 1, 'a}(x', @ListUpcast{#N - 1, 'a}(l'))
         ]
     endif
 end
 
-def @ListDowncast {#N, 'a} : List {#N, 'a} -> List {#N - 1, 'a} :=
+def @ListDowncast{#N, 'a} : List{#N, 'a} -> List{#N - 1, 'a} :=
     if #N <= 0 then
         lambda _ -> ctrl () []
     else if #N = 1 then
-        lambda $ListEmpty {#N, 'a} -> $ListEmpty {#N - 1, 'a}
+        lambda $ListEmpty{#N, 'a} -> $ListEmpty{#N - 1, 'a}
     else
         lambda l -> match l [
-            $ListEmpty {#N, 'a} -> $ListEmpty {#N - 1, 'a};
-            @ListCons {#N, 'a} (x', l') ->
-                @ListCons {#N - 1, 'a} (x', @ListDowncast {#N - 1, 'a} (l'))
+            $ListEmpty{#N, 'a} -> $ListEmpty{#N - 1, 'a};
+            @ListCons{#N, 'a}(x', l') ->
+                @ListCons{#N - 1, 'a}(x', @ListDowncast {#N - 1, 'a} (l'))
         ]
     endif
     endif
 end
 
-def @ListCastTo {#N, 'a, #N'} : List {#N, 'a} -> List {#N', 'a} :=
+def @ListCastTo{#N, 'a, #N'} : List{#N, 'a} -> List{#N', 'a} :=
     if #N' = #N then
         lambda l -> l
     else
         if #N' > #N then
-            lambda l -> @ListCastTo {#N + 1, 'a, #N'} (@ListUpcast {#N, 'a} (l))
+            lambda l -> @ListCastTo{#N + 1, 'a, #N'}(@ListUpcast {#N, 'a}(l))
         else
-            lambda l -> @ListCastTo {#N - 1, 'a, #N'} (@ListDowncast {#N, 'a} (l))
+            lambda l -> @ListCastTo{#N - 1, 'a, #N'}(@ListDowncast {#N, 'a}(l))
         endif
     endif
 end
 
-def @ListHead {#N, 'a} : List {#N, 'a} -> 'a :=
+def @ListHead{#N, 'a} : List{#N, 'a} -> 'a :=
     if #N <= 0 then
         lambda _ -> ctrl () []
     else
-        lambda @ListCons {#N, 'a} (x, l') -> x
+        lambda @ListCons{#N, 'a}(x, l') -> x
     endif
 end
 
-def @ListTail {#N, 'a} : List {#N, 'a} -> List {#N - 1, 'a} :=
+def @ListTail{#N, 'a} : List{#N, 'a} -> List{#N - 1, 'a} :=
     if #N <= 0 then
         lambda _ -> ctrl () []
     else
-        lambda @ListCons {#N, 'a} (x, l') -> l'
+        lambda @ListCons{#N, 'a}(x, l') -> l'
     endif
 end
 
-def @ListLength {#N, 'a, #Nbits} : List {#N, 'a} -> Num {#Nbits} :=
+def @ListLength{#N, 'a, #Nbits} : List{#N, 'a} -> Num{#Nbits} :=
     if #N <= 0 then
-        lambda l -> $NumToStateLE {0, #Nbits}
+        lambda l -> $NumToStateLE{0, #Nbits}
     else
         lambda l -> match l [
-            $ListEmpty {#N, 'a} -> $NumToStateLE {0, #Nbits};
-            @ListCons {#N, 'a} (x', l') ->
-                @IncrementLE {#Nbits} (@ListLength {#N - 1, 'a, #Nbits} (l'))
+            $ListEmpty{#N, 'a} -> $NumToStateLE{0, #Nbits};
+            @ListCons{#N, 'a}(x', l') ->
+                @IncrementLE{#Nbits}(@ListLength{#N - 1, 'a, #Nbits}(l'))
         ]
     endif
 end

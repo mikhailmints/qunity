@@ -228,7 +228,8 @@ let rec gate_to_list (u : gate) : gate list =
   | Sequence (u0, u1) -> gate_to_list u0 @ gate_to_list u1
   | _ -> [u]
 
-(** Converts a list of gates into a single gate, joining it using [Sequence]. *)
+(** Converts a list of gates into a single gate, joining it using [Sequence].
+*)
 let rec gate_of_list (ul : gate list) : gate =
   match ul with
   | [] -> Identity

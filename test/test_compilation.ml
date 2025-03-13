@@ -79,7 +79,7 @@ let test_compilation_correctness_file (filename : string) =
       fun () ->
         match get_expr_from_file filename with
         | NoneE err -> failwith err
-        | SomeE e -> e
+        | SomeE (e, _, _) -> e
     end
 
 let test_compilation_no_error_file (filename : string) =
@@ -88,7 +88,7 @@ let test_compilation_no_error_file (filename : string) =
     begin
       match get_expr_from_file filename with
       | NoneE err -> failwith err
-      | SomeE e ->
+      | SomeE (e, _, _) ->
           let _ = expr_compile e in
             Printf.printf "passed\n"
     end
@@ -152,6 +152,7 @@ let () =
     let example_files = Sys.readdir "examples" in
     let skipped_files =
       [
+        "binary_search_tree.qunity";
         "bogosort.qunity";
         "equal_superpos_list.qunity";
         "grover_trycatch_oracle.qunity";

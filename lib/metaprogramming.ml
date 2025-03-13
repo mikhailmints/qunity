@@ -3,20 +3,40 @@ open Reals
 open Syntax
 open Typechecking
 
+(** If set to true, prints some helpful debugging information. *)
 let debug_mode = ref false
 
+(** In the metaprogramming layer, the terms correspond to Qunity expressions,
+    types, programs, and reals. *)
 type sort = Expr | Type | Prog | Real
+
+(** Types of comparisons between real numbers used for boolean expressions. *)
 type comparison = Eq | Neq | Lt | Gt | Leq | Geq
 
-type typed_sort = Expr of xtype | Type | Prog of (xtype * xtype) | Real
-and gexpr = Expr of xexpr | Type of xtype | Prog of xprog | Real of xreal
+(** An entry in a definition's signature. *)
+type typed_sort =
+  | Expr of xtype  (** Expression with a type. *)
+  | Type  (** Type. *)
+  | Prog of (xtype * xtype)  (** Program with input and output types. *)
+  | Real  (** Real number. *)
 
+(** A generic expression, used for invoking definitions with given parameters.
+*)
+and gexpr =
+  | Expr of xexpr  (** Expression. *)
+  | Type of xtype  (** Type. *)
+  | Prog of xprog  (** Program. *)
+  | Real of xreal  (** Real number. *)
+
+(** A boolean expression. *)
 and bexpr =
-  | Not of bexpr
-  | And of (bexpr * bexpr)
-  | Or of (bexpr * bexpr)
+  | Not of bexpr  (** Logical NOT. *)
+  | And of (bexpr * bexpr)  (** Logical AND. *)
+  | Or of (bexpr * bexpr)  (** Logical OR. *)
   | Cmp of (comparison * xreal * xreal)
+      (** Comparison between real numbers. *)
 
+(** A real number expression. *)
 and xreal =
   | Pi
   | Euler
@@ -45,57 +65,80 @@ and xreal =
 
 and paramsig = (string * typed_sort) list
 
+(** A definition, which can define a parameterized type (which can be a variant
+    associated with a list of constructors), an expression, program, or real.
+*)
 and definition =
-  | Typedef of (string * paramsig * xtype)
+  | Typedef of (string * paramsig * xtype)  (** Type definition. *)
   | TypedefVariant of (string * paramsig * (string * xtype) list)
+      (** Variant type definition. *)
   | Exprdef of (string * paramsig * xtype * xexpr)
+      (** Expression definition. *)
   | Progdef of (string * paramsig * xtype * xtype * xprog)
-  | Realdef of (string * paramsig * xreal)
+      (** Program definition. *)
+  | Realdef of (string * paramsig * xreal)  (** Real number definition. *)
 
+(** A type expression. *)
 and xtype =
-  | Void
-  | Qunit
-  | ProdType of (xtype * xtype)
-  | TypeVar of string
+  | Void  (** Void type. *)
+  | Qunit  (** Unit type. *)
+  | ProdType of (xtype * xtype)  (** Product type. *)
+  | TypeVar of string  (** Type variable. *)
   | TypeInvoke of (string * gexpr list)
-  | TypeIf of (bexpr * xtype * xtype)
-  | TypeFail
+      (** Invocation of a type definition with given arguments. *)
+  | TypeIf of (bexpr * xtype * xtype)  (** Conditional type expression. *)
+  | TypeFail  (** Failure case. *)
 
+(** A Qunity expression. *)
 and xexpr =
-  | Null
-  | Var of string
-  | Qpair of (xexpr * xexpr)
+  | Null  (** Null expression. *)
+  | Var of string  (** Variable. *)
+  | Qpair of (xexpr * xexpr)  (** Pair of expressions. *)
   | Ctrl of (xexpr * (xexpr * xexpr) list * xexpr option)
+      (** Control construct. *)
   | Match of (xexpr * (xexpr * xexpr) list * xexpr option)
-  | Try of (xexpr * xexpr)
-  | Apply of (xprog * xexpr)
+      (** Match construct. *)
+  | Try of (xexpr * xexpr)  (** Try-catch structure. *)
+  | Apply of (xprog * xexpr)  (** Application of a program to an expression. *)
   | ExprInvoke of string * gexpr list
-  | ExprIf of (bexpr * xexpr * xexpr)
-  | ExprFail
+      (** Invocation of an expression definition with given arguments. *)
+  | ExprIf of (bexpr * xexpr * xexpr)  (** Conditional expression. *)
+  | ExprFail  (** Failure case. *)
 
+(** A Qunity program. *)
 and xprog =
-  | U3 of (xreal * xreal * xreal)
-  | Lambda of (xexpr * xexpr)
-  | Rphase of (xexpr * xreal * xreal)
-  | Pmatch of (xexpr * xexpr) list
+  | U3 of (xreal * xreal * xreal)  (** Single-qubit gate. *)
+  | Lambda of (xexpr * xexpr)  (** Lambda abstraction. *)
+  | Rphase of (xexpr * xreal * xreal)  (** Relative phase. *)
+  | Pmatch of (xexpr * xexpr) list  (** Pmatch construct. *)
   | ProgInvoke of string * gexpr list
-  | ProgIf of (bexpr * xprog * xprog)
-  | ProgFail
+      (** Invocation of a program definition with given parameters. *)
+  | ProgIf of (bexpr * xprog * xprog)  (** Conditional program expression. *)
+  | ProgFail  (** Failure case. *)
 
 type xcontext = xtype StringMap.t
+(** A context of quantum variables in the metaprogramming layer. This does not
+    distinguish between classical and quantum contexts since the preprocessor
+    ignores details like variable relevance which are handled later by the
+    typechecker. *)
 
 type defmap = {
-  defs : definition StringMap.t;
+  defs : definition StringMap.t;  (** Definitions. *)
   constructors : (string * paramsig * xtype) StringMap.t;
+      (** Constructors, each constrcutor name mapped to its corresponding type.
+      *)
   expr_vars : (expr * xtype * xcontext) StringMap.t;
+      (** Expression variables. *)
   type_vars : xtype StringMap.t;
-      (* While expression, program, and real variables are reduced to base
-          Qunity syntax when stored here, type variables are not and are stored
-          as xtype, only being fully evaluated at the end. This makes it
-          possible to do type inference. *)
-  prog_vars : (prog * xtype * xtype) StringMap.t;
-  real_vars : real StringMap.t;
+      (** Type variables. While expression, program, and real variables are
+          reduced to base Qunity syntax when stored here, type variables are
+          not and are stored as xtype, only being fully evaluated at the end.
+          This makes it possible to properly deal with variant types and do
+          type inference. *)
+  prog_vars : (prog * xtype * xtype) StringMap.t;  (** Program variables. *)
+  real_vars : real StringMap.t;  (** Real number variables. *)
 }
+(** A map of definitions. *)
 
 let name_of_def (def : definition) : string =
   match def with
@@ -194,7 +237,7 @@ let rec string_of_xtype (xt : xtype) : string =
                 | Real xr -> string_of_xreal xr)
               params
           in
-            Printf.sprintf "%s {%s}" name (String.concat ", " params_str_list)
+            Printf.sprintf "%s{%s}" name (String.concat ", " params_str_list)
     end
   | TypeIf (be, xt0, xt1) ->
       Printf.sprintf "if %s then %s else %s" (string_of_bexpr be)
@@ -230,7 +273,7 @@ let rec string_of_xexpr (xe : xexpr) : string =
              ""
              (List.map
                 (fun (xej, xej') ->
-                  Printf.sprintf "(%s) -> (%s)" (string_of_xexpr xej)
+                  Printf.sprintf "%s -> %s" (string_of_xexpr xej)
                     (string_of_xexpr xej'))
                 l))
   | Match (xe0, l, xelseopt) ->
@@ -245,14 +288,19 @@ let rec string_of_xexpr (xe : xexpr) : string =
              ""
              (List.map
                 (fun (xej, xej') ->
-                  Printf.sprintf "(%s) -> (%s)" (string_of_xexpr xej)
+                  Printf.sprintf "%s -> %s" (string_of_xexpr xej)
                     (string_of_xexpr xej'))
                 l))
   | Try (xe0, xe1) ->
       Printf.sprintf "try %s catch %s" (string_of_xexpr xe0)
         (string_of_xexpr xe1)
   | Apply (xf, xe') ->
-      Printf.sprintf "(%s) (%s)" (string_of_xprog xf) (string_of_xexpr xe')
+      let xf_str = string_of_xprog xf in
+        if String.starts_with ~prefix:"$" xf_str then
+          (* Constructor with no arguments - don't print as applied to Null *)
+          xf_str
+        else
+          Printf.sprintf "%s(%s)" xf_str (string_of_xexpr xe')
   | ExprInvoke (name, params) ->
       let params_str_list =
         List.map
@@ -267,7 +315,7 @@ let rec string_of_xexpr (xe : xexpr) : string =
         if params_str_list = [] then
           name
         else
-          Printf.sprintf "%s {%s}" name (String.concat ", " params_str_list)
+          Printf.sprintf "%s{%s}" name (String.concat ", " params_str_list)
   | ExprIf (be, xe0, xe1) ->
       Printf.sprintf "if %s then %s else %s" (string_of_bexpr be)
         (string_of_xexpr xe0) (string_of_xexpr xe1)
@@ -276,13 +324,13 @@ let rec string_of_xexpr (xe : xexpr) : string =
 and string_of_xprog (xf : xprog) : string =
   match xf with
   | U3 (theta, phi, lambda) ->
-      Printf.sprintf "u3 {%s, %s, %s}" (string_of_xreal theta)
+      Printf.sprintf "u3{%s, %s, %s}" (string_of_xreal theta)
         (string_of_xreal phi) (string_of_xreal lambda)
   | Lambda (xe, xe') ->
-      Printf.sprintf "lambda (%s) -> (%s)" (string_of_xexpr xe)
+      Printf.sprintf "lambda %s -> %s" (string_of_xexpr xe)
         (string_of_xexpr xe')
   | Rphase (xe, r0, r1) ->
-      Printf.sprintf "rphase {%s, %s, %s}" (string_of_xexpr xe)
+      Printf.sprintf "rphase{%s, %s, %s}" (string_of_xexpr xe)
         (string_of_xreal r0) (string_of_xreal r1)
   | Pmatch l ->
       Printf.sprintf "pmatch [%s]"
@@ -291,7 +339,7 @@ and string_of_xprog (xf : xprog) : string =
            ""
            (List.map
               (fun (xe0, xe1) ->
-                Printf.sprintf "(%s) -> (%s)" (string_of_xexpr xe0)
+                Printf.sprintf "%s -> %s" (string_of_xexpr xe0)
                   (string_of_xexpr xe1))
               l))
   | ProgInvoke (name, params) ->
@@ -308,7 +356,7 @@ and string_of_xprog (xf : xprog) : string =
         if params_str_list = [] then
           name
         else
-          Printf.sprintf "%s {%s}" name (String.concat ", " params_str_list)
+          Printf.sprintf "%s{%s}" name (String.concat ", " params_str_list)
   | ProgIf (be, xf0, xf1) ->
       Printf.sprintf "if %s then %s else %s" (string_of_bexpr be)
         (string_of_xprog xf0) (string_of_xprog xf1)
@@ -462,7 +510,8 @@ and update_defmap_with_params (dm : defmap) (d : xcontext) (psig : paramsig)
       List.fold_left
         begin
           fun (dm : defmap optionE)
-              (((name, ts), ge) : (string * typed_sort) * gexpr) ->
+            (((name, ts), ge) : (string * typed_sort) * gexpr)
+          ->
             match dm with
             | SomeE dm -> begin
                 match (ge, ts) with
@@ -847,7 +896,7 @@ and xexpr_eval (dm : defmap) (d : xcontext) (expected_type : xtype option)
           (* This case happens when e.g. using ctrl as a pattern:
              we know the expected type but don't have the context
              for the free variables in xe0. *)
-          match xexpr_eval dm StringMap.empty None (fst (List.hd l)) with
+            match xexpr_eval dm StringMap.empty None (fst (List.hd l)) with
           | SomeE (_, _, fv0) -> begin
               match xexpr_eval dm fv0 expected_type (snd (List.hd l)) with
               | SomeE (_, _, fv) -> SomeE fv
@@ -1138,7 +1187,8 @@ and xexpr_eval (dm : defmap) (d : xcontext) (expected_type : xtype option)
                                         List.fold_right
                                           begin
                                             fun (t : exprtype)
-                                                ((e', t') : expr * exprtype) ->
+                                              ((e', t') : expr * exprtype)
+                                            ->
                                               ( Apply (Right (t, t'), e'),
                                                 SumType (t, t') )
                                           end
@@ -1432,3 +1482,57 @@ and xprog_eval (dm : defmap) (expected_in_type : xtype option)
       | NoneE err -> NoneE err
     end
   | ProgFail -> NoneE "Failure triggered"
+
+let rec all_basis_xexprs (dm : defmap) (xt : xtype) : xexpr list =
+  match xtype_reduce dm xt with
+  | NoneE err -> failwith err
+  | SomeE xt -> begin
+      match xt with
+      | Void
+      | TypeFail ->
+          []
+      | Qunit -> [Null]
+      | ProdType (xt0, xt1) ->
+          List.flatten
+            (List.map
+               (fun xe0 ->
+                 List.map
+                   (fun xe1 -> Qpair (xe0, xe1))
+                   (all_basis_xexprs dm xt1))
+               (all_basis_xexprs dm xt0))
+      | TypeVar _ ->
+          failwith
+            (Printf.sprintf
+               "all_basis_xexprs: type should be reduced, but got a type \
+                variable %s"
+               (string_of_xtype xt))
+      | TypeIf _ ->
+          failwith
+            (Printf.sprintf
+               "all_basis_xexprs: type should be reduced, but got a \
+                conditional type expression %s"
+               (string_of_xtype xt))
+      | TypeInvoke (typename, params) -> begin
+          match StringMap.find_opt typename dm.defs with
+          | Some (TypedefVariant (_, psig, constructors)) -> begin
+              match
+                update_defmap_with_params dm StringMap.empty psig params
+              with
+              | SomeE dm' ->
+                  List.flatten
+                    (List.map
+                       (fun (name, xt') ->
+                         List.map
+                           (fun xe -> Apply (ProgInvoke (name, params), xe))
+                           (all_basis_xexprs dm' xt'))
+                       constructors)
+              | NoneE err -> failwith err
+            end
+          | _ ->
+              failwith
+                (Printf.sprintf
+                   "Type should be reduced, but got a non-variant type \
+                    invocation %s"
+                   (string_of_xtype xt))
+        end
+    end
