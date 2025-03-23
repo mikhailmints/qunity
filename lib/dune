@@ -6,12 +6,14 @@
   reals
   syntax
   typechecking
+  typechecking_old
   matrix
   semantics
   metaprogramming
   gate
   binary_tree
   compilation
+  compilation_unoptimized
   gate_semantics
   parser
   lexer

@@ -19,7 +19,7 @@ NC = "\033[0m"
 
 LOAD_TIMEOUT = 40
 DRAW_TIMEOUT = 40
-SIMULATE_TIMEOUT = 300
+SIMULATE_TIMEOUT = 10000
 SIM_SHOTS = 10000
 
 
@@ -61,7 +61,7 @@ def simulate_circuit(circuit, basename):
         print("Transpiling circuit")
         circuit = transpile(
             circuit,
-            basis_gates=(backend.operation_names + ["if_else"]),
+            basis_gates=["u3", "cx"], # basis_gates=(backend.operation_names + ["if_else"]),
             optimization_level=3,
             seed_transpiler=0,
         )
