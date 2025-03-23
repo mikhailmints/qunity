@@ -1,8 +1,4 @@
-def T :=
-    ((Bit * (Bit * Bit)) * (Bit * (Bit * Bit)))
-end
-
-((Bit0, (Bit1, Bit0)), (Bit1, (Bit1, Bit0)))
-|> lambda x {T} -> ctrl {T, T * T} x [
-    ((c, (k, Bit0)), (b, (a, g))) -> (x, ((a, (g, c)), (c, (c, c))));
+(($0, ($1, $0)), ($1, ($1, $0)))
+|> lambda x -> ctrl x [
+    ((c, (k, $0)), (b, (a, g))) -> (x, ((a, (g, c)), (c, (c, c))));
 ]

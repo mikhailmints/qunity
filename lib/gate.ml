@@ -228,7 +228,8 @@ let rec gate_to_list (u : gate) : gate list =
   | Sequence (u0, u1) -> gate_to_list u0 @ gate_to_list u1
   | _ -> [u]
 
-(** Converts a list of gates into a single gate, joining it using [Sequence]. *)
+(** Converts a list of gates into a single gate, joining it using [Sequence].
+*)
 let rec gate_of_list (ul : gate list) : gate =
   match ul with
   | [] -> Identity
@@ -773,11 +774,11 @@ let rec gate_list_optimize (ul : gate list) (out_reg : int list)
     (nqubits : int) : gate list * int list =
   if !optimization_print then
     Printf.printf ".%!";
-  (* let ul =
-       gate_classical_propagation ul
-         (Array.of_list (List.map (fun _ -> Classical false) (range nqubits)))
-         (ref (Classical false))
-     in *)
+  let ul =
+    gate_classical_propagation ul
+      (Array.of_list (List.map (fun _ -> Classical false) (range nqubits)))
+      (ref (Classical false))
+  in
   let ul = gate_list_shift_deletion_labels_left ul in
   let ul_opt, out_reg', changes_made = gate_optimization_pass ul out_reg in
     if changes_made then

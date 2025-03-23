@@ -10,4 +10,4 @@ let () =
   | NoneE err ->
       Printf.printf "%s\n" err;
       exit 1
-  | SomeE e -> execute_expr e
+  | SomeE (e, dm, xt) -> execute_expr e dm xt

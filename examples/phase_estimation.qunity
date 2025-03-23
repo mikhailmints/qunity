@@ -1,20 +1,20 @@
-def ApplyPhase <N, P> :=
-    if N = [0] then
-        Id <unit>
+def @ApplyPhase {#N, #P} : NTensorT {#N, Bit} -> NTensorT {#N, Bit} :=
+    if #N = 0 then
+        @Id {Unit}
     else
-        lambda (x0, x') {NTensorT <N, Bit>} ->
-            (ctrl {Bit, Bit} x0 [
-                Bit0 -> x0;
-                Bit1 -> x0 |> gphase {Bit, 2 * pi * P};
-            ], ApplyPhase <[N - 1], [2 * P]> of x')
+        lambda (x0, x') ->
+            (ctrl x0 [
+                $0 -> x0;
+                $1 -> x0 |> gphase {2 * pi * #P}
+            ], @ApplyPhase {#N - 1, 2 * #P} (x'))
     endif
 end
 
-def PhaseEstimation <N, P> :=
-    NTensorE <N, BitPlus>
-    |> ApplyPhase <N, P>
-    |> Adjoint <Qft <N>, NTensorT <N, Bit>>
-    |> Reverse <N, Bit>
+def $PhaseEstimation {#N, #P} : NTensorT {#N, Bit} :=
+    $NTensorE {#N, Bit, $Plus}
+    |> @ApplyPhase {#N, #P}
+    |> @Adjoint {NTensorT {#N, Bit}, NTensorT {#N, Bit}, @Qft {#N}}
+    |> @Reverse {#N, Bit}
 end
 
-PhaseEstimation <[5], [1/3]>
+$PhaseEstimation {5, 1/3}

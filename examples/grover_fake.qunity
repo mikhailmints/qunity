@@ -4,21 +4,24 @@ to the algorithm itself, which means that it can't be used for an arbitrary
 oracle. This demonstrates the amplitude amplification in the algorithm. 
 */
 
-def GroverIter <N, Answer> :=
-    lambda x {NTensorT <N, Bit>} ->
-    x |> Reflect <NTensorT <N, Bit>, Answer>
-    |> Reflect <NTensorT <N, Bit>, NTensorE <N, BitPlus>>
+def @GroverIter{#N, $Answer : Num{#N}} : Num{#N} -> Num{#N} :=
+    lambda x ->
+    x |> @Reflect {Num{#N}, $Answer}
+    |> @Reflect {Num{#N}, $NTensorE{#N, Bit, $Plus}}
 end
 
-def Grover <N, Answer, Niter> :=
-    if Niter = [0] then
-        NTensorE <N, BitPlus>
+/*
+Run Grover's algorithm for Niter iterations
+*/
+def $Grover {#N, $Answer : Num{#N}, #Niter} : Num{#N} :=
+    if #Niter = 0 then
+        $NTensorE {#N, Bit, $Plus}
     else
-        Grover <N, Answer, [Niter - 1]> |> GroverIter <N, Answer>
+        $Grover {#N, $Answer, #Niter - 1} |> @GroverIter {#N, $Answer}
     endif
 end
 
-def N := [5] end
-def Answer := (Bit0, (Bit1, (Bit1, (Bit0, (Bit0, ()))))) end
+def #N := 5 end
+def $Answer : Num{#N} := ($0, ($1, ($1, ($0, ($0, ()))))) end
 
-Grover <N, Answer, [4]>
+$Grover {#N, $Answer, 4}

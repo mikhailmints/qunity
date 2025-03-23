@@ -1,0 +1,43 @@
+/*
+In-place multiplication by an odd number #A modulo 2^#N
+*/
+def @ModMult{#N, #A} : Num{#N} -> Num{#N} :=
+    if #N = 1 then
+        @Id{Num{#N}}
+    else
+        lambda (x0, x1) ->
+        let (x0, x1) = (x0, x1 |> @ModMult{#N - 1, #A}) in
+        ctrl x0 [
+            $0 -> (x0, x1);
+            $1 -> (x0, @AddConst{#N - 1, (#A - 1) / 2}(x1))
+        ]
+    endif
+end
+
+/*
+Takes in an #M-bit register x and an #N-bit register y and returns
+(x, y * #A^x mod 2^#N), for an odd integer #A
+*/
+def @ModExp{#M, #N, #A} : Num{#M} * Num{#N} -> Num{#M} * Num{#N} :=
+    if #M = 0 then
+        @Id{Num{#M} * Num{#N}}
+    else
+        lambda ((x0, x1), y) ->
+        let ((x0, x1), y) = ctrl x0 [
+            $0 -> ((x0, x1), y);
+            $1 -> ((x0, x1), @ModMult{#N, #A}(y))
+        ]
+        in let (x0, (x1, y)) = (x0, @ModExp{#M - 1, #N, #A * #A}(x1, y))
+        in ((x0, x1), y)
+    endif
+end
+
+def $OrderFinding{#N, #A} : Num{#N} :=
+    ($NTensorE{#N, Bit, $Plus}, $NumToState{#N, 1})
+    |> @ModExp{#N, #N, #A}
+    |> @Fst{Num{#N}, Num{#N}}
+    |> @Adjoint {Num{#N}, Num{#N}, @Qft{#N}}
+    |> @Reverse {#N, Bit}
+end
+
+$OrderFinding{5, 13}

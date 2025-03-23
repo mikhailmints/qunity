@@ -1,8 +1,12 @@
-(left {unit, (unit + Bit) * Bit} of ())
-|> lambda x {unit + ((unit + Bit) * Bit)} ->
-    ctrl {unit + ((unit + Bit) * Bit), unit + ((unit + Bit) * Bit)} x [
-        right {unit, (unit + Bit) * Bit} of (right {unit, Bit} of a, b) -> x;
-        right {unit, (unit + Bit) * Bit} of (left {unit, Bit} of (), Bit0) -> x;
-        right {unit, (unit + Bit) * Bit} of (left {unit, Bit} of (), Bit1) -> x;
-        left {unit, (unit + Bit) * Bit} of () -> x;
-    ]
+type A :=
+    | $A0
+    | @A1 of Maybe{Bit} * Bit
+end
+
+$A0
+|> lambda x -> ctrl x [
+    @A1(@Just{Bit}(a), b) -> x;
+    @A1($Nothing{Bit}, $0) -> x;
+    @A1($Nothing{Bit}, $1) -> x;
+    $A0 -> x;
+]

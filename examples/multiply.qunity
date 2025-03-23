@@ -1,0 +1,3 @@
+def #N := 2 end
+
+$NTensorE{#N, Bit, $Plus} |> lambda x -> @Multiply{#N}(x, x) |> @Reverse{#N, Bit}

@@ -1,7 +1,7 @@
 // Bell state as Had and Cnot
 
-def N := [2] end
+def #N := 2 end
 
-NTensorE <N, Bit0>
-|> Gate1Q <N, [0], Had>
-|> Cnot <N, [0], [1]>
+$NTensorE {#N, Bit, $0}
+|> @Gate1Q {#N, 0, @Had}
+|> @Cnot {#N, 0, 1}

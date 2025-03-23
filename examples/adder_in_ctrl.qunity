@@ -1,0 +1,6 @@
+def #N := 4 end
+
+$NTensorE{#N, Bit, $Plus} |> lambda x -> ctrl (@Add{#N}(x, x)) [
+    $NumToState{#N, 4} -> x |> gphase{pi};
+    else -> x
+]

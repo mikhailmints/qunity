@@ -1,41 +1,15 @@
-/*
-A single Grover iteration for oracle F on N qubits
-*/
-def GroverIter <N, F> :=
-    lambda x {NTensorT <N, Bit>} ->
-    // Apply F as a phase oracle
-    ctrl {Bit, NTensorT <N, Bit>} (F of x) [
-        Bit0 -> x;
-        Bit1 -> x |> gphase {NTensorT <N, Bit>, pi}
-    ] |>
-    // Grover diffusion operator
-    Reflect <NTensorT <N, Bit>, NTensorE <N, BitPlus>>
-end
-
-/*
-Run Grover's algorithm for Niter iterations
-*/
-def Grover <N, F, Niter> :=
-    if Niter = [0] then
-        NTensorE <N, BitPlus>
-    else
-        Grover <N, F, [Niter - 1]> |> GroverIter <N, F>
-    endif
-end
-
-def N := [5] end
-def Answer := (Bit0, (Bit1, (Bit1, (Bit0, (Bit0, ()))))) end
+def #N := 5 end
+def $Answer : Num{#N} := ($0, ($1, ($1, ($0, ($0, ()))))) end
 
 /*
 Quantum oracle representing a function acting on N bits that outputs
 1 for the input Answer and 0 for other inputs
 */
-def F :=
-    lambda x {NTensorT <N, Bit>} ->
-    match {NTensorT <N, Bit>, Bit} x [
-        Answer -> Bit1;
-        else -> Bit0
+def @F : Num{#N} -> Bit :=
+    lambda x -> match x [
+        $Answer -> $1;
+        else -> $0
     ]
 end
 
-Grover <N, F, [4]>
+$Grover{Num{#N}, $NTensorE{#N, Bit, $Plus}, @F, 4}

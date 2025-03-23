@@ -1,10 +1,11 @@
 open Util
 open Syntax
-open Extended_syntax
+open Metaprogramming
 
 module I = Parser.MenhirInterpreter
 (** Source:
-    {:https://baturin.org/blog/declarative-parse-error-reporting-with-menhir/} *)
+    {:https://baturin.org/blog/declarative-parse-error-reporting-with-menhir/}
+*)
 
 exception Syntax_error of ((int * int) option * string)
 
@@ -45,24 +46,28 @@ let rec parse lexbuf (checkpoint : 'a I.checkpoint) =
   | I.Accepted v -> v
   | I.Rejected -> raise (Syntax_error (None, "Invalid syntax"))
 
-(** Parses a [qunityfile] from a string. *)
-let parse_string (s : string) : qunityfile =
+(** Parses from a string. *)
+let parse_string parse_fun (s : string) =
   let lexbuf = Lexing.from_string s in
-    parse lexbuf (Parser.Incremental.qunityfile lexbuf.lex_curr_p)
+    parse lexbuf (parse_fun lexbuf.lex_curr_p)
 
-(** Parses a [qunityfile] from a file. *)
-let parse_file (filename : string) : qunityfile =
+(** Parses from a file. *)
+let parse_file parse_fun (filename : string) =
   let file = open_in filename in
   let lexbuf = Lexing.from_channel (open_in filename) in
-  let result =
-    parse lexbuf (Parser.Incremental.qunityfile lexbuf.lex_curr_p)
-  in
+  let result = parse lexbuf (parse_fun lexbuf.lex_curr_p) in
     close_in file;
     result
 
-(** Given a parsing function (from a string or a file), outputs a [qunityfile]
-    if there are no syntax errors. Otherwise, outputs a syntax error message. *)
-let parse_with_err parse_fun s : qunityfile optionE =
+let parse_string_qunityfile = parse_string Parser.Incremental.qunityfile
+let parse_file_qunityfile = parse_file Parser.Incremental.qunityfile
+let parse_string_qunitylib = parse_string Parser.Incremental.qunitylib
+let parse_file_qunitylib = parse_file Parser.Incremental.qunitylib
+
+(** Given a parsing function (from a string or a file), outputs a parsing
+    result if there are no syntax errors. Otherwise, outputs a syntax error
+    message. *)
+let parse_with_err parse_fun s : 'a optionE =
   try SomeE (parse_fun s) with
   | Syntax_error (loc, err) -> begin
       let s =
@@ -78,23 +83,19 @@ let parse_with_err parse_fun s : qunityfile optionE =
   | Lexer.Lexing_error err -> NoneE err
 
 (** Reads a file and outputs a Qunity expression. *)
-let get_expr_from_file (prog_filename : string) : expr optionE =
+let get_expr_from_file (prog_filename : string) :
+    (expr * defmap * xtype) optionE =
   let stdlib_filename = "qunitylib/stdlib.qunity" in
-    match parse_with_err parse_file stdlib_filename with
+    match parse_with_err parse_file_qunitylib stdlib_filename with
     | NoneE err -> NoneE (err ^ "\nin " ^ stdlib_filename)
-    | SomeE stdlib_qf -> begin
-        match parse_with_err parse_file prog_filename with
+    | SomeE stdlib_dm -> begin
+        match parse_with_err parse_file_qunityfile prog_filename with
         | NoneE err -> NoneE (err ^ "\nin " ^ prog_filename)
-        | SomeE { dm; main } -> begin
-            let combined_dm = add_defmap stdlib_qf.dm dm in
-              match main with
-              | None -> NoneE "No main expression in file"
-              | Some main -> begin
-                  match xexpr_eval main combined_dm StringMap.empty with
-                  | RNone err ->
-                      NoneE (Printf.sprintf "Preprocessing error: %s" err)
-                  | RExpr e -> SomeE e
-                  | _ -> NoneE "Expected expression in main body"
-                end
+        | SomeE (dm, xe) -> begin
+            let dm = combine_defmaps stdlib_dm dm in
+              match xexpr_eval dm StringMap.empty None xe with
+              | SomeE (e, xt, _) -> SomeE (e, dm, xt)
+              | NoneE err ->
+                  NoneE (Printf.sprintf "Preprocessing error: %s" err)
           end
       end

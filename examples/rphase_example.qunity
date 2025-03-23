@@ -1,3 +1,3 @@
-NTensorE <[3], BitPlus>
-|> rphase {NTensorT <[3], Bit>, (Bit0, (Bit1, (Bit0, ()))), pi, 0}
-|> NTensorF <[3], Had, Bit>
+$NTensorE {3, Bit, $Plus}
+|> rphase {($0, ($1, ($0, ()))), pi, 0}
+|> @NTensorF {3, Bit, Bit, @Had}

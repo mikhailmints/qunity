@@ -1,1 +1,1 @@
-BitPlus |> lambda Bit0 {Bit} -> ()
+$Plus |> lambda $0 -> ()

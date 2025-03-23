@@ -1,4 +1,4 @@
 try
-    BitPlus |> lambda Bit0 {Bit} -> Bit1
+    $Plus |> lambda $0 -> $1
 catch
-    BitMinus
+    $Minus

@@ -67,8 +67,8 @@ let context_dimension (d : context) : int =
 let rec string_of_type (t : exprtype) =
   match t with
   | _ when t = bit -> "Bit"
-  | Void -> "void"
-  | Qunit -> "unit"
+  | Void -> "Void"
+  | Qunit -> "Unit"
   | SumType (t0, t1) ->
       Printf.sprintf "(%s) + (%s)" (string_of_type t0) (string_of_type t1)
   | ProdType (t0, t1) ->

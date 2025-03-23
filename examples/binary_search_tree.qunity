@@ -1,0 +1,40 @@
+type BinaryTree{#D, 'a} :=
+    | $Leaf
+    | @Node of
+        if #D = 0 then
+            Void
+        else
+            'a * (BinaryTree{#D - 1, 'a} * BinaryTree{#D - 1, 'a})
+        endif
+end
+
+def @BST_insert{#D, 'a, @Cmp : 'a * 'a -> Bit} : BinaryTree{#D, 'a} * 'a -> BinaryTree{#D, 'a} :=
+    if #D = 0 then
+        lambda _ -> ctrl () []
+    else
+        lambda (tree, x) -> match tree [
+            $Leaf{#D, 'a} -> @Node{#D, 'a}(x, ($Leaf{#D - 1, 'a}, $Leaf{#D - 1, 'a}));
+            @Node{#D, 'a}(y, (l, r)) -> match @Cmp(x, y) [
+                $1 -> @Node{#D, 'a}(y, (@BST_insert{#D - 1, 'a, @Cmp}(l, x), r));
+                $0 -> @Node{#D, 'a}(y, (l, @BST_insert{#D - 1, 'a, @Cmp}(r, x)))
+            ]
+        ]
+    endif
+end
+
+def @BitCompare : Bit * Bit -> Bit :=
+    lambda (a, b) -> match (a, b) [
+        ($1, $0) -> $0;
+        else -> $1
+    ]
+end
+
+def #D := 2 end
+
+type T := BinaryTree{#D, Bit} end
+
+def @INS{$X : Bit} : T -> T :=
+    lambda t -> @BST_insert{#D, Bit, @BitCompare}(t, $X)
+end
+
+$Leaf{#D, Bit} |> @INS{$Plus} |> @INS{$Plus}

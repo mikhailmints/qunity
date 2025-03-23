@@ -56,7 +56,8 @@ let all_basis_exprs (t : exprtype) : expr array =
 let all_basis_states_memo : (exprtype, matrix array) Hashtbl.t =
   Hashtbl.create memo_size
 
-(** Returns all basis states in the vector space corresponding to the type [t]. *)
+(** Returns all basis states in the vector space corresponding to the type [t].
+*)
 let all_basis_states (t : exprtype) : matrix array =
   if Hashtbl.mem all_basis_states_memo t then
     Hashtbl.find all_basis_states_memo t
@@ -599,23 +600,16 @@ let top_mixed_prog_semantics (f : prog) : superoperator =
 
 (** Determines the possible measurement outcomes of an expression using the
     Born rule. *)
-let measurement_outcomes (e : expr) : (expr * float) list =
+let measurement_outcomes (e : expr) : float list =
   match mixed_type_check StringMap.empty StringMap.empty e with
   | NoneE err -> failwith err
   | SomeE tp -> begin
       let t = type_of_mixed_expr_proof tp in
       let sem = top_mixed_expr_semantics e in
       let basis = all_basis_exprs t in
-      let probs =
         List.map
           (fun e' ->
             let v = expr_to_basis_state t e' in
               Complex.norm (mat_to_scalar (mat_adjoint v *@ sem *@ v)))
           (Array.to_list basis)
-      in
-        List.sort
-          (fun (_, p0) (_, p1) ->
-            if float_approx_equal p0 p1 then 0 else Stdlib.compare p1 p0)
-          ((List.filter (fun (_, p) -> not (float_approx_equal p 0.)))
-             (List.combine (Array.to_list basis) probs))
     end

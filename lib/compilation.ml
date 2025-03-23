@@ -132,10 +132,12 @@ type inter_op =
           path in the left and right subspace. *)
   | IDistrLeft of exprtype * exprtype * exprtype
       (** Left distributivity isomorphism
-          {m T \otimes (T_0 \oplus T_1) \rarr T \otimes T_0 \oplus T \otimes T_1}. *)
+          {m T \otimes (T_0 \oplus T_1) \rarr T \otimes T_0 \oplus T \otimes T_1}.
+      *)
   | IDistrRight of exprtype * exprtype * exprtype
       (** Right distributivity isomorphism
-          {m (T_0 \oplus T1) \otimes T \rarr T_0 \otimes T \oplus T_1 \otimes T}. *)
+          {m (T_0 \oplus T1) \otimes T \rarr T_0 \otimes T \oplus T_1 \otimes T}.
+      *)
   | IMixedErr of inter_op  (** Mixed error handling circuit. *)
   | IPureErr of inter_op  (** Pure error handling circuit. *)
   | IAlwaysErr of int  (** Circuit component that always throws an error. *)
@@ -1872,7 +1874,8 @@ let rec big_distr_left_op (stop : exprtype) (t0 : exprtype) (t1 : exprtype) :
     end
   | _ -> IIdentity (ProdType (t0, t1))
 
-(** Converts a context into a fake product type of the types in its bindings. *)
+(** Converts a context into a fake product type of the types in its bindings.
+*)
 let fake_type_of_context (d : context) : exprtype =
   let types = List.map snd (StringMap.bindings d) in
     List.fold_right (fun x cur -> ProdType (x, cur)) types Qunit
@@ -2277,7 +2280,8 @@ and compile_single_erasure_to_inter_op (x : string) (xtype : exprtype)
             [("res", tsize)]
       end
 
-(** Compiles the erasure judgment into an intermediate representation operator. *)
+(** Compiles the erasure judgment into an intermediate representation operator.
+*)
 and compile_erasure_to_inter_op (d : context) (t : exprtype)
     (l : (string * erasure_proof) list) : inter_op =
   let dsize = context_size d in

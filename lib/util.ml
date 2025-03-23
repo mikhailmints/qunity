@@ -9,6 +9,10 @@ module IntMap = Map.Make (Int)
 let fst3 (a, _, _) = a
 let snd3 (_, b, _) = b
 let trd3 (_, _, c) = c
+let fst4 (a, _, _, _) = a
+let snd4 (_, b, _, _) = b
+let trd4 (_, _, c, _) = c
+let fth4 (_, _, _, d) = d
 
 (** Converts [SomeE] to [Some] and [NoneE] to [None]. *)
 let option_of_optionE (optE : 'a optionE) : 'a option =
@@ -54,6 +58,16 @@ let map_all_or_nothing (d : 'a option StringMap.t) : 'a StringMap.t option =
     match all_or_nothing vals with
     | Some l -> Some (StringMap.of_seq (List.to_seq (List.combine keys l)))
     | _ -> None
+
+(** Outputs [NoneE] with the first encountered error if any of the values of
+    [d] are [NoneE], otherwise removes the option constructors from the values.
+*)
+let map_all_or_nothing_optionE (d : 'a optionE StringMap.t) :
+    'a StringMap.t optionE =
+  let keys, vals = List.split (StringMap.bindings d) in
+    match all_or_nothing_optionE vals with
+    | SomeE l -> SomeE (StringMap.of_seq (List.to_seq (List.combine keys l)))
+    | NoneE err -> NoneE err
 
 (** Creates a string that does not appear in the set [s], starting with
     [prefix]. *)
@@ -132,7 +146,8 @@ let map_merge (allow_dup : bool) (d0 : 'a StringMap.t) (d1 : 'a StringMap.t) :
          else
            "Expected disjoint maps")
 
-(** Merges two maps, throwing an exception if it is impossible to merge them. *)
+(** Merges two maps, throwing an exception if it is impossible to merge them.
+*)
 let map_merge_noopt (allow_dup : bool) (d0 : 'a StringMap.t)
     (d1 : 'a StringMap.t) : 'a StringMap.t =
   match map_merge allow_dup d0 d1 with
@@ -261,7 +276,8 @@ let range (i : int) : int list =
   let rec iter i = if i <= 0 then [] else (i - 1) :: iter (i - 1) in
     List.rev (iter i)
 
-(** Returns the numbers from [0] (inclusive) to [i] (exclusive), as an array. *)
+(** Returns the numbers from [0] (inclusive) to [i] (exclusive), as an array.
+*)
 let range_arr (i : int) : int array = Array.of_list (range i)
 
 (** Tests whether two floats are approximately equal. *)

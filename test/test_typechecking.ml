@@ -100,7 +100,7 @@ let typecheck_file (testname : string) (filename : string) : unit =
   try
     match get_expr_from_file filename with
     | NoneE err -> failwith err
-    | SomeE e -> begin
+    | SomeE (e, _, _) -> begin
         match mixed_type_check StringMap.empty StringMap.empty e with
         | SomeE _ -> Printf.printf "passed\n"
         | NoneE err -> failwith err
@@ -196,7 +196,7 @@ let () =
       (span_list Qunit [Null] false)
       (Some [Null]);
     test_equality "span_list_qunit2" (span_list Qunit [] false) (Some [Null]);
-    test_equality "span_list_bit1" (span_list bit [] false) (Some [Var "$0"]);
+    test_equality "span_list_bit1" (span_list bit [] false) (Some [Var "&0"]);
     test_equality "span_list_bit2"
       (span_list bit [bit0] false)
       (Some [bit0; bit1]);
@@ -206,7 +206,7 @@ let () =
 
     test_equality "span_list_2bit"
       (span_list (ProdType (bit, bit)) [Qpair (bit0, bit0)] false)
-      (Some [Qpair (bit0, bit0); Qpair (bit0, bit1); Qpair (bit1, Var "$0")]);
+      (Some [Qpair (bit0, bit0); Qpair (bit0, bit1); Qpair (bit1, Var "&0")]);
 
     expect_expr_puretype "half_bell_type"
       (Ctrl

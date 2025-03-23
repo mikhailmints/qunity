@@ -1,18 +1,18 @@
-def N := [2] end
-def Nbits := [2] end
+def #N := 2 end
+def #Nbits := 2 end
 
-def LST := List <N, Bit> end
-def APP <X> := ListAppendConst <N, Bit, X> end
-def LEN := ListLength <N, Bit, Nbits> end
+type LST := List {#N, Bit} end
+def @APP {$X : Bit} : LST -> LST := @ListAppendConst {#N, Bit, $X} end
+def @LEN : LST -> NTensorT {#Nbits, Bit} := @ListLength {#N, Bit, #Nbits} end
 
-EmptyList <N, Bit> |>
+$ListEmpty {#N, Bit} |>
 // Append Bit1 to the list with 1/2 probability
-lambda l {List <N, Bit>} -> match {Bit, LST} BitPlus [
-    Bit0 -> l;
-    Bit1 -> l |> APP <Bit1>
+lambda l -> match $Plus [
+    $0 -> l;
+    $1 -> l |> @APP{$1}
 ] |>
 // If the list is empty, append Bit0. If it has length 1, append Bit1.
-lambda l {LST} -> match {NTensorT <Nbits, Bit>, LST} (LEN of l) [
-    NumToStateLE <[0], Nbits> -> l |> APP <Bit0>;
-    NumToStateLE <[1], Nbits> -> l |> APP <Bit1>;
+lambda l -> match @LEN(l) [
+    $NumToState{#Nbits, 0} -> l |> @APP{$0};
+    $NumToState{#Nbits, 1} -> l |> @APP{$1};
 ]

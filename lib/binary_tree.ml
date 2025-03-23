@@ -129,7 +129,8 @@ let rec valued_tree_get_subtree_from_path (tree : 'a valued_binary_tree)
       else
         valued_tree_get_subtree_from_path l p
 
-(** Replaces the subtree located at a given path with a new [replacement] tree. *)
+(** Replaces the subtree located at a given path with a new [replacement] tree.
+*)
 let rec valued_tree_replace_at_path (tree : 'a valued_binary_tree)
     (path : bool list) (replacement : 'a valued_binary_tree) :
     'a valued_binary_tree =
@@ -255,7 +256,8 @@ let transfer_right_to_left_subtree_single (tree : binary_tree) :
       TreeSequence (TreeRightApply (bring_leaf_to_top_left r), TreeLeftRotation)
 
 (** Creates a transformation that transforms a tree in such a way that it will
-    move a given amount of leaves from its right subtree to its left subtree. *)
+    move a given amount of leaves from its right subtree to its left subtree.
+*)
 let rec transfer_right_to_left_subtree (tree : binary_tree) (amount : int) :
     tree_transformation =
   if amount < 0 then
@@ -279,7 +281,8 @@ let transfer_left_to_right_subtree_single (tree : binary_tree) :
         (TreeLeftApply (bring_leaf_to_top_right l), TreeRightRotation)
 
 (** Creates a transformation that transforms a tree in such a way that it will
-    move a given amount of leaves from its left subtree to its right subtree. *)
+    move a given amount of leaves from its left subtree to its right subtree.
+*)
 let rec transfer_left_to_right_subtree (tree : binary_tree) (amount : int) :
     tree_transformation =
   if amount < 0 then

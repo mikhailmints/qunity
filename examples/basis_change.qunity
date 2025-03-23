@@ -1,5 +1,5 @@
-BitPlus |>
-pmatch {Bit, Bit} [
-    BitPlus -> Bit0;
-    BitMinus -> Bit1
+$Plus |>
+pmatch [
+    $Plus -> $0;
+    $Minus -> $1
 ]

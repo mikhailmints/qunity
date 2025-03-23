@@ -2,303 +2,297 @@
 Qunity standard library definitions, added to the start of every file
 */
 
-def Bit := unit + unit end
+type Bit := $0 | $1 end
 
-def Bit0 := left {unit, unit} of () end
+def $Plus : Bit := @Had($0) end
 
-def Bit1 := right {unit, unit} of () end
+def $Minus : Bit := @Had($1) end
 
-def BitPlus := Had of Bit0 end
+def @Had : Bit -> Bit := u3 {pi/2, 0, pi} end
 
-def BitMinus := Had of Bit1 end
+def @Not : Bit -> Bit := @PauliX end
 
-def Had := u3 {pi/2, 0, pi} end
+def @PauliX : Bit -> Bit := u3 {pi, 0, pi} end
 
-def Not := u3 {pi, 0, pi} end
+def @PauliY : Bit -> Bit := u3 {pi, pi/2, pi/2} end
 
-def PauliZ := u3 {0, pi, 0} end
+def @PauliZ : Bit -> Bit := u3 {0, pi, 0} end
 
-def Adjoint <F, T> :=
-    lambda (F of x) {T} -> x
+def @Adjoint {'a, 'b, @F : 'a -> 'b} : 'b -> 'a :=
+    lambda @F(x) -> x
 end
 
-def LeftAdj <T0, T1> :=
-    lambda (left {T0, T1} of x) {T0 + T1} -> x
+def @Id {'a} : 'a -> 'a :=
+    lambda x -> x
 end
 
-def RightAdj <T0, T1> :=
-    lambda (right {T0, T1} of x) {T0 + T1} -> x
+def @Const0 {'a} : 'a -> Bit :=
+    lambda x -> $0
 end
 
-def Id <T> :=
-    lambda x {T} -> x
+def @Const1 {'a} : 'a -> Bit :=
+    lambda x -> $1
 end
 
-def Const0 <T> :=
-    lambda x {T} -> Bit0
+def @Fst {'a, 'b} : ('a * 'b) -> 'a :=
+    lambda (x0, x1) -> x0
 end
 
-def Const1 <T> :=
-    lambda x {T} -> Bit1
+def @Snd {'a, 'b} : ('a * 'b) -> 'b :=
+    lambda (x0, x1) -> x1
 end
 
-def Fst <T0, T1> :=
-    lambda (x0, x1) {T0 * T1} -> x0
-end
-
-def Snd <T0, T1> :=
-    lambda (x0, x1) {T0 * T1} -> x1
-end
-
-def Maybe <T> :=
-    unit + T
-end
-
-def Nothing <T> :=
-    left {unit, T} of ()
-end
-
-def Just <T> :=
-    right {unit, T}
+type Maybe {'a} :=
+    | $Nothing
+    | @Just of 'a
 end
 
 /*
 Tensor product of type T, N times
 */
-def NTensorT <N, T> :=
-    if N lt [0] then
-        fail
+type NTensorT {#N, 'a} :=
+    if #N <= 0 then
+        Unit
     else
-        if N = [0] then
-            unit
-        else
-            T * NTensorT <[N - 1], T>
-        endif
+        'a * NTensorT {#N - 1, 'a}
     endif
 end
+
+type Num {#N} := NTensorT {#N, Bit} end
 
 /*
 Tensor product of expression E, N times
 */
-def NTensorE <N, E> :=
-    if N lt [0] then
-        fail
+def $NTensorE{#N, 'a, $E : 'a} : NTensorT{#N, 'a} :=
+    if #N <= 0 then
+        ()
     else
-        if N = [0] then
-            ()
-        else
-            (E, NTensorE <[N - 1], E>)
-        endif
+        ($E, $NTensorE{#N - 1, 'a, $E})
     endif
 end
 
 /*
 Tensor product of program F, acting on type T, N times
 */
-def NTensorF <N, F, T> :=
-    if N lt [0] then
-        fail
+def @NTensorF {#N, 'a, 'b, @F : 'a -> 'b} : NTensorT {#N, 'a} -> NTensorT {#N, 'b} :=
+    if #N <= 0 then
+        @Id {Unit}
     else
-        if N = [0] then
-            Id <unit>
-        else
-            lambda (x, x') {NTensorT <N, T>} ->
-            (F of x, NTensorF <[N - 1], F, T> of x')
-        endif
+        lambda (x, x') -> (@F(x), @NTensorF {#N - 1, 'a, 'b, @F} (x'))
     endif
 end
 
-def Append <N, T> :=
-    if N lt [0] then
-        fail
+def @Append {#N, 'a} : NTensorT {#N, 'a} * 'a -> NTensorT {#N + 1, 'a} :=
+    if #N <= 0 then
+        lambda (y, x) -> (x, y)
     else
-        if N = [0] then
-            lambda (y, x) {unit * T} -> (x, y)
-        else
-            lambda ((y0, y1), x) {NTensorT <N, T> * T} ->
-                (y0, Append <[N - 1], T> of (y1, x))
-        endif
+        lambda ((y0, y1), x) -> (y0, @Append {#N - 1, 'a} (y1, x))
     endif
 end
 
-def Concat <N0, N1, T> :=
-    if N1 = [0] then
-        lambda (a, ()) {NTensorT <N0, T> * unit} -> a
+def @Concat {#N0, #N1, 'a} : NTensorT {#N0, 'a} * NTensorT {#N1, 'a} -> NTensorT {#N0 + #N1, 'a} :=
+    if #N1 <= 0 then
+        lambda (a, ()) -> a
     else
-        lambda (a, (b, b')) {NTensorT <N0, T> * NTensorT <N1, T>} ->
-            Concat <[N0 + 1], [N1 - 1], T> of (Append <N0, T> of (a, b), b')
+        lambda (a, (b, b')) ->
+            @Concat {#N0 + 1, #N1 - 1, 'a} (@Append {#N0, 'a} (a, b), b')
     endif
 end
 
-def Reverse <N, T> :=
-    if N lt [0] then
-        fail
+def @Reverse {#N, 'a} : NTensorT {#N, 'a} -> NTensorT {#N, 'a} :=
+    if #N <= 0 then
+        @Id {Unit}
     else
-        if N = [0] then
-            Id <unit>
-        else
-            lambda (x, y) {NTensorT <N, T>} ->
-                Append <[N - 1], T> of (Reverse <[N - 1], T> of y, x)
-        endif
+        lambda (x, y) ->
+            @Append {#N - 1, 'a} (@Reverse {#N - 1, 'a} (y), x)
     endif
 end
 
-def Equals <T, E> :=
-    lambda x {T} -> try x |> lambda E {T} -> Bit1 catch Bit0
+def @Equals {'a, $E : 'a} : 'a -> Bit :=
+    lambda x -> try x |> lambda $E -> $1 catch $0
 end
 
-def Reflect <T, E> :=
-    rphase {T, E, 0, pi}
-end
-
-def Tag <T0, T1> :=
-    lambda x {T0 + T1} -> ctrl {T0 + T1, Bit * (T0 + T1)} x [
-        left {T0, T1} of x0 -> (Bit0, x);
-        right {T0, T1} of x1 -> (Bit1, x)
-    ]
-end
-
-/*
-Direct sum of programs F0 : T0 -> T0' and F1 : T1 -> T1', producing
-F0 + F1 : T0 + T1 -> T0' + T1'
-*/
-def OpDirSum <F0, F1, T0, T1, T0', T1'> :=
-    lambda x {T0 + T1} ->
-    let (xi, x) {Bit * (T0 + T1)} = Tag <T0, T1> of x in
-    ctrl {Bit, Bit * (T0' + T1')} xi [
-        Bit0 -> (xi, x |> LeftAdj <T0, T1> |> F0 |> left {T0', T1'});
-        Bit1 -> (xi, x |> RightAdj <T0, T1> |> F1 |> right {T0', T1'})
-    ] |> Adjoint <Tag <T0', T1'>, Bit * (T0' + T1')>
+def @Reflect {'a, $E : 'a} : 'a -> 'a :=
+    rphase {$E, 0, pi}
 end
 
 /*
 Little-endian encoding of number N as a quantum state
 */
-def NumToStateLE <N, Nbits> :=
-    if N lt [0] then
-        fail
+def $NumToState{#Nbits, #N} : Num{#Nbits} :=
+    if #N <= 0 then
+        $NTensorE{#Nbits, Bit, $0}
     else
-        if Nbits lt [0] then
-            fail
+        if #N % 2 = 0 then
+            ($0, $NumToState{#Nbits - 1, #N / 2})
         else
-            if N = [0] then
-                NTensorE <[Nbits], Bit0>
-            else
-                if [N % 2] = [0] then
-                    (Bit0, NumToStateLE <[N / 2], [Nbits - 1]>)
-                else
-                    (Bit1, NumToStateLE <[(N - 1) / 2], [Nbits - 1]>)
-                endif
-            endif
+            ($1, $NumToState{#Nbits - 1, (#N - 1) / 2})
         endif
     endif
 end
 
 /*
-Big-endian encoding of number N as a quantum state
-*/
-def NumToStateBE <N, Nbits> :=
-    NumToStateLE <N, [Nbits]> |> Reverse <[Nbits], Bit>
-end
-
-/*
 Increment a little-endian N-bit number
 */
-def IncrementLE <N> :=
-    if N lt [0] then
-        fail
+def @Increment {#N} : Num {#N} -> Num {#N} :=
+    if #N <= 0 then
+        @Id {Unit}
     else
-        if N = [0] then
-            Id <unit>
-        else
-            pmatch {NTensorT <N, Bit>, NTensorT <N, Bit>} [
-                (Bit0, x) -> (Bit1, x);
-                (Bit1, x) -> (Bit0, x |> IncrementLE <[N - 1]>)
-            ]
-        endif
+        pmatch [
+            ($0, x) -> ($1, x);
+            ($1, x) -> ($0, x |> @Increment {#N - 1})
+        ]
     endif
 end
 
 /*
 Decrement a little-endian N-bit number
 */
-def DecrementLE <N> :=
-    Adjoint <IncrementLE <N>, NTensorT <N, Bit>>
+def @Decrement {#N} : Num {#N} -> Num {#N} :=
+    @Adjoint {Num {#N}, Num {#N}, @Increment {#N}}
 end
 
 /*
-Increment a big-endian N-bit number
+Addition of a constant #A (modulo 2^#N) in a pure way
 */
-def IncrementBE <N> :=
-    lambda x {NTensorT <N, Bit>} ->
-    x |> Reverse <N, Bit> |> IncrementLE <N> |> Reverse <N, Bit>
+def @AddConst{#N, #A} : Num{#N} -> Num{#N} :=
+    if #N <= 0 then
+        @Id{Unit}
+    else
+        pmatch [
+            ($0, x) -> (if #A % 2 = 0 then $0 else $1 endif, x |> @AddConst{#N - 1, (#A - #A % 2)/2});
+            ($1, x) -> (if #A % 2 = 0 then $1 else $0 endif, x |> @AddConst{#N - 1, (#A - #A % 2)/2 + #A % 2})
+        ]
+    endif
+end
+
+def @AddHelper{#N} : Num{#N} * Num{#N} * Bit -> Num{#N} :=
+    if #N = 0 then
+        lambda ((a, b), carry) -> ()
+    else
+        lambda (((a0, a1), (b0, b1)), carry) -> 
+        let ((res, new_carry), (a1, b1)) = (match ((a0, b0), carry) [
+            (($0, $0), $0) -> ($0, $0);
+            (($1, $0), $0) -> ($1, $0);
+            (($0, $1), $0) -> ($1, $0);
+            (($1, $1), $0) -> ($0, $1);
+            (($0, $0), $1) -> ($1, $0);
+            (($1, $0), $1) -> ($0, $1);
+            (($0, $1), $1) -> ($0, $1);
+            (($1, $1), $1) -> ($1, $1);
+        ], (a1, b1)) in
+        (res, @AddHelper{#N - 1}((a1, b1), new_carry))
+    endif
 end
 
 /*
-Decrement a big-endian N-bit number
+Add two N-bit numbers (modulo 2^#N)
 */
-def DecrementBE <N> :=
-    Adjoint <IncrementBE <N>, NTensorT <N, Bit>>
+def @Add{#N} : Num{#N} * Num{#N} -> Num{#N} :=
+    lambda (a, b) -> @AddHelper{#N}((a, b), $0)
+end
+
+def @NumDowncast{#N} : Num{#N} -> Num{#N - 1} :=
+    if #N <= 0 then
+        lambda () -> ctrl () []
+    else if #N = 1 then
+        lambda _ -> ()
+    else
+        lambda (a0, a1) -> (a0, @NumDowncast{#N - 1}(a1))
+    endif
+    endif
+end
+
+def @Double{#N} : Num{#N} -> Num{#N} :=
+    lambda a -> ($0, @NumDowncast{#N}(a))
+end
+
+def @MultiplyHelper{#N, #M} : Num{#N} * Num{#M} -> Num{#N} :=
+    if #M = 0 then
+        lambda (a, b) -> $NumToState{#N, 0}
+    else
+        lambda (a, (b0, b1)) -> match b0 [
+            $0 -> @Double{#N}(@MultiplyHelper{#N, #M - 1}(a, b1));
+            $1 -> @Add{#N}(a, @Double{#N}(@MultiplyHelper{#N, #M - 1}(a, b1)))
+        ]
+    endif
+end
+
+def @Multiply{#N} : Num{#N} * Num{#N} -> Num{#N} :=
+    @MultiplyHelper{#N, #N}
 end
 
 /*
 Retries an evaluation of E N times, amplifying the probability of success
 */
-def Retry <N, E> :=
-    if N lt [0] then
-        fail
+def $Retry {#N, 'a, $E : 'a} : 'a :=
+    if #N <= 0 then
+        $E
     else
-        if N = [0] then
-            E
-        else
-            try E catch Retry <[N - 1], E>
-        endif
+        try $E catch $Retry {#N - 1, 'a, $E}
     endif
 end
 
-def And :=
-    lambda x {Bit * Bit} ->
-    match {Bit * Bit, Bit} x [
-        (Bit1, Bit1) -> Bit1;
-        else -> Bit0;
+def @And : Bit * Bit -> Bit :=
+    lambda x -> match x [
+        ($1, $1) -> $1;
+        else -> $0;
     ]
 end
 
 /*
 Utilities for the Quantum Fourier Transform
 */
-def Couple <K> :=
-    lambda (x0, x1) {Bit * Bit} ->
-    (x1, x0) |> rphase {Bit * Bit, (Bit1, Bit1), 2 * pi / (2 ^ K), 0}
+def @Couple {#K} : Bit * Bit -> Bit * Bit :=
+    lambda (x0, x1) -> (x1, x0) |> rphase {($1, $1), 2 * pi / (2 ^ #K), 0}
 end
 
-def Rotations <N> :=
-    if N = [0] then
-        Id <unit>
+def @Rotations {#N} : NTensorT {#N, Bit} -> NTensorT {#N, Bit} :=
+    if #N <= 0 then
+        @Id {Unit}
+    else if #N = 1 then
+        lambda (x, ()) -> (@Had(x), ())
     else
-        if N = [1] then
-            lambda (x, ()) {NTensorT <[1], Bit>} -> (Had of x, ())
-        else
-            lambda (x0, x) {NTensorT <N, Bit>} ->
-            let (x0, (y0', y)) {NTensorT <N, Bit>} =
-            (x0, x |> Rotations <[N - 1]>) in
-            let ((y0, y1), y) {(Bit * Bit) * NTensorT <[N - 2], Bit>} =
-            ((x0, y0') |> Couple <N>, y) in (y0, (y1, y))
-        endif
+        lambda (x0, x) ->
+            let (x0, (y0', y)) = (x0, @Rotations {#N - 1} (x)) in
+            let ((y0, y1), y) = (@Couple {#N} (x0, y0'), y) in
+            (y0, (y1, y))
+    endif
+    endif
+end
+
+def @Qft {#N} : NTensorT {#N, Bit} -> NTensorT {#N, Bit} :=
+    if #N <= 0 then
+        @Id {Unit}
+    else
+        lambda x ->
+            let (x0, x') = @Rotations {#N} (x) in
+            (x0, @Qft {#N - 1} (x'))
     endif
 end
 
 /*
-Quantum Fourier Transform on N bits
+A single Grover iteration for oracle F on N qubits
 */
-def Qft <N> :=
-    if N = [0] then
-        Id <unit>
+def @GroverIter{'a, $EqualSuperpos : 'a, @F : 'a -> Bit} : 'a -> 'a :=
+    lambda x ->
+    // Apply F as a phase oracle
+    ctrl @F(x) [
+        $0 -> x;
+        $1 -> x |> gphase{pi}
+    ] |>
+    // Grover diffusion operator
+    @Reflect{'a, $EqualSuperpos}
+end
+
+/*
+Run Grover's algorithm for Niter iterations
+*/
+def $Grover{'a, $EqualSuperpos : 'a, @F : 'a -> Bit, #Niter} : 'a :=
+    if #Niter = 0 then
+        $EqualSuperpos
     else
-        lambda x {NTensorT <N, Bit>} ->
-        let (x0, x') {NTensorT <N, Bit>} =
-        x |> Rotations <N> in
-        (x0, x' |> Qft <[N - 1]>)
+        $Grover{'a, $EqualSuperpos, @F, #Niter - 1} |> @GroverIter {'a, $EqualSuperpos, @F}
     endif
 end
 
@@ -308,159 +302,124 @@ By using the following constructions, we can write quantum circuits in terms of
 single-qubit gates and the CNOT gate.
 */
 
-def Gate1Q <N, I, F> :=
-    if I lt [0] then
-        fail
+def @Gate1Q {#N, #I, @F : Bit -> Bit} : NTensorT {#N, Bit} -> NTensorT {#N, Bit} :=
+    if #I <= 0 then
+        lambda (x, y) -> (@F(x), y)
     else
-        if I = [0] then
-            lambda (x, y) {NTensorT <N, Bit>} -> (F of x, y)
+        lambda (x, y) -> (x, @Gate1Q {#N - 1, #I - 1, @F} (y))
+    endif
+end
+
+def @Controlled1Q {#N, #I, #J, @F : Bit -> Bit} : NTensorT {#N, Bit} -> NTensorT {#N, Bit} :=
+    if #I > #J then
+        lambda x -> x
+        |> @Reverse {#N, Bit}
+        |> @Controlled1Q {#N, #N - 1 - #I, #N - 1 - #J, @F}
+        |> @Reverse {#N, Bit}
+    else
+        if #I <= 0 then
+            lambda (x, y) -> ctrl x [
+                $0 -> (x, y);
+                $1 -> (x, @Gate1Q {#N - 1, #J - 1, @F} (y))
+            ]
         else
-            lambda (x, y) {NTensorT <N, Bit>} ->
-                (x, Gate1Q <[N - 1], [I - 1], F> of y)
+            lambda (x, y) -> (x, @Cnot {#N - 1, #I - 1, #J - 1} (y))
         endif
     endif
 end
 
-def Controlled1Q <N, I, J, F> :=
-    if I gt J then
-        lambda x {NTensorT <N, Bit>} -> x
-        |> Reverse <N, Bit>
-        |> Controlled1Q <N, [N - 1 - I], [N - 1 - J], F>
-        |> Reverse <N, Bit>
-    else
-        if I = [0] then
-            if J leq [0] then
-                fail
-            else
-                lambda (x, y) {NTensorT <N, Bit>} ->
-                    ctrl {Bit, NTensorT <N, Bit>} x [
-                        Bit0 -> (x, y);
-                        Bit1 -> (x, Gate1Q <[N - 1], [J - 1], F> of y)
-                    ]
-            endif
+def @Cnot {#N, #I, #J} : NTensorT {#N, Bit} -> NTensorT {#N, Bit} :=
+    @Controlled1Q {#N, #I, #J, @Not}
+end
+
+type List{#N, 'a} :=
+    | $ListEmpty
+    | @ListCons of
+        if #N <= 0 then
+            Void
         else
-            lambda (x, y) {NTensorT <N, Bit>} ->
-                (x, Cnot <[N - 1], [I - 1], [J - 1]> of y)
+            'a * List{#N - 1, 'a}
         endif
-    endif
 end
 
-def Cnot <N, I, J> :=
-    Controlled1Q <N, I, J, Not>
-end
-
-def List <N, T> :=
-    if N = [0] then
-        unit
+def @ListAppend{#N, 'a} : List{#N, 'a} * 'a -> List{#N, 'a} :=
+    if #N <= 0 then
+        lambda _ -> ctrl () []
     else
-        unit + (T * List <[N - 1], T>)
-    endif
-end
-
-def EmptyList <N, T> :=
-    if N = [0] then
-        ()
-    else
-        left {unit, (T * List <[N - 1], T>)} of ()
-    endif
-end
-
-// Given L of type List <N, T> and X of type T, outputs List <N + 1, T>
-def ListCons <N, T, X, L> :=
-    right {unit, (T * List <N, T>)} of (X, L)
-end
-
-def ListAppend <N, T> :=
-    if N = [0] then
-        lambda (l, x) {List <N, T> * T} -> ctrl {unit, unit} () []
-    else
-        lambda (l, x) {List <N, T> * T} ->
-            match {List <N, T>, List <N, T>} l [
-                EmptyList <N, T> -> ListCons <[N - 1], T, x, EmptyList <[N - 1], T>>;
-                ListCons <[N - 1], T, x', l'> -> ListCons <[N - 1], T, x', ListAppend <[N - 1], T> of (l', x)>
-            ]
-    endif
-end
-
-def ListAppendConst <N, T, X> :=
-    if N = [0] then
-        lambda l {List <N, T>} -> ctrl {unit, unit} () []
-    else
-        lambda l {List <N, T>} ->
-            match {List <N, T>, List <N, T>} l [
-                EmptyList <N, T> -> ListCons <[N - 1], T, X, EmptyList <[N - 1], T>>;
-                ListCons <[N - 1], T, x', l'> -> ListCons <[N - 1], T, x', ListAppend <[N - 1], T> of (l', X)>
-            ]
-    endif
-end
-
-// Cast a List <N, T> to a List <[N + 1], T>
-def ListUpcast <N, T> :=
-    if N = [0] then
-        lambda () {unit} -> EmptyList <[1], T>
-    else
-        lambda l {List <N, T>} ->
-        match {List <N, T>, List <[N + 1], T>} l [
-            EmptyList <N, T> -> EmptyList <[N + 1], T>;
-            ListCons <[N - 1], T, x', l'> -> ListCons <N, T, x', ListUpcast <[N - 1], T> of l'>
+        lambda (l, x) -> match l [
+            $ListEmpty{#N, 'a} -> @ListCons{#N, 'a}(x, $ListEmpty{#N - 1, 'a});
+            @ListCons{#N, 'a}(x', l') -> @ListCons{#N, 'a}(x', @ListAppend{#N - 1, 'a}(l', x))
         ]
     endif
 end
 
-// Cast a List <N, T> to a List <[N - 1], T>
-def ListDowncast <N, T> :=
-    if N = [0] then
-        lambda () {unit} -> ctrl {unit, unit} () []
+def @ListAppendConst{#N, 'a, $X : 'a} : List{#N, 'a} -> List{#N, 'a} :=
+    lambda l -> @ListAppend{#N, 'a}(l, $X)
+end
+
+def @ListUpcast{#N, 'a} : List{#N, 'a} -> List{#N + 1, 'a} :=
+    if #N <= 0 then
+        lambda _ -> $ListEmpty{1, 'a}
     else
-        if N = [1] then
-            lambda EmptyList <N, T> {List <N, T>} -> EmptyList <[N - 1], T>
+        lambda l -> match l [
+            $ListEmpty{#N, 'a} -> $ListEmpty{#N + 1, 'a};
+            @ListCons{#N, 'a}(x', l') ->
+                @ListCons{#N + 1, 'a}(x', @ListUpcast{#N - 1, 'a}(l'))
+        ]
+    endif
+end
+
+def @ListDowncast{#N, 'a} : List{#N, 'a} -> List{#N - 1, 'a} :=
+    if #N <= 0 then
+        lambda _ -> ctrl () []
+    else if #N = 1 then
+        lambda $ListEmpty{#N, 'a} -> $ListEmpty{#N - 1, 'a}
+    else
+        lambda l -> match l [
+            $ListEmpty{#N, 'a} -> $ListEmpty{#N - 1, 'a};
+            @ListCons{#N, 'a}(x', l') ->
+                @ListCons{#N - 1, 'a}(x', @ListDowncast {#N - 1, 'a} (l'))
+        ]
+    endif
+    endif
+end
+
+def @ListCastTo{#N, 'a, #N'} : List{#N, 'a} -> List{#N', 'a} :=
+    if #N' = #N then
+        lambda l -> l
+    else
+        if #N' > #N then
+            lambda l -> @ListCastTo{#N + 1, 'a, #N'}(@ListUpcast {#N, 'a}(l))
         else
-            lambda l {List <N, T>} -> match {List <N, T>, List <[N - 1], T>} l [
-                EmptyList <N, T> -> EmptyList <[N - 1], T>;
-                ListCons <[N - 1], T, x', l'> -> ListCons <[N - 2], T, x', ListDowncast <[N - 1], T> of l'>
-            ]
+            lambda l -> @ListCastTo{#N - 1, 'a, #N'}(@ListDowncast {#N, 'a}(l))
         endif
     endif
 end
 
-// Cast a List <N, T> to a List <N', T>
-def ListCastTo <N, T, N'> :=
-    if N' = N then
-        lambda l {List <N, T>} -> l
+def @ListHead{#N, 'a} : List{#N, 'a} -> 'a :=
+    if #N <= 0 then
+        lambda _ -> ctrl () []
     else
-        if N' gt N then
-            lambda l {List <N, T>} -> ListCastTo <[N + 1], T, N'> of (ListUpcast <N, T> of l)
-        else
-            lambda l {List <N, T>} -> ListCastTo <[N - 1], T, N'> of (ListDowncast <N, T> of l)
-        endif
+        lambda @ListCons{#N, 'a}(x, l') -> x
     endif
 end
 
-def ListHead <N, T> :=
-    if N = [0] then
-        lambda l {List <N, T>} -> ctrl {unit, unit} () []
+def @ListTail{#N, 'a} : List{#N, 'a} -> List{#N - 1, 'a} :=
+    if #N <= 0 then
+        lambda _ -> ctrl () []
     else
-        lambda (ListCons <[N - 1], T, x, l'>) {List <N, T>} -> x
+        lambda @ListCons{#N, 'a}(x, l') -> l'
     endif
 end
 
-def ListTail <N, T> :=
-    if N = [0] then
-        lambda l {List <N, T>} -> ctrl {unit, unit} () []
+def @ListLength{#N, 'a, #Nbits} : List{#N, 'a} -> Num{#Nbits} :=
+    if #N <= 0 then
+        lambda l -> $NumToState{#Nbits, 0}
     else
-        lambda (ListCons <[N - 1], T, x, l'>) {List <N, T>} -> l'
-    endif
-end
-
-def ListLength <N, T, Nbits> :=
-    if N = [0] then
-        lambda l {List <N, T>} ->
-            NumToStateLE <[0], Nbits>
-    else
-        lambda l {List <N, T>} ->
-        match {List <N, T>, NTensorT <Nbits, Bit>} l [
-            EmptyList <N, T> -> NumToStateLE <[0], Nbits>;
-            ListCons <[N - 1], T, x', l'> -> IncrementLE <Nbits> of (ListLength <[N - 1], T, Nbits> of l')
+        lambda l -> match l [
+            $ListEmpty{#N, 'a} -> $NumToState{#Nbits, 0};
+            @ListCons{#N, 'a}(x', l') ->
+                @Increment{#Nbits}(@ListLength{#N - 1, 'a, #Nbits}(l'))
         ]
     endif
 end
