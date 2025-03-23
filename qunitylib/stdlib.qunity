@@ -63,11 +63,11 @@ type Num {#N} := NTensorT {#N, Bit} end
 /*
 Tensor product of expression E, N times
 */
-def $NTensorE {#N, 'a, $E : 'a} : NTensorT {#N, 'a} :=
+def $NTensorE{#N, 'a, $E : 'a} : NTensorT{#N, 'a} :=
     if #N <= 0 then
         ()
     else
-        ($E, $NTensorE {#N - 1, 'a, $E})
+        ($E, $NTensorE{#N - 1, 'a, $E})
     endif
 end
 
@@ -119,35 +119,28 @@ end
 /*
 Little-endian encoding of number N as a quantum state
 */
-def $NumToStateLE {#N, #Nbits} : Num {#Nbits} :=
+def $NumToState{#Nbits, #N} : Num{#Nbits} :=
     if #N <= 0 then
-        $NTensorE {#Nbits, Bit, $0}
+        $NTensorE{#Nbits, Bit, $0}
     else
         if #N % 2 = 0 then
-            ($0, $NumToStateLE {#N / 2, #Nbits - 1})
+            ($0, $NumToState{#Nbits - 1, #N / 2})
         else
-            ($1, $NumToStateLE {(#N - 1) / 2, #Nbits - 1})
+            ($1, $NumToState{#Nbits - 1, (#N - 1) / 2})
         endif
     endif
 end
 
 /*
-Big-endian encoding of number N as a quantum state
-*/
-def $NumToStateBE {#N, #Nbits} : Num {#Nbits} :=
-    $NumToStateLE {#N, #Nbits} |> @Reverse {#Nbits, Bit}
-end
-
-/*
 Increment a little-endian N-bit number
 */
-def @IncrementLE {#N} : Num {#N} -> Num {#N} :=
+def @Increment {#N} : Num {#N} -> Num {#N} :=
     if #N <= 0 then
         @Id {Unit}
     else
         pmatch [
             ($0, x) -> ($1, x);
-            ($1, x) -> ($0, x |> @IncrementLE {#N - 1})
+            ($1, x) -> ($0, x |> @Increment {#N - 1})
         ]
     endif
 end
@@ -155,23 +148,78 @@ end
 /*
 Decrement a little-endian N-bit number
 */
-def @DecrementLE {#N} : Num {#N} -> Num {#N} :=
-    @Adjoint {Num {#N}, Num {#N}, @IncrementLE {#N}}
+def @Decrement {#N} : Num {#N} -> Num {#N} :=
+    @Adjoint {Num {#N}, Num {#N}, @Increment {#N}}
 end
 
 /*
-Increment a big-endian N-bit number
+Addition of a constant #A (modulo 2^#N) in a pure way
 */
-def @IncrementBE {#N} : Num {#N} -> Num {#N} :=
-    lambda x ->
-    x |> @Reverse {#N, Bit} |> @IncrementLE {#N} |> @Reverse {#N, Bit}
+def @AddConst{#N, #A} : Num{#N} -> Num{#N} :=
+    if #N <= 0 then
+        @Id{Unit}
+    else
+        pmatch [
+            ($0, x) -> (if #A % 2 = 0 then $0 else $1 endif, x |> @AddConst{#N - 1, (#A - #A % 2)/2});
+            ($1, x) -> (if #A % 2 = 0 then $1 else $0 endif, x |> @AddConst{#N - 1, (#A - #A % 2)/2 + #A % 2})
+        ]
+    endif
+end
+
+def @AddHelper{#N} : Num{#N} * Num{#N} * Bit -> Num{#N} :=
+    if #N = 0 then
+        lambda ((a, b), carry) -> ()
+    else
+        lambda (((a0, a1), (b0, b1)), carry) -> 
+        let ((res, new_carry), (a1, b1)) = (match ((a0, b0), carry) [
+            (($0, $0), $0) -> ($0, $0);
+            (($1, $0), $0) -> ($1, $0);
+            (($0, $1), $0) -> ($1, $0);
+            (($1, $1), $0) -> ($0, $1);
+            (($0, $0), $1) -> ($1, $0);
+            (($1, $0), $1) -> ($0, $1);
+            (($0, $1), $1) -> ($0, $1);
+            (($1, $1), $1) -> ($1, $1);
+        ], (a1, b1)) in
+        (res, @AddHelper{#N - 1}((a1, b1), new_carry))
+    endif
 end
 
 /*
-Decrement a big-endian N-bit number
+Add two N-bit numbers (modulo 2^#N)
 */
-def @DecrementBE {#N} : Num {#N} -> Num {#N} :=
-    @Adjoint {Num {#N}, Num {#N}, @DecrementLE {#N}}
+def @Add{#N} : Num{#N} * Num{#N} -> Num{#N} :=
+    lambda (a, b) -> @AddHelper{#N}((a, b), $0)
+end
+
+def @NumDowncast{#N} : Num{#N} -> Num{#N - 1} :=
+    if #N <= 0 then
+        lambda () -> ctrl () []
+    else if #N = 1 then
+        lambda _ -> ()
+    else
+        lambda (a0, a1) -> (a0, @NumDowncast{#N - 1}(a1))
+    endif
+    endif
+end
+
+def @Double{#N} : Num{#N} -> Num{#N} :=
+    lambda a -> ($0, @NumDowncast{#N}(a))
+end
+
+def @MultiplyHelper{#N, #M} : Num{#N} * Num{#M} -> Num{#N} :=
+    if #M = 0 then
+        lambda (a, b) -> $NumToState{#N, 0}
+    else
+        lambda (a, (b0, b1)) -> match b0 [
+            $0 -> @Double{#N}(@MultiplyHelper{#N, #M - 1}(a, b1));
+            $1 -> @Add{#N}(a, @Double{#N}(@MultiplyHelper{#N, #M - 1}(a, b1)))
+        ]
+    endif
+end
+
+def @Multiply{#N} : Num{#N} * Num{#N} -> Num{#N} :=
+    @MultiplyHelper{#N, #N}
 end
 
 /*
@@ -220,6 +268,31 @@ def @Qft {#N} : NTensorT {#N, Bit} -> NTensorT {#N, Bit} :=
         lambda x ->
             let (x0, x') = @Rotations {#N} (x) in
             (x0, @Qft {#N - 1} (x'))
+    endif
+end
+
+/*
+A single Grover iteration for oracle F on N qubits
+*/
+def @GroverIter{'a, $EqualSuperpos : 'a, @F : 'a -> Bit} : 'a -> 'a :=
+    lambda x ->
+    // Apply F as a phase oracle
+    ctrl @F(x) [
+        $0 -> x;
+        $1 -> x |> gphase{pi}
+    ] |>
+    // Grover diffusion operator
+    @Reflect{'a, $EqualSuperpos}
+end
+
+/*
+Run Grover's algorithm for Niter iterations
+*/
+def $Grover{'a, $EqualSuperpos : 'a, @F : 'a -> Bit, #Niter} : 'a :=
+    if #Niter = 0 then
+        $EqualSuperpos
+    else
+        $Grover{'a, $EqualSuperpos, @F, #Niter - 1} |> @GroverIter {'a, $EqualSuperpos, @F}
     endif
 end
 
@@ -341,12 +414,12 @@ end
 
 def @ListLength{#N, 'a, #Nbits} : List{#N, 'a} -> Num{#Nbits} :=
     if #N <= 0 then
-        lambda l -> $NumToStateLE{0, #Nbits}
+        lambda l -> $NumToState{#Nbits, 0}
     else
         lambda l -> match l [
-            $ListEmpty{#N, 'a} -> $NumToStateLE{0, #Nbits};
+            $ListEmpty{#N, 'a} -> $NumToState{#Nbits, 0};
             @ListCons{#N, 'a}(x', l') ->
-                @IncrementLE{#Nbits}(@ListLength{#N - 1, 'a, #Nbits}(l'))
+                @Increment{#Nbits}(@ListLength{#N - 1, 'a, #Nbits}(l'))
         ]
     endif
 end

@@ -13,6 +13,6 @@ lambda l -> match $Plus [
 ] |>
 // If the list is empty, append Bit0. If it has length 1, append Bit1.
 lambda l -> match @LEN(l) [
-    $NumToStateLE{0, #Nbits} -> l |> @APP{$0};
-    $NumToStateLE{1, #Nbits} -> l |> @APP{$1};
+    $NumToState{#Nbits, 0} -> l |> @APP{$0};
+    $NumToState{#Nbits, 1} -> l |> @APP{$1};
 ]

@@ -5,11 +5,11 @@ def @Step {#N} : Num{#N} * Bit -> Num{#N} * Bit :=
         ($NTensorE {#N, Bit, $1}, $1) -> @Just{Bit}($1);
         else -> $Nothing{Bit}
     ]) [
-        @Just{Bit}($0) -> ((x, velocity), (@IncrementLE{#N}($NTensorE {#N, Bit, $0}), $1));
-        @Just{Bit}($1) -> ((x, velocity), (@DecrementLE{#N}($NTensorE {#N, Bit, $1}), $0));
+        @Just{Bit}($0) -> ((x, velocity), (@Increment{#N}($NTensorE {#N, Bit, $0}), $1));
+        @Just{Bit}($1) -> ((x, velocity), (@Decrement{#N}($NTensorE {#N, Bit, $1}), $0));
         $Nothing{Bit} -> ((x, velocity), ctrl velocity [
-            $0 -> (@DecrementLE{#N}(x), velocity);
-            $1 -> (@IncrementLE{#N}(x), velocity)
+            $0 -> (@Decrement{#N}(x), velocity);
+            $1 -> (@Increment{#N}(x), velocity)
         ])
     ] |> @Snd {Num{#N} * Bit, Num{#N} * Bit}
 end

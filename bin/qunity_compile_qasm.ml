@@ -119,17 +119,20 @@ let gate_to_qasm_file (u : gate) (nqubits : int) (out_reg : int list) : string
     header ^ body ^ footer
 
 let compile_file (prog_filename : string) (out_filename : string) : unit =
+  Printf.printf "Preprocessing\n%!";
   let e_opt = get_expr_from_file prog_filename in
     match e_opt with
     | NoneE err ->
         Printf.printf "%s\n" err;
         exit 1
     | SomeE (e, _, _) -> begin
+        Printf.printf "Typechecking\n%!";
         match mixed_type_check StringMap.empty StringMap.empty e with
         | NoneE err ->
             Printf.printf "Typechecking error: %s\n" err;
             exit 1
         | SomeE _ -> begin
+            Printf.printf "Compiling to QASM\n%!";
             let gate, nqubits, out_reg = expr_compile e in
               Printf.printf "Outputting to file\n%!";
               let qasm_str = gate_to_qasm_file gate nqubits out_reg in
@@ -146,6 +149,7 @@ let () =
   let annotation_mode = bool_of_string Sys.argv.(4) in
   let post_optimize = bool_of_string Sys.argv.(5) in
     Gate.optimization_print := true;
+    Metaprogramming.debug_mode := debug_mode;
     Compilation.debug_mode := debug_mode;
     Compilation.annotation_mode := annotation_mode;
     Compilation.post_optimize := post_optimize;

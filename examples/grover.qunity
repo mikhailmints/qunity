@@ -1,28 +1,3 @@
-/*
-A single Grover iteration for oracle F on N qubits
-*/
-def @GroverIter {#N, @F : Num{#N} -> Bit} : Num{#N} -> Num{#N} :=
-    lambda x ->
-    // Apply F as a phase oracle
-    ctrl @F(x) [
-        $0 -> x;
-        $1 -> x |> gphase{pi}
-    ] |>
-    // Grover diffusion operator
-    @Reflect {Num{#N}, $NTensorE{#N, Bit, $Plus}}
-end
-
-/*
-Run Grover's algorithm for Niter iterations
-*/
-def $Grover {#N, @F : Num{#N} -> Bit, #Niter} : Num{#N} :=
-    if #Niter = 0 then
-        $NTensorE {#N, Bit, $Plus}
-    else
-        $Grover {#N, @F, #Niter - 1} |> @GroverIter {#N, @F}
-    endif
-end
-
 def #N := 5 end
 def $Answer : Num{#N} := ($0, ($1, ($1, ($0, ($0, ()))))) end
 
@@ -37,4 +12,4 @@ def @F : Num{#N} -> Bit :=
     ]
 end
 
-$Grover {#N, @F, 4}
+$Grover{Num{#N}, $NTensorE{#N, Bit, $Plus}, @F, 4}

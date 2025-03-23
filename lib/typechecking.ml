@@ -367,11 +367,18 @@ let rec free_vars (e : expr) : StringSet.t =
   | Apply (_, e') -> free_vars e'
 
 (** Removes global phases from an expression. *)
-let rec dephase (e : expr) : expr list =
+let rec dephase (e : expr) : expr =
   match e with
   | Apply (Rphase (_, _, r0, r1), e') when r0 = r1 -> dephase e'
+  | _ -> e
+
+(** Removes global phases from an expression, and in the case of a ctrl
+    expression, returns its dephased right-hand-side expressions as a list. *)
+let rec dephase_and_split_ctrl (e : expr) : expr list =
+  match e with
+  | Apply (Rphase (_, _, r0, r1), e') when r0 = r1 -> dephase_and_split_ctrl e'
   | Ctrl (_, _, _, l) ->
-      List.flatten (List.map (fun (_, ej') -> dephase ej') l)
+      List.flatten (List.map (fun (_, ej') -> dephase_and_split_ctrl ej') l)
   | _ -> [e]
 
 (** Given a list [l] of Qpairs, splits the list into two lists. *)
@@ -389,7 +396,7 @@ let rec split_qpair_list (l : expr list) : (expr list * expr list) option =
     judgment proof. *)
 let rec erases_check (x : string) (l : expr list) (t : exprtype) :
     erasure_proof option =
-  let l' = List.flatten (List.map dephase l) in
+  let l' = List.flatten (List.map dephase_and_split_ctrl l) in
     if List.for_all (fun e' -> e' = Var x) l' then
       Some (EVar t)
     else
@@ -583,7 +590,7 @@ and span_list (t : exprtype) (l : expr list) (allow_quantum : bool) :
     structure. *)
 and ortho_check (t : exprtype) (l : expr list) (allow_quantum : bool) :
     ortho_proof option =
-  match missing_span t l allow_quantum with
+  match missing_span t (List.map dephase l) allow_quantum with
   | Some (l', sp) ->
       let span_list = List.sort expr_compare (l @ l') in
       let ortho_list = List.sort expr_compare l in

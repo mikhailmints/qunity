@@ -5,11 +5,11 @@ def @Step {#N} : Num{#N} * Bit -> Num{#N} * Bit :=
         else -> ((x, velocity), $Nothing{Bit});
     ]
     |> lambda ((x, velocity), label) -> match label [
-        @Just{Bit}($0) -> (@IncrementLE{#N}(x), @Not(velocity));
-        @Just{Bit}($1) -> (@DecrementLE{#N}(x), @Not(velocity));
+        @Just{Bit}($0) -> (@Increment{#N}(x), @Not(velocity));
+        @Just{Bit}($1) -> (@Decrement{#N}(x), @Not(velocity));
         $Nothing{Bit} -> ctrl velocity [
-            $0 -> (@DecrementLE{#N}(x), velocity);
-            $1 -> (@IncrementLE{#N}(x), velocity)
+            $0 -> (@Decrement{#N}(x), velocity);
+            $1 -> (@Increment{#N}(x), velocity)
         ]
     ]
 end

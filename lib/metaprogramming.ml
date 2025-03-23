@@ -1073,8 +1073,11 @@ and xexpr_eval (dm : defmap) (d : xcontext) (expected_type : xtype option)
                 | SomeE fv -> SomeE (Qpair (e0, e1), ProdType (xt0, xt1), fv)
                 | NoneE _ ->
                     NoneE
-                      ("Inconsistent inferred type of free variables"
-                     ^ error_addition)
+                      (Printf.sprintf
+                         "Inconsistent inferred type of free variables when \
+                          merging %s and %s"
+                         (string_of_xcontext fv0) (string_of_xcontext fv1)
+                      ^ error_addition)
               end
             | NoneE err, _
             | _, NoneE err ->
@@ -1154,7 +1157,8 @@ and xexpr_eval (dm : defmap) (d : xcontext) (expected_type : xtype option)
                                             end
                                             xtypes
                                         end,
-                                      (* Important that we use dm' for type reduction, but dm for evaluation! *)
+                                      (* Important that we use dm' for type
+                                      reduction, but dm for evaluation! *)
                                       match xtype_reduce dm' initial_xtype with
                                       | SomeE initial_xtype' ->
                                           xexpr_eval dm d (Some initial_xtype')

@@ -7,51 +7,22 @@ def $EqualSuperposList{#N} : List{#N, Bit} :=
     else
         // There are 2 ^ (#N + 1) - 1 possible states of List {#N, Bit}.
         // One of them is the empty list and the others have $0 or $1
-        // as the first element. First, create a superposition of a qutrit
+        // as the first element. First, create a superposition of a qubit
         // representing the amplitudes of these 3 possibilities.
         $0
         |> u3 {2 * arccos(sqrt(1 / (2 ^ (#N + 1) - 1))), 0, 0}
-        |> pmatch [
-            $0 -> $Nothing{Bit};
-            $1 -> @Just{Bit}($Plus)
-        ]
-        // Build the state, controlling on the qutrit and recursively constructing
+        // Build the state, controlling on the qubit and recursively constructing
         // the equal superposition of the remaining bits in the case where the
         // list is not empty.
         |> lambda m -> ctrl m [
-            $Nothing{Bit} -> (m, $ListEmpty{#N, Bit});
-            @Just{Bit}(x) -> (m, @ListCons{#N, Bit}(x, $EqualSuperposList{#N - 1}))
+            $0 -> (m, $ListEmpty{#N, Bit});
+            $1 -> (m, @ListCons{#N, Bit}($Plus, $EqualSuperposList{#N - 1}))
         ]
-        // Use the specialized erasure pattern to erase the qutrit.
+        // Use the specialized erasure pattern to erase the qubit.
         |> lambda (ctrl l [
-            $ListEmpty{#N, Bit} -> ($Nothing{Bit}, l);
-            @ListCons{#N, Bit}(x, _) -> (@Just{Bit}(x), l)
+            $ListEmpty{#N, Bit} -> ($0, l);
+            @ListCons{#N, Bit}(x, l') -> ($1, l)
         ]) -> l
-    endif
-end
-
-/*
-A single Grover iteration for oracle F on list of length N
-*/
-def @GroverIter{#N, @F : List{#N, Bit} -> Bit} : List{#N, Bit} -> List{#N, Bit} :=
-    lambda x ->
-    // Apply F as a phase oracle
-    ctrl @F(x) [
-        $0 -> x;
-        $1 -> x |> gphase{pi}
-    ] |>
-    // Grover diffusion operator
-    @Reflect{List{#N, Bit}, $EqualSuperposList{#N}}
-end
-
-/*
-Run Grover's algorithm for Niter iterations
-*/
-def $Grover{#N, @F : List{#N, Bit} -> Bit, #Niter} : List{#N, Bit} :=
-    if #Niter = 0 then
-        $EqualSuperposList{#N}
-    else
-        $Grover{#N, @F, #Niter - 1} |> @GroverIter{#N, @F}
     endif
 end
 
@@ -73,4 +44,4 @@ end
 
 def #N := 2 end
 
-$Grover{#N, @IsOddSum{#N}, 3}
+$Grover{List{#N, Bit}, $EqualSuperposList{#N}, @IsOddSum{#N}, 1}

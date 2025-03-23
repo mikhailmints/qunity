@@ -8,6 +8,7 @@ from qiskit import qasm3, transpile
 from qiskit_aer import Aer
 from qiskit.visualization import plot_histogram
 import matplotlib
+
 matplotlib.use("svg")
 import matplotlib.pyplot as plt
 
@@ -64,6 +65,7 @@ def simulate_circuit(circuit, basename):
             optimization_level=3,
             seed_transpiler=0,
         )
+        print("Qubits:", circuit.num_qubits)
         print("Depth:", circuit.depth())
         print("Gates:", sum(circuit.count_ops().values()))
         job = backend.run(
@@ -75,7 +77,11 @@ def simulate_circuit(circuit, basename):
         result = job.result()
         counts_raw = result.get_counts()
         counts_list = [(format_label(x), y) for x, y in counts_raw.items()]
-        counts = dict()
+        n_out_qubits = len(circuit.cregs[0])
+        counts = {
+            (lambda x: "0" * (n_out_qubits - len(x)) + x)(bin(n)[2:]): 0
+            for n in range(2**n_out_qubits)
+        }
         for x, y in counts_list:
             if x not in counts:
                 counts[x] = 0

@@ -1,4 +1,4 @@
 $NTensorE {4, Bit, $Minus} |> pmatch [
-    @Qft{4}($0, (x, y)) -> (@Qft{2}($Plus, (x, ())), @Qft{2}(y));
-    @Qft{4}($1, (x, y)) -> (@Qft{2}($Minus, (x, ())), @Qft{2}(y));
+    ($0, (x, y)) -> (@Qft{2}($Plus, (x, ())), @Qft{2}(y));
+    ($1, @Qft{3}(x, y)) -> (@Qft{2}($Minus, (x, ())), @Increment{2}(y));
 ]

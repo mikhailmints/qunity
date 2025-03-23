@@ -1,0 +1,17 @@
+/*
+In-place multiplication by an odd number #A modulo 2^#N
+*/
+def @ModMult{#N, #A} : Num{#N} -> Num{#N} :=
+    if #N = 1 then
+        @Id{Num{#N}}
+    else
+        lambda (x0, x1) ->
+        let (x0, x1) = (x0, x1 |> @ModMult{#N - 1, #A}) in
+        ctrl x0 [
+            $0 -> (x0, x1);
+            $1 -> (x0, @AddConst{#N - 1, (#A - #A % 2) / 2}(x1))
+        ]
+    endif
+end
+
+@ModMult{5, 3}($NumToState{5, 4})
