@@ -1,5 +1,5 @@
-def $E : Bit :=
-    $Plus |> lambda $0 -> $0
+def $e : Bit :=
+    $plus |> lambda $0 -> $0
 end
 
-$Retry {3, Bit, $E}
+$retry {3, Bit, $e}

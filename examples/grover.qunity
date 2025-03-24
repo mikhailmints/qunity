@@ -1,15 +1,15 @@
-def #N := 5 end
-def $Answer : Num{#N} := ($0, ($1, ($1, ($0, ($0, ()))))) end
+def #n := 5 end
+def $answer : Num{#n} := ($0, ($1, ($1, ($0, ($0, ()))))) end
 
 /*
-Quantum oracle representing a function acting on N bits that outputs
-1 for the input Answer and 0 for other inputs
+Quantum oracle representing a function acting on n bits that outputs
+1 for the input answer and 0 for other inputs
 */
-def @F : Num{#N} -> Bit :=
-    lambda x -> ctrl x [
-        $Answer -> (x, $1);
-        else -> (x, $0)
-    ] |> @Snd{Num{#N}, Bit}
+def @f : Num{#n} -> Bit :=
+    lambda x -> match x [
+        $answer -> $1;
+        else -> $0
+    ]
 end
 
-$Grover{Num{#N}, $NTensorE{#N, Bit, $Plus}, @F, 1}
+$grover{Num{#n}, $repeated{#n, Bit, $plus}, @f, 4}

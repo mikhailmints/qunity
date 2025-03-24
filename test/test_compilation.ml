@@ -152,9 +152,9 @@ let () =
     let example_files = Sys.readdir "examples" in
     let skipped_files =
       [
-        "adder.qunity";
         "adder_in_ctrl.qunity";
         "adder_in_match.qunity";
+        "adder_reversible.qunity";
         "binary_search_tree.qunity";
         "bogosort.qunity";
         "equal_superpos_list.qunity";

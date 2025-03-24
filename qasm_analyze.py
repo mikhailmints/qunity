@@ -78,10 +78,12 @@ def simulate_circuit(circuit, basename):
         counts_raw = result.get_counts()
         counts_list = [(format_label(x), y) for x, y in counts_raw.items()]
         n_out_qubits = len(circuit.cregs[0])
-        counts = {
-            (lambda x: "0" * (n_out_qubits - len(x)) + x)(bin(n)[2:]): 0
-            for n in range(2**n_out_qubits)
-        }
+        counts = {}
+        if n_out_qubits <= 6:
+            counts = {
+                (lambda x: "0" * (n_out_qubits - len(x)) + x)(bin(n)[2:]): 0
+                for n in range(2**n_out_qubits)
+            }
         for x, y in counts_list:
             if x not in counts:
                 counts[x] = 0

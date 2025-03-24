@@ -1,32 +1,32 @@
-def @Step {#N} : Num{#N} * Bit -> Num{#N} * Bit :=
+def @step{#n} : Num{#n} * Bit -> Num{#n} * Bit :=
     lambda (x, velocity) ->
     ctrl (match (x, velocity) [
-        ($NTensorE {#N, Bit, $0}, $0) -> @Just{Bit}($0);
-        ($NTensorE {#N, Bit, $1}, $1) -> @Just{Bit}($1);
+        ($repeated{#n, Bit, $0}, $0) -> @Just{Bit}($0);
+        ($repeated{#n, Bit, $1}, $1) -> @Just{Bit}($1);
         else -> $Nothing{Bit}
     ]) [
-        @Just{Bit}($0) -> ((x, velocity), (@Increment{#N}($NTensorE {#N, Bit, $0}), $1));
-        @Just{Bit}($1) -> ((x, velocity), (@Decrement{#N}($NTensorE {#N, Bit, $1}), $0));
+        @Just{Bit}($0) -> ((x, velocity), (@increment{#n}($repeated{#n, Bit, $0}), $1));
+        @Just{Bit}($1) -> ((x, velocity), (@decrement{#n}($repeated{#n, Bit, $1}), $0));
         $Nothing{Bit} -> ((x, velocity), ctrl velocity [
-            $0 -> (@Decrement{#N}(x), velocity);
-            $1 -> (@Increment{#N}(x), velocity)
+            $0 -> (@decrement{#n}(x), velocity);
+            $1 -> (@increment{#n}(x), velocity)
         ])
-    ] |> @Snd {Num{#N} * Bit, Num{#N} * Bit}
+    ] |> @snd{Num{#n} * Bit, Num{#n} * Bit}
 end
 
-def @Walk {#N, #Nsteps} : Num{#N} * Bit -> Num{#N} * Bit :=
-    if #Nsteps = 0 then
-        @Id{Num{#N} * Bit}
+def @walk{#n, #nsteps} : Num{#n} * Bit -> Num{#n} * Bit :=
+    if #nsteps = 0 then
+        @id{Num{#n} * Bit}
     else
         lambda (x, velocity) ->
-        (x, velocity) |> @Step{#N} |> @Walk{#N, #Nsteps - 1}
+        (x, velocity) |> @step{#n} |> @walk{#n, #nsteps - 1}
     endif
 end
 
-def #N := 3 end
-def #Nsteps := 1 end
+def #n := 3 end
+def #nsteps := 1 end
 
-($NTensorE {#N, Bit, $Plus}, $0 |> u3 {pi/4, 0, 0})
-|> @Walk {#N, #Nsteps}
-|> @Fst {Num{#N}, Bit}
-|> @Reverse {#N, Bit}
+($repeated{#n, Bit, $plus}, $0 |> u3{pi/4, 0, 0})
+|> @walk{#n, #nsteps}
+|> @fst{Num{#n}, Bit}
+|> @reverse{#n, Bit}

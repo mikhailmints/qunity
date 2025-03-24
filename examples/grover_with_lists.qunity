@@ -1,47 +1,47 @@
 /*
-Equal superposition of List{#N, Bit}
+Equal superposition of List{#n, Bit}
 */
-def $EqualSuperposList{#N} : List{#N, Bit} :=
-    if #N = 0 then
+def $equal_superpos_list{#n} : List{#n, Bit} :=
+    if #n = 0 then
         $ListEmpty{0, Bit}
     else
-        // There are 2 ^ (#N + 1) - 1 possible states of List {#N, Bit}.
+        // There are 2 ^ (#n + 1) - 1 possible states of List {#n, Bit}.
         // One of them is the empty list and the others have $0 or $1
         // as the first element. First, create a superposition of a qubit
         // representing the amplitudes of these 3 possibilities.
         $0
-        |> u3 {2 * arccos(sqrt(1 / (2 ^ (#N + 1) - 1))), 0, 0}
+        |> u3{2 * arccos(sqrt(1 / (2 ^ (#n + 1) - 1))), 0, 0}
         // Build the state, controlling on the qubit and recursively constructing
         // the equal superposition of the remaining bits in the case where the
         // list is not empty.
         |> lambda m -> ctrl m [
-            $0 -> (m, $ListEmpty{#N, Bit});
-            $1 -> (m, @ListCons{#N, Bit}($Plus, $EqualSuperposList{#N - 1}))
+            $0 -> (m, $ListEmpty{#n, Bit});
+            $1 -> (m, @ListCons{#n, Bit}($plus, $equal_superpos_list{#n - 1}))
         ]
         // Use the specialized erasure pattern to erase the qubit.
         |> lambda (ctrl l [
-            $ListEmpty{#N, Bit} -> ($0, l);
-            @ListCons{#N, Bit}(x, l') -> ($1, l)
+            $ListEmpty{#n, Bit} -> ($0, l);
+            @ListCons{#n, Bit}(x, l') -> ($1, l)
         ]) -> l
     endif
 end
 
 /*
-Quantum oracle representing a function acting on a list of N bits that outputs
+Quantum oracle representing a function acting on a list of n bits that outputs
 1 if the sum of the elements is odd
 */
-def @IsOddSum{#N} : List{#N, Bit} -> Bit :=
-    if #N = 0 then
+def @is_odd_sum{#n} : List{#n, Bit} -> Bit :=
+    if #n = 0 then
         lambda l -> $0
     else
         lambda l -> match l [
-            $ListEmpty{#N, Bit} -> $0;
-            @ListCons{#N, Bit}($0, l') -> @IsOddSum{#N - 1}(l');
-            @ListCons{#N, Bit}($1, l') -> @Not(@IsOddSum{#N - 1}(l'));
+            $ListEmpty{#n, Bit} -> $0;
+            @ListCons{#n, Bit}($0, l') -> @is_odd_sum{#n - 1}(l');
+            @ListCons{#n, Bit}($1, l') -> @not(@is_odd_sum{#n - 1}(l'));
         ]
     endif
 end
 
-def #N := 2 end
+def #n := 2 end
 
-$Grover{List{#N, Bit}, $EqualSuperposList{#N}, @IsOddSum{#N}, 1}
+$grover{List{#n, Bit}, $equal_superpos_list{#n}, @is_odd_sum{#n}, 1}

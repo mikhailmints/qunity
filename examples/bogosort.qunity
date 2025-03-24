@@ -1,85 +1,85 @@
-def @Split {#N, 'a, #I} : NTensorT {#N, 'a} -> NTensorT {#I, 'a} * NTensorT {#N - #I, 'a} :=
-    if #I = 0 then
+def @split{#n, 'a, #i} : Array{#n, 'a} -> Array{#i, 'a} * Array{#n - #i, 'a} :=
+    if #i = 0 then
         lambda x -> ((), x)
     else
         lambda (x, x') ->
-            let (x, (x0, x1)) = (x, @Split {#N - 1, 'a, #I - 1} (x')) in
+            let (x, (x0, x1)) = (x, @split{#n - 1, 'a, #i - 1}(x')) in
             ((x, x0), x1)
     endif
 end
 
-def @Swap {#N, 'a, #I} : NTensorT {#N, 'a} -> NTensorT {#N, 'a} :=
-    if #I = 0 then
-        @Id {NTensorT {#N, 'a}}
+def @swap{#n, 'a, #i} : Array{#n, 'a} -> Array{#n, 'a} :=
+    if #i = 0 then
+        @id{Array{#n, 'a}}
     else
         lambda (x, x') ->
-            let (x, (x0, (xi, x1))) = (x, @Split {#N - 1, 'a, #I - 1} (x')) in
-            (xi, @Concat {#I - 1, #N - #I, 'a} (x0, (x, x1)))
+            let (x, (x0, (xi, x1))) = (x, @split{#n - 1, 'a, #i - 1}(x')) in
+            (xi, @concat{#i - 1, #n - #i, 'a}(x0, (x, x1)))
     endif
 end
 
-def @RandomizePassIter {#N, 'a, #I} : NTensorT {#N, 'a} -> NTensorT {#N, 'a} :=
-    if #I >= #N then
-        @Id {NTensorT {#N, 'a}}
+def @randomize_pass_iter{#n, 'a, #i} : Array{#n, 'a} -> Array{#n, 'a} :=
+    if #i >= #n then
+        @id{Array{#n, 'a}}
     else
         lambda x ->
-            match @Had ($0) [
-                $0 -> x |> @Swap {#N, 'a, #I};
+            match @had($0) [
+                $0 -> x |> @swap{#n, 'a, #i};
                 $1 -> x
-            ] |> @RandomizePassIter {#N, 'a, #I + 1}
+            ] |> @randomize_pass_iter{#n, 'a, #i + 1}
     endif
 end
 
-def @RandomizePass {#N, 'a} : NTensorT {#N, 'a} -> NTensorT {#N, 'a} :=
-    if #N = 0 then
-        @Id {Unit}
+def @randomize_pass{#n, 'a} : Array{#n, 'a} -> Array{#n, 'a} :=
+    if #n = 0 then
+        @id{Unit}
     else
         lambda (x, x') ->
-            let (x, x') = @RandomizePassIter {#N, 'a, 1} (x, x') in
-            (x, @RandomizePass {#N - 1, 'a} (x'))
+            let (x, x') = @randomize_pass_iter{#n, 'a, 1}(x, x') in
+            (x, @randomize_pass{#n - 1, 'a}(x'))
     endif
 end
 
-def @RandomizeIter {#N, 'a, #Niter} : NTensorT {#N, 'a} -> NTensorT {#N, 'a} :=
-    if #Niter = 0 then
-        @Id {NTensorT {#N, 'a}}
+def @randomize_iter{#n, 'a, #niter} : Array{#n, 'a} -> Array{#n, 'a} :=
+    if #niter = 0 then
+        @id{Array{#n, 'a}}
     else
         lambda x ->
-            x |> @RandomizePass {#N, 'a} |> @RandomizeIter {#N, 'a, #Niter - 1}
+            x |> @randomize_pass{#n, 'a} |> @randomize_iter{#n, 'a, #niter - 1}
     endif
 end
 
-def @Randomize {#N, 'a} : NTensorT {#N, 'a} -> NTensorT {#N, 'a} :=
-    @RandomizeIter {#N, 'a, #N}
+def @randomize{#n, 'a} : Array{#n, 'a} -> Array{#n, 'a} :=
+    @randomize_iter{#n, 'a, #n}
 end
 
-def @IsSorted {#N, 'a, @Compare : 'a * 'a -> Bit} : NTensorT {#N, 'a} -> Bit :=
-    if #N = 0 then
+def @is_sorted{#n, 'a, @compare : 'a * 'a -> Bit} : Array{#n, 'a} -> Bit :=
+    if #n = 0 then
         lambda () -> $1
-    else if #N = 1 then
+    else if #n = 1 then
         lambda (x, ()) -> $1
     else
         lambda (x0, (x1, x')) ->
-            match @Compare (x0, x1) [
+            match @compare(x0, x1) [
                 $0 -> $0;
-                $1 -> @IsSorted {#N - 1, 'a, @Compare} (x1, x')
+                $1 -> @is_sorted{#n - 1, 'a, @compare}(x1, x')
             ]
     endif
     endif
 end
 
-def @BitCompare : Bit * Bit -> Bit :=
+def @bit_compare : Bit * Bit -> Bit :=
     lambda (a, b) -> match (a, b) [
         ($1, $0) -> $0;
         else -> $1
     ]
 end
 
-def @Bogosort {#N, 'a, @Compare : 'a * 'a -> Bit} : NTensorT {#N, 'a} -> NTensorT {#N, 'a} :=
-    lambda x -> let x' = @Randomize {#N, 'a} (x) in
-    match @IsSorted {#N, 'a, @Compare} (x') [
+def @bogosort{#N, 'a, @compare : 'a * 'a -> Bit} : Array{#N, 'a} -> Array{#N, 'a} :=
+    lambda x -> let x' = @randomize{#N, 'a}(x) in
+    match @is_sorted {#N, 'a, @compare}(x') [
         $1 -> x'
     ]
 end
 
-@Bogosort {4, Bit, @BitCompare} ($0, ($1, ($0, ($1, ()))))
+@bogosort{4, Bit, @bit_compare}($0, ($1, ($0, ($1, ()))))

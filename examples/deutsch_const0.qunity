@@ -1,10 +1,10 @@
-def $Deutsch{@F : Bit -> Bit} : Bit :=
-    let x = $Plus in
-    ctrl @F(x) [
+def $deutsch{@f : Bit -> Bit} : Bit :=
+    let x = $plus in
+    ctrl @f(x) [
         $0 -> x;
         $1 -> x |> gphase{pi}
     ]
-    |> @Had
+    |> @had
 end
 
-$Deutsch {@Const0 {Bit}}
+$deutsch{@const0{Bit}}

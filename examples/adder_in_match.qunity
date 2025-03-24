@@ -1,6 +1,6 @@
-def #N := 4 end
+def #n := 4 end
 
-$NTensorE{#N, Bit, $Plus} |> lambda x -> match (@Add{#N}(x, x)) [
-    $NumToState{#N, 4} -> x |> @Increment{#N};
+$repeated{#n, Bit, $plus} |> lambda x -> match (@add{#n}(x, x)) [
+    $num_to_state{#n, 4} -> x |> @increment{#n};
     else -> x
 ]

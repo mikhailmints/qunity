@@ -1,4 +1,4 @@
 try
-    $Plus |> lambda $0 -> $1
+    $plus |> lambda $0 -> $1
 catch
-    $Minus
+    $minus

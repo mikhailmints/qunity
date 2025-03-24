@@ -1,1 +1,1 @@
-@And($Plus, @And($Plus, @And ($Plus, @And($Plus, $Plus))))
+@and($plus, @and($plus, @and($plus, @and($plus, $plus))))

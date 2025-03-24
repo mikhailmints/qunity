@@ -1,5 +1,5 @@
-$Plus |>
+$plus |>
 pmatch [
-    $Plus -> $0;
-    $Minus -> $1
+    $plus -> $0;
+    $minus -> $1
 ]

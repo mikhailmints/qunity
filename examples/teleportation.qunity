@@ -1,18 +1,18 @@
-let bellAlice = $Plus in
+let bellAlice = $plus in
 let (message, (bellAlice, bellBob)) =
     ($0 |> u3 {2 * arccos(sqrt(1 / 3)), 0, 0}, (bellAlice, bellAlice))
 in
 let (bellBob, toSend) = (bellBob,
     (message, (bellAlice, ()))
-    |> @Cnot {2, 0, 1}
-    |> @Gate1Q {2, 0, @Had}
+    |> @cnot {2, 0, 1}
+    |> @gate_1q {2, 0, @had}
 )
 in
 let result =
     ctrl toSend [
         ($0, ($0, ())) -> (toSend, bellBob);
-        ($0, ($1, ())) -> (toSend, bellBob |> @Not);
-        ($1, ($0, ())) -> (toSend, bellBob |> @PauliZ);
-        ($1, ($1, ())) -> (toSend, bellBob |> @Not |> @PauliZ)
-    ] |> @Snd {NTensorT {2, Bit}, Bit}
+        ($0, ($1, ())) -> (toSend, bellBob |> @not);
+        ($1, ($0, ())) -> (toSend, bellBob |> @pauli_z);
+        ($1, ($1, ())) -> (toSend, bellBob |> @not |> @pauli_z)
+    ] |> @snd {Array{2, Bit}, Bit}
 in result
