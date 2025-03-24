@@ -1,2 +1,1 @@
-@Qft{5} ($0, ($Plus, ($Plus, ($0, ($0, ())))))
-|> @Reverse {5, Bit}
+@qft{5}($0, ($plus, ($plus, ($0, ($0, ()))))) |> @reverse{5, Bit}

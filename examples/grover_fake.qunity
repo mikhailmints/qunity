@@ -4,24 +4,24 @@ to the algorithm itself, which means that it can't be used for an arbitrary
 oracle. This demonstrates the amplitude amplification in the algorithm. 
 */
 
-def @GroverIter{#N, $Answer : Num{#N}} : Num{#N} -> Num{#N} :=
+def @grover_iter{#n, $answer : Num{#n}} : Num{#n} -> Num{#n} :=
     lambda x ->
-    x |> @Reflect {Num{#N}, $Answer}
-    |> @Reflect {Num{#N}, $NTensorE{#N, Bit, $Plus}}
+    x |> @reflect{Num{#n}, $answer}
+    |> @reflect{Num{#n}, $repeated{#n, Bit, $plus}}
 end
 
 /*
-Run Grover's algorithm for Niter iterations
+Run Grover's algorithm for n_iter iterations
 */
-def $Grover {#N, $Answer : Num{#N}, #Niter} : Num{#N} :=
-    if #Niter = 0 then
-        $NTensorE {#N, Bit, $Plus}
+def $grover{#n, $answer : Num{#n}, #n_iter} : Num{#n} :=
+    if #n_iter = 0 then
+        $repeated{#n, Bit, $plus}
     else
-        $Grover {#N, $Answer, #Niter - 1} |> @GroverIter {#N, $Answer}
+        $grover{#n, $answer, #n_iter - 1} |> @grover_iter{#n, $answer}
     endif
 end
 
-def #N := 5 end
-def $Answer : Num{#N} := ($0, ($1, ($1, ($0, ($0, ()))))) end
+def #n := 5 end
+def $answer : Num{#n} := ($0, ($1, ($1, ($0, ($0, ()))))) end
 
-$Grover {#N, $Answer, 4}
+$grover{#n, $answer, 4}

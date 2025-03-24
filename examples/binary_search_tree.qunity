@@ -1,40 +1,40 @@
-type BinaryTree{#D, 'a} :=
+type BinaryTree{#d, 'a} :=
     | $Leaf
     | @Node of
-        if #D = 0 then
+        if #d = 0 then
             Void
         else
-            'a * (BinaryTree{#D - 1, 'a} * BinaryTree{#D - 1, 'a})
+            'a * (BinaryTree{#d - 1, 'a} * BinaryTree{#d - 1, 'a})
         endif
 end
 
-def @BST_insert{#D, 'a, @Cmp : 'a * 'a -> Bit} : BinaryTree{#D, 'a} * 'a -> BinaryTree{#D, 'a} :=
-    if #D = 0 then
+def @bst_insert{#d, 'a, @cmp : 'a * 'a -> Bit} : BinaryTree{#d, 'a} * 'a -> BinaryTree{#d, 'a} :=
+    if #d = 0 then
         lambda _ -> ctrl () []
     else
         lambda (tree, x) -> match tree [
-            $Leaf{#D, 'a} -> @Node{#D, 'a}(x, ($Leaf{#D - 1, 'a}, $Leaf{#D - 1, 'a}));
-            @Node{#D, 'a}(y, (l, r)) -> match @Cmp(x, y) [
-                $1 -> @Node{#D, 'a}(y, (@BST_insert{#D - 1, 'a, @Cmp}(l, x), r));
-                $0 -> @Node{#D, 'a}(y, (l, @BST_insert{#D - 1, 'a, @Cmp}(r, x)))
+            $Leaf{#d, 'a} -> @Node{#d, 'a}(x, ($Leaf{#d - 1, 'a}, $Leaf{#d - 1, 'a}));
+            @Node{#d, 'a}(y, (l, r)) -> match @cmp(x, y) [
+                $1 -> @Node{#d, 'a}(y, (@bst_insert{#d - 1, 'a, @cmp}(l, x), r));
+                $0 -> @Node{#d, 'a}(y, (l, @bst_insert{#d - 1, 'a, @cmp}(r, x)))
             ]
         ]
     endif
 end
 
-def @BitCompare : Bit * Bit -> Bit :=
+def @bit_compare : Bit * Bit -> Bit :=
     lambda (a, b) -> match (a, b) [
         ($1, $0) -> $0;
         else -> $1
     ]
 end
 
-def #D := 2 end
+def #d := 2 end
 
-type T := BinaryTree{#D, Bit} end
+type T := BinaryTree{#d, Bit} end
 
-def @INS{$X : Bit} : T -> T :=
-    lambda t -> @BST_insert{#D, Bit, @BitCompare}(t, $X)
+def @ins{$x : Bit} : T -> T :=
+    lambda t -> @bst_insert{#d, Bit, @bit_compare}(t, $x)
 end
 
-$Leaf{#D, Bit} |> @INS{$Plus} |> @INS{$Plus}
+$Leaf{#d, Bit} |> @ins{$plus} |> @ins{$plus}

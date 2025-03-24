@@ -61,7 +61,7 @@ def simulate_circuit(circuit, basename):
         print("Transpiling circuit")
         circuit = transpile(
             circuit,
-            basis_gates=(backend.operation_names + ["if_else"]),
+            basis_gates=["u3", "cx"],
             optimization_level=3,
             seed_transpiler=0,
         )
@@ -78,10 +78,12 @@ def simulate_circuit(circuit, basename):
         counts_raw = result.get_counts()
         counts_list = [(format_label(x), y) for x, y in counts_raw.items()]
         n_out_qubits = len(circuit.cregs[0])
-        counts = {
-            (lambda x: "0" * (n_out_qubits - len(x)) + x)(bin(n)[2:]): 0
-            for n in range(2**n_out_qubits)
-        }
+        counts = {}
+        if n_out_qubits <= 6:
+            counts = {
+                (lambda x: "0" * (n_out_qubits - len(x)) + x)(bin(n)[2:]): 0
+                for n in range(2**n_out_qubits)
+            }
         for x, y in counts_list:
             if x not in counts:
                 counts[x] = 0

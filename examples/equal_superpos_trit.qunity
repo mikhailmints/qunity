@@ -1,6 +1,6 @@
 $0
-|> u3 {2 * arccos(sqrt(1 / 3)), 0, 0}
+|> u3{2 * arccos(sqrt(1 / 3)), 0, 0}
 |> pmatch [
-    $0 -> $Nothing {Bit};
-    $1 -> @Just {Bit} ($Plus)
+    $0 -> $Nothing{Bit};
+    $1 -> @Just{Bit}($plus)
 ]

@@ -1,18 +1,18 @@
-def #N := 2 end
-def #Nbits := 2 end
+def #n := 2 end
+def #n_bits := 2 end
 
-type LST := List {#N, Bit} end
-def @APP {$X : Bit} : LST -> LST := @ListAppendConst {#N, Bit, $X} end
-def @LEN : LST -> NTensorT {#Nbits, Bit} := @ListLength {#N, Bit, #Nbits} end
+type LST := List{#n, Bit} end
+def @app{$x : Bit} : LST -> LST := @list_append_const{#n, Bit, $x} end
+def @len : LST -> Array{#n_bits, Bit} := @list_length{#n, Bit, #n_bits} end
 
-$ListEmpty {#N, Bit} |>
+$ListEmpty{#n, Bit} |>
 // Append Bit1 to the list with 1/2 probability
-lambda l -> match $Plus [
+lambda l -> match $plus[
     $0 -> l;
-    $1 -> l |> @APP{$1}
+    $1 -> l |> @app{$1}
 ] |>
 // If the list is empty, append Bit0. If it has length 1, append Bit1.
-lambda l -> match @LEN(l) [
-    $NumToState{#Nbits, 0} -> l |> @APP{$0};
-    $NumToState{#Nbits, 1} -> l |> @APP{$1};
+lambda l -> match @len(l)[
+    $num_to_state{#n_bits, 0} -> l |> @app{$0};
+    $num_to_state{#n_bits, 1} -> l |> @app{$1};
 ]

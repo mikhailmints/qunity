@@ -1,5 +1,5 @@
-($Plus, $Plus) |> lambda (
-ctrl (match x [$0 -> $Plus; $1 -> $Minus]) [
+($plus, $plus) |> lambda (
+ctrl (match x [$0 -> $plus; $1 -> $minus]) [
     $0 -> (x, $1);
     $1 -> (x, $0);
 ]) -> x

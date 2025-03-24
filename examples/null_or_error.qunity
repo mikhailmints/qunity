@@ -1,1 +1,1 @@
-$Plus |> lambda $0 -> ()
+$plus |> lambda $0 -> ()

@@ -1,5 +1,5 @@
-let x = $Plus in
+let x = $plus in
 ctrl x [
     $0 -> (x, $0);
-    $1 -> (x, $Plus)
+    $1 -> (x, $plus)
 ]

@@ -1,7 +1,7 @@
-ctrl ($Plus, $Plus) [
-    ($0, $0) -> ctrl $Plus [
-        $0 -> ctrl $Plus [
-            $0 -> $Plus
+ctrl ($plus, $plus) [
+    ($0, $0) -> ctrl $plus [
+        $0 -> ctrl $plus [
+            $0 -> $plus
         ]
     ]
 ]

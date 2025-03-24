@@ -1,43 +1,43 @@
 /*
-In-place multiplication by an odd number #A modulo 2^#N
+In-place multiplication by an odd number #a modulo 2^#n
 */
-def @ModMult{#N, #A} : Num{#N} -> Num{#N} :=
-    if #N = 1 then
-        @Id{Num{#N}}
+def @mod_mult{#n, #a} : Num{#n} -> Num{#n} :=
+    if #n = 1 then
+        @id{Num{#n}}
     else
         lambda (x0, x1) ->
-        let (x0, x1) = (x0, x1 |> @ModMult{#N - 1, #A}) in
+        let (x0, x1) = (x0, x1 |> @mod_mult{#n - 1, #a}) in
         ctrl x0 [
             $0 -> (x0, x1);
-            $1 -> (x0, @AddConst{#N - 1, (#A - 1) / 2}(x1))
+            $1 -> (x0, @add_const{#n - 1, (#a - 1) / 2}(x1))
         ]
     endif
 end
 
 /*
-Takes in an #M-bit register x and an #N-bit register y and returns
-(x, y * #A^x mod 2^#N), for an odd integer #A
+Takes in an #m-bit register x and an #n-bit register y and returns
+(x, y * #a^x mod 2^#n), for an odd integer #a
 */
-def @ModExp{#M, #N, #A} : Num{#M} * Num{#N} -> Num{#M} * Num{#N} :=
-    if #M = 0 then
-        @Id{Num{#M} * Num{#N}}
+def @mod_exp{#m, #n, #a} : Num{#m} * Num{#n} -> Num{#m} * Num{#n} :=
+    if #m = 0 then
+        @id{Num{#m} * Num{#n}}
     else
         lambda ((x0, x1), y) ->
         let ((x0, x1), y) = ctrl x0 [
             $0 -> ((x0, x1), y);
-            $1 -> ((x0, x1), @ModMult{#N, #A}(y))
+            $1 -> ((x0, x1), @mod_mult{#n, #a}(y))
         ]
-        in let (x0, (x1, y)) = (x0, @ModExp{#M - 1, #N, #A * #A}(x1, y))
+        in let (x0, (x1, y)) = (x0, @mod_exp{#m - 1, #n, #a * #a}(x1, y))
         in ((x0, x1), y)
     endif
 end
 
-def $OrderFinding{#N, #A} : Num{#N} :=
-    ($NTensorE{#N, Bit, $Plus}, $NumToState{#N, 1})
-    |> @ModExp{#N, #N, #A}
-    |> @Fst{Num{#N}, Num{#N}}
-    |> @Adjoint {Num{#N}, Num{#N}, @Qft{#N}}
-    |> @Reverse {#N, Bit}
+def $order_finding{#n, #a} : Num{#n} :=
+    ($repeated{#n, Bit, $plus}, $num_to_state{#n, 1})
+    |> @mod_exp{#n, #n, #a}
+    |> @fst{Num{#n}, Num{#n}}
+    |> @adjoint{Num{#n}, Num{#n}, @qft{#n}}
+    |> @reverse{#n, Bit}
 end
 
-$OrderFinding{5, 13}
+$order_finding{5, 13}

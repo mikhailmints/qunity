@@ -1,9 +1,9 @@
-def #N := 4 end
+def #n := 4 end
 
-def @APP {$X : Bit} : List {#N, Bit} -> List {#N, Bit} :=
-    @ListAppendConst {#N, Bit, $X}
+def @app{$x : Bit} : List{#n, Bit} -> List{#n, Bit} :=
+    @list_append_const{#n, Bit, $x}
 end
 
-$ListEmpty {#N, Bit} |> @APP{$0} |> @APP{$1} |> @APP{$Plus} |> @APP{$Minus}
-|> @ListUpcast {#N, Bit} |> @ListTail {#N + 1, Bit} |> @ListTail {#N, Bit}
-|> @ListHead {#N - 1, Bit}
+$ListEmpty{#n, Bit} |> @app{$0} |> @app{$1} |> @app{$plus} |> @app{$minus}
+|> @list_upcast{#n, Bit} |> @list_tail{#n + 1, Bit} |> @list_tail{#n, Bit}
+|> @list_head{#n - 1, Bit}

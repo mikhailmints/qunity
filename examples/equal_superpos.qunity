@@ -1,1 +1,1 @@
-$NTensorE {6, Bit, $Plus}
+$repeated{6, Bit, $plus}

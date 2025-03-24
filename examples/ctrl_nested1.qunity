@@ -1,3 +1,3 @@
-($Plus, $Plus) |> lambda (a, b) -> ctrl (a, b) [
+($plus, $plus) |> lambda (a, b) -> ctrl (a, b) [
     ($0, x) -> (a, ctrl x [$0 -> b])
 ]

@@ -1,5 +1,5 @@
-def @F : Bit -> Bit * Bit := lambda x -> (x, x) end
+def @f : Bit -> Bit * Bit := lambda x -> (x, x) end
 
-def @F' : Bit * Bit -> Bit := @Adjoint {Bit, Bit * Bit, @F} end
+def @f' : Bit * Bit -> Bit := @adjoint{Bit, Bit * Bit, @f} end
 
-$1 |> @F |> @F' |> @F |> @F' |> @F |> @F' |> @F
+$1 |> @f |> @f' |> @f |> @f' |> @f |> @f' |> @f
