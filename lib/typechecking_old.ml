@@ -173,7 +173,8 @@ let rec free_vars (e : expr) : StringSet.t =
   | Qpair (e1, e2)
   | Try (e1, e2) ->
       StringSet.union (free_vars e1) (free_vars e2)
-  | Ctrl (e', _, _, l) ->
+  | Ctrl (e', _, _, l)
+  | Match (e', _, _, l) ->
       List.fold_right
         (fun (ej, ej') rest ->
           (* The free variables of the left-hand side patterns in a control
@@ -475,6 +476,14 @@ and mixed_type_check (d : context) (e : expr) : mixed_expr_typing_proof optionE
       | _, NoneE err ->
           NoneE (err ^ "\nin mixed Apply")
     end
+  | Match (e', t0, t1, l) -> begin
+      let l' = List.map (fun (ej, ej') -> (ej, Qpair (e', ej'))) l in
+        mixed_type_check d
+          (Apply
+             ( Lambda
+                 (Qpair (Var "$x0", Var "$x1"), ProdType (t0, t1), Var "$x1"),
+               Ctrl (e', t0, ProdType (t0, t1), l') ))
+    end
   | _ -> begin
       match pure_type_check StringMap.empty d e with
       | SomeE tp -> SomeE (TMix tp)
@@ -507,8 +516,9 @@ and pure_type_check (g : context) (d : context) (e : expr) :
             NoneE
               (Printf.sprintf
                  "Irrelevant variable %s in quantum context in Var" x')
-          else begin (* T-QVAR *)
-            match StringMap.find_opt x g with
+          else begin
+            (* T-QVAR *)
+              match StringMap.find_opt x g with
             | Some _ ->
                 NoneE
                   (Printf.sprintf
@@ -587,6 +597,7 @@ and pure_type_check (g : context) (d : context) (e : expr) :
           end
     end
   | Try _ -> NoneE "Try is not a pure expression"
+  | Match _ -> NoneE "Match is not a pure expression"
   (* T-PUREAPP *)
   | Apply (f, e') -> begin
       match (pure_type_check g d e', prog_type_check f) with
@@ -781,6 +792,14 @@ and prog_type_check (f : prog) : prog_typing_proof optionE =
               SomeE (PureProg (TRphase (t, tpe', r, r')))
           | _ -> NoneE "Type mismatch in Rphase"
         end
+    end
+  | Pmatch (t0, t1, l) -> begin
+      let l0 = List.map (fun (ej, ej') -> (ej, Qpair (Var "$x", ej'))) l in
+      let l1 = List.map (fun (ej, ej') -> (ej', Qpair (ej, Var "$y"))) l in
+      let ctrl0 = Ctrl (Var "$x", t0, ProdType (t0, t1), l0) in
+      let ctrl1 = Ctrl (Var "$y", t1, ProdType (t0, t1), l1) in
+      let spec_erasure = Lambda (ctrl1, ProdType (t0, t1), Var "$y") in
+        prog_type_check (Lambda (Var "$x", t0, Apply (spec_erasure, ctrl0)))
     end
 
 let pure_type_check_noopt (e : expr) : pure_expr_typing_proof =

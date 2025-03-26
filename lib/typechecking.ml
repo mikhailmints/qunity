@@ -1178,31 +1178,30 @@ and pure_context_check (g : context) (t : exprtype) (e : expr) :
                 (* d is Γ, Δ g is Γ, Γ' d0 is Δ, Δ' *)
                 match map_merge false g d0 with
                 | NoneE err -> NoneE (err ^ error_addition)
-                | SomeE gd0 ->
+                | SomeE gd0 -> (
                     let ej, ej' = List.split l in
                       if not (map_is_inclusion d gd0) then
                         NoneE ("Context inclusion failed" ^ error_addition)
                       else if ortho_check t0 ej false = None then
                         NoneE ("Ortho check failed" ^ error_addition)
-                      else if
-                        not
-                          (List.for_all
-                             (fun x ->
-                               option_of_optionE
-                                 (pure_pattern_type_check g d0 t0 t1 x)
-                               <> None)
-                             l)
-                      then
-                        NoneE ("Type mismatch" ^ error_addition)
-                      else if
-                        not
-                          (StringMap.for_all
-                             (fun x _ -> erases_check x ej' t1 <> None)
-                             d)
-                      then
-                        NoneE ("Erasure check failed" ^ error_addition)
                       else
-                        SomeE d0
+                        match
+                          all_or_nothing_optionE
+                            (List.map
+                               (fun x -> pure_pattern_type_check g d0 t0 t1 x)
+                               l)
+                        with
+                        | NoneE err -> NoneE (err ^ error_addition)
+                        | _ ->
+                            if
+                              not
+                                (StringMap.for_all
+                                   (fun x _ -> erases_check x ej' t1 <> None)
+                                   d)
+                            then
+                              NoneE ("Erasure check failed" ^ error_addition)
+                            else
+                              SomeE d0)
               end
           end
       end
@@ -1216,7 +1215,10 @@ and pure_context_check (g : context) (t : exprtype) (e : expr) :
               if t = t1 then
                 pure_context_check g t0 e'
               else
-                NoneE ("Type mismatch" ^ error_addition)
+                NoneE
+                  (Printf.sprintf "Type mismatch: expected %s, but got %s"
+                     (string_of_type t) (string_of_type t1)
+                  ^ error_addition)
           end
         | SomeE (MixedProg _) ->
             NoneE

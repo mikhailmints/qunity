@@ -503,7 +503,9 @@ and update_defmap_with_params (dm : defmap) (d : xcontext) (psig : paramsig)
     || List.map sort_of_gexpr params
        <> List.map (fun x -> x |> snd |> sort_of_typed_sort) psig
   then
-    NoneE "Parameters do not match signature"
+    NoneE
+      (Printf.sprintf "Parameters of %s do not match signature"
+         (string_of_list (fun x -> x) (List.map fst psig)))
   else
     let dm_init = dm in
     let result =

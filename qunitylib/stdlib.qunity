@@ -198,9 +198,7 @@ def @rev_adder_helper{#n} : Num{#n} * Num{#n} * Bit -> Num{#n} * Num{#n} * Bit :
 end
 
 def @rev_adder{#n} : Num{#n} * Num{#n} -> Num{#n} * Num{#n} :=
-    lambda (a, b) -> ((a, b), $0) |> @rev_adder_helper{#n} |> pmatch [
-        (x, $0) -> x
-    ]
+    lambda (a, b) -> ((a, b), $0) |> @rev_adder_helper{#n} |> lambda (x, $0) -> x
 end
 
 def @add_helper{#n} : Num{#n} * Num{#n} * Bit -> Num{#n} :=
@@ -270,6 +268,12 @@ def $retry{#n, 'a, $e : 'a} : 'a :=
     endif
 end
 
+// def @and : Bit * Bit -> Bit :=
+//     lambda x -> ctrl x [
+//         ($1, $1) -> (x, $1);
+//         else -> (x, $0);
+//     ] |> @snd{Bit * Bit, Bit}
+// end
 def @and : Bit * Bit -> Bit :=
     lambda x -> match x [
         ($1, $1) -> $1;
@@ -412,11 +416,17 @@ def @list_downcast{#n, 'a} : List{#n, 'a} -> List{#n - 1, 'a} :=
     else if #n = 1 then
         lambda $ListEmpty{#n, 'a} -> $ListEmpty{#n - 1, 'a}
     else
-        lambda l -> match l [
-            $ListEmpty{#n, 'a} -> $ListEmpty{#n - 1, 'a};
+        lambda l -> ctrl l [
+            $ListEmpty{#n, 'a} -> (l, $ListEmpty{#n - 1, 'a});
             @ListCons{#n, 'a}(x', l') ->
-                @ListCons{#n - 1, 'a}(x', @list_downcast{#n - 1, 'a}(l'))
+                (l, @ListCons{#n - 1, 'a}(x', @list_downcast{#n - 1, 'a}(l')))
         ]
+        |> lambda (ctrl l [
+            $ListEmpty{#n - 1, 'a} -> ($ListEmpty{#n, 'a}, l);
+            @ListCons{#n - 1, 'a}(x', l') ->
+                (@ListCons{#n, 'a}(x',
+                l' |> lambda @list_downcast{#n - 1, 'a}(l'') -> l''), l);
+        ]) -> l
     endif
     endif
 end
