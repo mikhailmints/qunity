@@ -1,7 +1,20 @@
 (executables
- (names qunity_simulate qunity_interact qunity_compile_qasm qunity_compile_qasm_unoptimized)
- (public_names qunity_simulate qunity_interact qunity_compile_qasm qunity_compile_qasm_unoptimized)
- (modules qunity_simulate qunity_interact qunity_compile_qasm qunity_compile_qasm_unoptimized driver_util)
+ (names
+  qunity_simulate
+  qunity_interact
+  qunity_compile_qasm
+  qunity_compile_qasm_unoptimized)
+ (public_names
+  qunity_simulate
+  qunity_interact
+  qunity_compile_qasm
+  qunity_compile_qasm_unoptimized)
+ (modules
+  qunity_simulate
+  qunity_interact
+  qunity_compile_qasm
+  qunity_compile_qasm_unoptimized
+  driver_util)
  (libraries qunity))
 
 (env
