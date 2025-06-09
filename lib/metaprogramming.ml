@@ -1341,6 +1341,7 @@ and xprog_eval (dm : defmap) (expected_in_type : xtype option)
           NoneE err
     end
   | Lambda (xe0, xe1) -> begin
+      (* Case where output type is determined by input type *)
       match xexpr_eval dm StringMap.empty expected_in_type xe0 with
       | SomeE (e0, xt0, fv) -> begin
           match xexpr_eval dm fv expected_out_type xe1 with
@@ -1358,7 +1359,20 @@ and xprog_eval (dm : defmap) (expected_in_type : xtype option)
             end
           | NoneE err -> NoneE err
         end
-      | NoneE err -> NoneE err
+      (* Case where input type is determined by output type *)
+      | NoneE _ -> begin
+          match xexpr_eval dm StringMap.empty expected_out_type xe1 with
+          | SomeE (e1, xt1, fv) -> begin
+              match xexpr_eval dm fv expected_in_type xe0 with
+              | SomeE (e0, xt0, _) -> begin
+                  match xtype_eval dm xt0 with
+                  | SomeE t0 -> SomeE (Lambda (e0, t0, e1), xt0, xt1)
+                  | NoneE err -> NoneE err
+                end
+              | NoneE err -> NoneE err
+            end
+          | NoneE err -> NoneE err
+        end
     end
   | Rphase (xe, xr0, xr1) -> begin
       match xexpr_eval dm StringMap.empty expected_in_type xe with

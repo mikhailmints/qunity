@@ -14,15 +14,10 @@ def $equal_superpos_list{#n} : List{#n, Bit} :=
         // Build the state, controlling on the qubit and recursively constructing
         // the equal superposition of the remaining bits in the case where the
         // list is not empty.
-        |> lambda m -> ctrl m [
-            $0 -> (m, $ListEmpty{#n, Bit});
-            $1 -> (m, @ListCons{#n, Bit}($plus, $equal_superpos_list{#n - 1}))
+        |> pmatch [
+            $0 -> $ListEmpty{#n, Bit};
+            $1 -> @ListCons{#n, Bit}($plus, $equal_superpos_list{#n - 1})
         ]
-        // Use the specialized erasure pattern to erase the qubit.
-        |> lambda (ctrl l [
-            $ListEmpty{#n, Bit} -> ($0, l);
-            @ListCons{#n, Bit}(x, l') -> ($1, l)
-        ]) -> l
     endif
 end
 
