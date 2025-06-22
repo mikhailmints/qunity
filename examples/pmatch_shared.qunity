@@ -1,0 +1,1 @@
+($plus, $plus) |> pmatch [x |> (lambda y -> (y, y)) -> x]

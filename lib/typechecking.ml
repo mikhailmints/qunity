@@ -495,8 +495,13 @@ let rec check_unapp (l : expr list) :
           let f = List.hd fs in
           let tpf = prog_type_check f in
             match tpf with
-            | SomeE (PureProg tpf) ->
-                if is_un_pure_prog_proof tpf then Some (f, tpf, l') else None
+            | SomeE (PureProg tpf) -> begin
+                match tpf with
+                | TLeft _
+                | TRight _ ->
+                    None
+                | _ -> Some (f, tpf, l')
+              end
             | _ -> None
     end
 
