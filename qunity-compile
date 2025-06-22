@@ -9,7 +9,8 @@ dobuild=true
 analyze=false
 debug=false
 annotate=false
-optimize=true
+oldversion=false
+postoptimize=true
 in_filename=$1
 out_filename="qasm_out/$(basename $in_filename ".qunity").qasm"
 shift
@@ -29,8 +30,11 @@ while :; do
         --annotate)
             annotate=true
             ;;
-        --noopt)
-            optimize=false
+        --unoptimized)
+            oldversion=true
+            ;;
+        --nopost)
+            postoptimize=false
             ;;
         -o)
             out_filename=$2
@@ -50,7 +54,13 @@ if $dobuild; then
 fi
 
 echo "Starting compiler"
-./_build/default/bin/qunity_compile_qasm.exe $in_filename $out_filename $debug $annotate $optimize
+if $oldversion; then
+    ./_build/default/bin/qunity_compile_qasm_unoptimized.exe $in_filename \
+        $out_filename $debug $annotate $postoptimize
+else
+    ./_build/default/bin/qunity_compile_qasm.exe $in_filename $out_filename \
+        $debug $annotate $postoptimize
+fi
 status=$?
 if [ $status -eq 1 ]; then
     echo -e "${YELLOW}Invalid program${NC}"

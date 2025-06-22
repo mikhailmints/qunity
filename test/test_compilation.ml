@@ -163,6 +163,7 @@ let () =
         "grover_with_lists.qunity";
         "list_example.qunity";
         "list_length.qunity";
+        "multi_and.qunity";
         "multiply.qunity";
         "order_finding.qunity";
         "retry_example.qunity";
