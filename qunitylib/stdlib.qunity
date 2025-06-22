@@ -421,12 +421,6 @@ def @list_downcast{#n, 'a} : List{#n, 'a} -> List{#n - 1, 'a} :=
             @ListCons{#n, 'a}(x', l') ->
                 (l, @ListCons{#n - 1, 'a}(x', @list_downcast{#n - 1, 'a}(l')))
         ]
-        |> lambda (ctrl l [
-            $ListEmpty{#n - 1, 'a} -> ($ListEmpty{#n, 'a}, l);
-            @ListCons{#n - 1, 'a}(x', l') ->
-                (@ListCons{#n, 'a}(x',
-                l' |> lambda @list_downcast{#n - 1, 'a}(l'') -> l''), l);
-        ]) -> l
     endif
     endif
 end
