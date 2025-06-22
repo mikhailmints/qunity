@@ -6,10 +6,10 @@ Quantum oracle representing a function acting on n bits that outputs
 1 for the input answer and 0 for other inputs
 */
 def @f : Num{#n} -> Bit :=
-    lambda x -> ctrl x [
-        $answer -> (x, $1);
-        else -> (x, $0)
-    ] |> @snd{Num{#n}, Bit}
+    lambda x -> match x [
+        $answer -> $1;
+        else -> $0
+    ]
 end
 
 $grover{Num{#n}, $repeated{#n, Bit, $plus}, @f, 1}

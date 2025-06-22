@@ -823,7 +823,7 @@ let gate_optimize (u : gate) (out_reg : int list) : gate * int list =
   let ul = gate_to_list u in
   let nqubits = gate_num_qubits u in
     if !optimization_print then
-      Printf.printf "Optimizing\n%!";
+      Printf.printf "Postprocessing\n%!";
     let ul, out_reg = gate_list_optimize ul out_reg nqubits in
       if !optimization_print then
         Printf.printf "\n%!";

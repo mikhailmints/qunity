@@ -37,5 +37,5 @@ done
 
 if $analyze; then
     echo ====================
-    python3 qasm_analyze.py qasm_out
+    python3 qasm_analyze.py qasm_out --draw --simulate
 fi

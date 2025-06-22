@@ -69,7 +69,7 @@ elif [ $status -eq 0 ]; then
     echo $out_filename
     if $analyze; then
         echo
-        python3 qasm_analyze.py $out_filename
+        python3 qasm_analyze.py $out_filename --draw --simulate
     fi
 else
     echo -e "${RED}Compiler error${NC}"

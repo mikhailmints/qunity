@@ -1,8 +1,8 @@
 print("Starting analysis script")
 print("Importing libraries")
 
-import sys
 import os
+from argparse import ArgumentParser
 import timeout_decorator
 from qiskit import qasm3, transpile
 from qiskit_aer import Aer
@@ -17,11 +17,21 @@ GREEN = "\033[0;32m"
 YELLOW = "\033[0;33m"
 NC = "\033[0m"
 
-LOAD_TIMEOUT = 10000
-DRAW_TIMEOUT = 40
-SIMULATE_TIMEOUT = 10000
-SIM_SHOTS = 10000
+argparser = ArgumentParser()
+argparser.add_argument("path")
+argparser.add_argument("--draw", action="store_true")
+argparser.add_argument("--simulate", action="store_true")
+argparser.add_argument("--load_timeout", type=int, default=40)
+argparser.add_argument("--draw_timeout", type=int, default=40)
+argparser.add_argument("--simulate_timeout", type=int, default=40)
+argparser.add_argument("--sim_shots", type=int, default=10000)
 
+args = argparser.parse_args()
+
+LOAD_TIMEOUT = args.load_timeout
+DRAW_TIMEOUT = args.draw_timeout
+SIMULATE_TIMEOUT = args.simulate_timeout
+SIM_SHOTS = args.sim_shots
 
 def format_label(x):
     x = x[::-1]
@@ -50,6 +60,19 @@ def draw_circuit(circuit, basename):
         circuit.draw("mpl", scale=0.2, filename=out_filename)
     print(f"Diagram in {out_filename}")
 
+def transpile_circuit(circuit):
+    backend = Aer.get_backend("qasm_simulator")
+    print("Transpiling circuit")
+    circuit = transpile(
+        circuit,
+        basis_gates=["u3", "cx"],
+        optimization_level=3,
+        seed_transpiler=0,
+    )
+    print("Qubits:", circuit.num_qubits)
+    print("Depth:", circuit.depth())
+    print("Gates:", sum(circuit.count_ops().values()))
+    return backend, circuit
 
 @timeout_decorator.timeout(SIMULATE_TIMEOUT, use_signals=False)
 def simulate_circuit(circuit, basename):
@@ -57,17 +80,7 @@ def simulate_circuit(circuit, basename):
     if len(reg_counts) == 0 or max(reg_counts.values()) == 0:
         counts = {"null": SIM_SHOTS}
     else:
-        backend = Aer.get_backend("qasm_simulator")
-        print("Transpiling circuit")
-        circuit = transpile(
-            circuit,
-            basis_gates=["u3", "cx"], # basis_gates=(backend.operation_names + ["if_else"]),
-            optimization_level=3,
-            seed_transpiler=0,
-        )
-        print("Qubits:", circuit.num_qubits)
-        print("Depth:", circuit.depth())
-        print("Gates:", sum(circuit.count_ops().values()))
+        backend, circuit = transpile_circuit(circuit)
         job = backend.run(
             circuit,
             seed_simulator=0,
@@ -103,12 +116,17 @@ def analyze_file(qasm_filename):
     print("Loading circuit")
     circuit = timeout_decorator.timeout(LOAD_TIMEOUT)(qasm3.load)(qasm_filename)
 
-    draw_circuit(circuit, basename)
+    if args.draw:
+        draw_circuit(circuit, basename)
 
-    simulate_circuit(circuit, basename)
+    if args.simulate:
+        simulate_circuit(circuit, basename)
+
+    else:
+        transpile_circuit(circuit)
 
 
-path = sys.argv[1]
+path = args.path
 
 if os.path.isdir(path):
     print()

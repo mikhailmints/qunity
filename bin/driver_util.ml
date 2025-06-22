@@ -12,14 +12,6 @@ let execute_expr (e : expr) (dm : defmap) (xt : xtype) : unit =
   | SomeE tp -> begin
       Printf.printf "Expression type: %s\n%!" (string_of_xtype xt);
       Printf.printf "Isometry: %b\n%!" (is_iso_mixed_expr_proof tp);
-      begin
-        let un =
-          match pure_type_check StringMap.empty StringMap.empty e with
-          | SomeE tp' -> is_un_pure_expr_proof tp'
-          | _ -> false
-        in
-          Printf.printf "Unitary: %b\n\n%!" un
-      end;
       Printf.printf "Pure semantics:\n%!";
       begin
         try print_mat (top_pure_expr_semantics e) with
@@ -31,7 +23,6 @@ let execute_expr (e : expr) (dm : defmap) (xt : xtype) : unit =
       print_mat (top_mixed_expr_semantics e);
       Printf.printf "\nPossible measurement outcomes:\n%!";
       let meas_probs = measurement_outcomes e in
-        Printf.printf "dm = %s\n" (string_of_defmap dm);
         let xbasis = all_basis_xexprs dm xt in
         let meas_outcomes =
           List.sort

@@ -268,12 +268,6 @@ def $retry{#n, 'a, $e : 'a} : 'a :=
     endif
 end
 
-// def @and : Bit * Bit -> Bit :=
-//     lambda x -> ctrl x [
-//         ($1, $1) -> (x, $1);
-//         else -> (x, $0);
-//     ] |> @snd{Bit * Bit, Bit}
-// end
 def @and : Bit * Bit -> Bit :=
     lambda x -> match x [
         ($1, $1) -> $1;
@@ -419,7 +413,7 @@ def @list_downcast{#n, 'a} : List{#n, 'a} -> List{#n - 1, 'a} :=
         pmatch [
             $ListEmpty{#n, 'a} -> $ListEmpty{#n - 1, 'a};
             @ListCons{#n, 'a}(x', l') ->
-                (l, @ListCons{#n - 1, 'a}(x', @list_downcast{#n - 1, 'a}(l')))
+                @ListCons{#n - 1, 'a}(x', @list_downcast{#n - 1, 'a}(l'))
         ]
     endif
     endif

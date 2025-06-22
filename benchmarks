@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[0;33m"
+PURPLE="\033[0;35m"
+CYAN="\033[0;36m"
+NC="\033[0m"
+
+run_benchmark () {
+    echo -e "${PURPLE}====== $1: Qunity (unoptimized) ======${NC}"
+    if $3; then
+        ./qunity-compile "examples/$2.qunity" -o "qasm_out/${2}_unoptimized.qasm" --unoptimized
+        python3 qasm_analyze.py "qasm_out/${2}_unoptimized.qasm"
+    else
+        echo "Not supported by old compiler"
+    fi
+    echo -e "${YELLOW}====== $1: Qunity (optimized) ======${NC}"
+    ./qunity-compile "examples/$2.qunity"
+    python3 qasm_analyze.py "qasm_out/$2.qasm"
+    echo -e "${CYAN}====== $1: Qiskit ======${NC}"
+    python3 benchmarks_qiskit.py $2
+}
+
+run_benchmark "Phase conditioned on AND of 5 qubits" "multi_and" true
+run_benchmark "Quantum Fourier Transform (5 qubits)" "fourier_transform" true
+run_benchmark "Phase estimation example (5 qubits)" "phase_estimation" true
+run_benchmark "Order finding (#n=5, #a=13)" "order_finding" false
+run_benchmark "Reversible CDKM adder (5 qubits)" "adder_reversible" true
+run_benchmark "Grover (5-bit match oracle, 1 iteration)" "grover" true
+run_benchmark "Grover (list sum oracle, #n=2, 1 iteration)" "grover_with_lists" false
