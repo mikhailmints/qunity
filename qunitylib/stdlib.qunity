@@ -396,9 +396,9 @@ end
 
 def @list_upcast{#n, 'a} : List{#n, 'a} -> List{#n + 1, 'a} :=
     if #n <= 0 then
-        lambda _ -> $ListEmpty{1, 'a}
+        lambda $ListEmpty{0, 'a} -> $ListEmpty{1, 'a}
     else
-        lambda l -> match l [
+        pmatch [
             $ListEmpty{#n, 'a} -> $ListEmpty{#n + 1, 'a};
             @ListCons{#n, 'a}(x', l') ->
                 @ListCons{#n + 1, 'a}(x', @list_upcast{#n - 1, 'a}(l'))
@@ -408,11 +408,11 @@ end
 
 def @list_downcast{#n, 'a} : List{#n, 'a} -> List{#n - 1, 'a} :=
     if #n <= 0 then
-        lambda _ -> ctrl () []
+        lambda l -> ctrl l []
     else if #n = 1 then
         lambda $ListEmpty{#n, 'a} -> $ListEmpty{#n - 1, 'a}
     else
-        lambda l -> match l [
+        pmatch [
             $ListEmpty{#n, 'a} -> $ListEmpty{#n - 1, 'a};
             @ListCons{#n, 'a}(x', l') ->
                 @ListCons{#n - 1, 'a}(x', @list_downcast{#n - 1, 'a}(l'))
