@@ -1,5 +1,5 @@
 import sys
-import numpy as np
+import math
 from qiskit import transpile, QuantumCircuit
 from qiskit.circuit.library import (
     QFT,
@@ -28,7 +28,7 @@ testcase = sys.argv[1]
 if testcase == "multi_and":
     circ_and5 = QuantumCircuit(5, 5)
     circ_and5.h(range(5))
-    circ_and5.mcp(np.pi, [0, 1, 2, 3], [4])
+    circ_and5.mcp(math.pi, [0, 1, 2, 3], [4])
     circ_and5.measure(range(5), range(5))
     transpile_check(circ_and5)
 elif testcase == "fourier_transform":
@@ -65,20 +65,20 @@ elif testcase == "grover_with_lists":
     circ_grover_list = QuantumCircuit(5, 4)
     circ_grover_list.x(4)
     circ_grover_list.h(4)
-    circ_grover_list.ry(2 * np.arccos(np.sqrt(1 / (2**3 - 1))), 0)
+    circ_grover_list.ry(2 * math.acos(math.sqrt(1 / (2**3 - 1))), 0)
     circ_grover_list.ch(0, 1)
-    circ_grover_list.cry(2 * np.arccos(np.sqrt(1 / (2**2 - 1))), 0, 2)
+    circ_grover_list.cry(2 * math.acos(math.sqrt(1 / (2**2 - 1))), 0, 2)
     circ_grover_list.ch(2, 3)
     circ_grover_list.cx(1, 4)
     circ_grover_list.cx(3, 4)
     circ_grover_list.ch(2, 3)
-    circ_grover_list.cry(-2 * np.arccos(np.sqrt(1 / (2**2 - 1))), 0, 2)
+    circ_grover_list.cry(-2 * math.acos(math.sqrt(1 / (2**2 - 1))), 0, 2)
     circ_grover_list.ch(0, 1)
-    circ_grover_list.ry(-2 * np.arccos(np.sqrt(1 / (2**3 - 1))), 0)
+    circ_grover_list.ry(-2 * math.acos(math.sqrt(1 / (2**3 - 1))), 0)
     circ_grover_list.mcx([0, 1, 2, 3], 4, ctrl_state="0000")
-    circ_grover_list.ry(2 * np.arccos(np.sqrt(1 / (2**3 - 1))), 0)
+    circ_grover_list.ry(2 * math.acos(math.sqrt(1 / (2**3 - 1))), 0)
     circ_grover_list.ch(0, 1)
-    circ_grover_list.cry(2 * np.arccos(np.sqrt(1 / (2**2 - 1))), 0, 2)
+    circ_grover_list.cry(2 * math.acos(math.sqrt(1 / (2**2 - 1))), 0, 2)
     circ_grover_list.ch(2, 3)
     circ_grover_list.measure([0, 1, 2, 3], [0, 1, 2, 3])
     transpile_check(circ_grover_list)

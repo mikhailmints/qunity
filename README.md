@@ -8,11 +8,45 @@ This is the artifact for the paper "Compositional Quantum Control Flow with Effi
 
 # Hardware Dependencies
 
-No specific hardware is required.
+No specialized hardware is required.
 
 # Getting Started
 
-TODO
+You should have Docker installed. Download the provided file `qunity.tar`. Then, run the following commands:
+```bash
+docker load < qunity.tar
+docker container create -it --name qunity-container qunity
+docker container start --attach -i qunity-container
+```
+You should now be running the Docker container with the artifact. You can use `ls` to view and navigate the files. To test if the dependencies work correctly, try running the following:
+```bash
+./qunity-compile examples/bit0.qunity --analyze
+```
+The expected output is the following:
+```
+Starting compiler
+Preprocessing
+Typechecking
+Compiling to QASM
+Postprocessing
+.
+Outputting to file
+Compilation done
+qasm_out/bit0.qasm
+
+Starting analysis script
+Importing libraries
+Analyzing file qasm_out/bit0.qasm
+Loading circuit
+Drawing circuit
+Diagram in diagrams/circuits/bit0.svg
+Transpiling circuit
+Qubits: 1
+Depth: 1
+Gates: 1
+Simulating circuit
+Results in diagrams/sim_results/bit0_sim_results.svg
+```
 
 # Step By Step Instructions
 
@@ -47,18 +81,13 @@ To run a single program using the interpreter:
 ./qunity-run <filename>
 ```
 
-To run all the example Qunity programs located in the examples folder:
-```bash
-./run-all-examples
-```
-
 To start an interactive Qunity REPL:
 ```bash
 ./qunity-interact
 ```
 You can enter Qunity expressions or create definitions in the interpreter. Inputs should be terminated by a double semicolon: `;;`. Here is an example of a REPL session:
 ```
-./qunity-interact
+./qunity interact
 <qunity> $0;;
 Expression type: Bit
 Isometry: true
@@ -116,9 +145,9 @@ The interpreter will output the type of the provided expression, whether or not 
 
 To compile a single Qunity file into OpenQASM 3:
 ```bash
-./qunity-compile <in_filename> [-o <out_filename>] [--analyze]
+./qunity-compile <filename> [-o <out_filename>] [--analyze] [--unoptimized] [--nopost]
 ```
-If no output filename is specified, by default it goes in the `qasm_out` directory. If `--analyze` is used, a circuit diagram will be generated, and the circuit will be simulated using Qiskit.
+If no output filename is specified, by default it goes in the `qasm_out` directory. If `--analyze` is used, a circuit diagram will be generated, and the circuit will be simulated using Qiskit. If `--unoptimized` is used, the old version of the compiler will be run (does not support features present in some of the examples). If `--nopost` is used, postprocessing optimizations are not applied.
 
 For instance:
 ```
@@ -150,6 +179,6 @@ The corresponding files in the `diagrams` directory should then display the gene
 
 To compile all the example Qunity programs:
 ```bash
-./compile-all-examples [--analyze]
+./compile-all-examples [--analyze] [--unoptimized] [--nopost]
 ```
-Note that while running `./compile-all-examples` should only take about 20 seconds, running the analysis script to generate all diagrams and perform all simulations can take approximately 20 minutes.
+Note that while running `./compile-all-examples` should only take about 20 seconds, running it with `--analyze` to generate all diagrams and perform all simulations can take approximately 20 minutes.

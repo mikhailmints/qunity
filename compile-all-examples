@@ -8,7 +8,7 @@ while :; do
         --analyze)
             analyze=true
             ;;
-        --debug|--annotate|--noopt)
+        --debug|--annotate|--unoptimized|--nopost)
             flags+=($1)
             ;;
         -?*)

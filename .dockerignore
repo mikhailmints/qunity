@@ -20,7 +20,6 @@
 **/*.*proj.user
 **/*.dbmdl
 **/*.jfm
-**/bin
 **/charts
 **/docker-compose*
 **/compose.y*ml
@@ -30,5 +29,9 @@
 **/obj
 **/secrets.dev.yaml
 **/values.dev.yaml
+**/hidden
+**/_build
+**/_opam
+**/.github
 LICENSE
 README.md

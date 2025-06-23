@@ -50,7 +50,7 @@ while :; do
 done
 
 if $dobuild; then
-    dune build
+    dune build > /dev/null
 fi
 
 echo "Starting compiler"
