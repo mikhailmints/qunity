@@ -52,7 +52,7 @@ To run all the example Qunity programs located in the examples folder:
 ./run-all-examples
 ```
 
-To start an interactive Qunity REPL[^1]:
+To start an interactive Qunity REPL:
 ```bash
 ./qunity-interact
 ```
