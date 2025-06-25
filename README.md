@@ -8,23 +8,27 @@ This is the artifact for the paper "Compositional Quantum Control Flow with Effi
 
 # Hardware Dependencies
 
-No specialized hardware is required.
+An x86-64 processor.
 
 # Getting Started
 
-You should have Docker installed. Download the provided file `qunity.tar`. Then, run the following commands:
+You should have Docker installed. Download the and unzip the provided `qunity.zip`. Then, in the `qunity` directory, run the following commands:
 ```bash
-docker load < qunity.tar
-docker container create -it --name qunity-container qunity
-docker container start --attach -i qunity-container
+docker compose build
+docker run -it -v ./qasm_out:/qunity/qasm_out -v ./diagrams:/qunity/diagrams qunity:latest
 ```
-You should now be running the Docker container with the artifact. You can use `ls` to view and navigate the files. To test if the dependencies work correctly, try running the following:
+This should start a Docker container. Now, inside the container, run the following:
+```bash
+sudo chmod -R 777 qasm_out/
+sudo chmod -R 777 diagrams/
+```
+Now, to test if everything works correctly, run the following:
 ```bash
 ./qunity-compile examples/bit0.qunity --analyze
 ```
 The expected output is the following:
 ```
-Starting compiler
+Starting compiler                       
 Preprocessing
 Typechecking
 Compiling to QASM
@@ -39,14 +43,15 @@ Importing libraries
 Analyzing file qasm_out/bit0.qasm
 Loading circuit
 Drawing circuit
-Diagram in diagrams/circuits/bit0.svg
+Diagram in diagrams/circuits/bit0.png
 Transpiling circuit
 Qubits: 1
 Depth: 1
 Gates: 1
 Simulating circuit
-Results in diagrams/sim_results/bit0_sim_results.svg
+Results in diagrams/sim_results/bit0_sim_results.png
 ```
+You should now be able to see the compiled QASM file in `qasm_out/bit0.qasm`. You should also be able to see the generated circuit diagram in `diagrams/circuits` and `diagrams/sim_results`.
 
 # Step By Step Instructions
 
@@ -145,9 +150,9 @@ The interpreter will output the type of the provided expression, whether or not 
 
 To compile a single Qunity file into OpenQASM 3:
 ```bash
-./qunity-compile <filename> [-o <out_filename>] [--analyze] [--unoptimized] [--nopost]
+./qunity-compile <filename> [-o <out_filename>] [--analyze] [--unoptimized] [--nopost] [--img-format={png|jpeg|svg}]
 ```
-If no output filename is specified, by default it goes in the `qasm_out` directory. If `--analyze` is used, a circuit diagram will be generated, and the circuit will be simulated using Qiskit. If `--unoptimized` is used, the old version of the compiler will be run (does not support features present in some of the examples). If `--nopost` is used, postprocessing optimizations are not applied.
+If no output filename is specified, by default it goes in the `qasm_out` directory. If `--analyze` is used, a circuit diagram will be generated, and the circuit will be simulated using Qiskit. If `--unoptimized` is used, the old version of the compiler will be run (does not support features present in some of the examples). If `--nopost` is used, postprocessing optimizations are not applied. The `--img-format` option allows the user to specify the desired format of the generated circuit diagram and results histogram images, which can be `png` (default), `jpeg`, or `svg`.
 
 For instance:
 ```
@@ -179,6 +184,6 @@ The corresponding files in the `diagrams` directory should then display the gene
 
 To compile all the example Qunity programs:
 ```bash
-./compile-all-examples [--analyze] [--unoptimized] [--nopost]
+./compile-all-examples [--analyze] [--unoptimized] [--nopost] [--img-format={png|jpeg|svg}]
 ```
 Note that while running `./compile-all-examples` should only take about 20 seconds, running it with `--analyze` to generate all diagrams and perform all simulations can take approximately 20 minutes.

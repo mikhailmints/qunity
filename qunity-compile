@@ -11,6 +11,7 @@ debug=false
 annotate=false
 oldversion=false
 postoptimize=true
+img_format=png
 in_filename=$1
 out_filename="qasm_out/$(basename $in_filename ".qunity").qasm"
 shift
@@ -36,6 +37,9 @@ while :; do
         --nopost)
             postoptimize=false
             ;;
+        --img-format=*)
+            img_format="${1#--img-format=}"
+            ;;
         -o)
             out_filename=$2
             shift
@@ -50,7 +54,14 @@ while :; do
 done
 
 if $dobuild; then
-    dune build > /dev/null
+    dune build
+fi
+
+mkdir -p qasm_out
+
+if $analyze; then
+    mkdir -p diagrams/circuits
+    mkdir -p diagrams/sim_results
 fi
 
 echo "Starting compiler"
@@ -69,7 +80,9 @@ elif [ $status -eq 0 ]; then
     echo $out_filename
     if $analyze; then
         echo
-        python3 qasm_analyze.py $out_filename --draw --simulate
+        mkdir -p diagrams/circuits
+        mkdir -p diagrams/sim_results
+        python3 qasm_analyze.py $out_filename --draw --simulate --img_format="${img_format}"
     fi
 else
     echo -e "${RED}Compiler error${NC}"

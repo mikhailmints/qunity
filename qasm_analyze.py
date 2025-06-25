@@ -25,6 +25,7 @@ argparser.add_argument("--load_timeout", type=int, default=40)
 argparser.add_argument("--draw_timeout", type=int, default=40)
 argparser.add_argument("--simulate_timeout", type=int, default=40)
 argparser.add_argument("--sim_shots", type=int, default=10000)
+argparser.add_argument("--img_format", default="png", choices=["png", "jpeg", "svg"])
 
 args = argparser.parse_args()
 
@@ -32,6 +33,8 @@ LOAD_TIMEOUT = args.load_timeout
 DRAW_TIMEOUT = args.draw_timeout
 SIMULATE_TIMEOUT = args.simulate_timeout
 SIM_SHOTS = args.sim_shots
+IMG_FORMAT = args.img_format
+
 
 def format_label(x):
     x = x[::-1]
@@ -49,7 +52,7 @@ def format_label(x):
 @timeout_decorator.timeout(DRAW_TIMEOUT, use_signals=False)
 def draw_circuit(circuit, basename):
     print("Drawing circuit")
-    out_filename = "diagrams/circuits/" + basename + ".svg"
+    out_filename = "diagrams/circuits/" + basename + "." + IMG_FORMAT
     try:
         circuit.draw(
             "mpl",
@@ -59,6 +62,7 @@ def draw_circuit(circuit, basename):
     except Exception:
         circuit.draw("mpl", scale=0.2, filename=out_filename)
     print(f"Diagram in {out_filename}")
+
 
 def transpile_circuit(circuit):
     backend = Aer.get_backend("qasm_simulator")
@@ -73,6 +77,7 @@ def transpile_circuit(circuit):
     print("Depth:", circuit.depth())
     print("Gates:", sum(circuit.count_ops().values()))
     return backend, circuit
+
 
 @timeout_decorator.timeout(SIMULATE_TIMEOUT, use_signals=False)
 def simulate_circuit(circuit, basename):
@@ -101,7 +106,7 @@ def simulate_circuit(circuit, basename):
             if x not in counts:
                 counts[x] = 0
             counts[x] += y
-    out_filename = "diagrams/sim_results/" + basename + "_sim_results.svg"
+    out_filename = "diagrams/sim_results/" + basename + f"_sim_results.{IMG_FORMAT}"
     fig, ax = plt.subplots()
     plot_histogram(counts, ax=ax)
     fig.savefig(out_filename)
