@@ -10,7 +10,7 @@ This is the artifact for the paper "Compositional Quantum Control Flow with Effi
 
 An x86-64 processor.
 
-# Getting Started
+# Getting Started Guide
 
 You should have Docker installed. Download the and unzip the provided `qunity.zip`. Then, in the `qunity` directory, run the following commands:
 ```bash
@@ -58,7 +58,7 @@ Results in diagrams/sim_results/bit0_sim_results.png
 ```
 You should now be able to see the compiled QASM file in `qasm_out/bit0.qasm`. You should also be able to see the generated circuit diagram in `diagrams/circuits` and `diagrams/sim_results`. All subsequent commands in the instructions should be run inside the Docker container.
 
-# Step By Step Instructions
+# Step by Step Instructions
 
 ## Instructions for Reproducing Table 3
 
