@@ -57,8 +57,7 @@ Results in diagrams/sim_results/bit0_sim_results.png
 
 If you get permission errors when running the above, try running the following in the container:
 ```bash
-sudo chmod -R 777 qasm_out/
-sudo chmod -R 777 diagrams/
+sudo chmod -R 777 .
 ```
 
 You should now be able to see the compiled QASM file in `qasm_out/bit0.qasm`. You should also be able to see the generated circuit diagram in `diagrams/circuits` and `diagrams/sim_results`. All subsequent commands in the instructions should be run inside the Docker container.
@@ -102,7 +101,7 @@ To start an interactive Qunity REPL:
 ```
 You can enter Qunity expressions or create definitions in the interpreter. Inputs should be terminated by a double semicolon: `;;`. Here is an example of a REPL session:
 ```
-./qunity interact
+./qunity-interact
 <qunity> $0;;
 Expression type: Bit
 Isometry: true

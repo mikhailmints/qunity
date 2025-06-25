@@ -21,4 +21,6 @@ COPY . .
 
 ENV PATH="/opt/venv/bin:$PATH"
 
+RUN sudo chmod -R 777 .
+
 CMD ["bash"]
