@@ -166,10 +166,8 @@ let () =
         "multi_and.qunity";
         "multiply.qunity";
         "order_finding.qunity";
+        "pmatch_fourier.qunity";
         "retry_example.qunity";
-        "walk_1d.qunity";
-        "walk_1d_alt.qunity";
-        "walk_1d_alt1.qunity";
       ]
     in
       Array.iter

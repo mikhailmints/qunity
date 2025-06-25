@@ -56,7 +56,7 @@ Gates: 1
 Simulating circuit
 Results in diagrams/sim_results/bit0_sim_results.png
 ```
-You should now be able to see the compiled QASM file in `qasm_out/bit0.qasm`. You should also be able to see the generated circuit diagram in `diagrams/circuits` and `diagrams/sim_results`.
+You should now be able to see the compiled QASM file in `qasm_out/bit0.qasm`. You should also be able to see the generated circuit diagram in `diagrams/circuits` and `diagrams/sim_results`. All subsequent commands in the instructions should be run inside the Docker container.
 
 # Step By Step Instructions
 
