@@ -12,7 +12,7 @@ An x86-64 processor.
 
 # Getting Started Guide
 
-You should have Docker installed. Download the and unzip the provided `qunity.zip`. Then, in the `qunity` directory, run the following commands:
+You should have Docker installed. Download the and unzip the provided `qunity.zip`. Then, go to the `qunity` directory (if there were two nested `qunity` directories created when you unzipped, make sure you are in the inner one). Run the following commands:
 ```bash
 docker compose build
 docker run -it -v ./qasm_out:/qunity/qasm_out -v ./diagrams:/qunity/diagrams qunity:latest
