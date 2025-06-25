@@ -55,7 +55,7 @@ Simulating circuit
 Results in diagrams/sim_results/bit0_sim_results.png
 ```
 
-If you get permission errors when running the above, try running the following inside the container:
+If you get permission errors when running the above, try running the following in the container:
 ```bash
 sudo chmod -R 777 qasm_out/
 sudo chmod -R 777 diagrams/
