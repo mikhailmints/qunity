@@ -1,4 +1,4 @@
-FROM ocaml/opam:debian-ocaml-5.5 AS build
+FROM ocaml/opam:debian-ocaml-5.3 AS build
 
 WORKDIR /qunity
 

@@ -12,9 +12,12 @@ An x86-64 processor.
 
 # Getting Started Guide
 
-You should have Docker installed. Download the and unzip the provided `qunity.zip`. Then, go to the `qunity` directory (if there were two nested `qunity` directories created when you unzipped, make sure you are in the inner one). Run the following commands:
+You should have Docker installed. Download the and unzip the provided `qunity.zip`. Then, go to the `qunity` directory (if there were two nested `qunity` directories created when you unzipped, make sure you are in the inner one). Run the following command:
 ```bash
 docker compose build
+```
+This should set up all necessary dependencies. It may take about 5 minutes to do this. Then, run the following:
+```bash
 docker run -it -v ./qasm_out:/qunity/qasm_out -v ./diagrams:/qunity/diagrams qunity:latest
 ```
 If you are using Windows or otherwise if you don't see the compiled files and generated images appearing on your host machine, you might need to use absolute paths instead of relative paths in the above command. For instance, if you put the `qunity` folder on your desktop, then the command would have to be
@@ -22,12 +25,7 @@ If you are using Windows or otherwise if you don't see the compiled files and ge
 docker run -it -v C:/Users/user/Desktop/qunity/qasm_out:/qunity/qasm_out -v C:/Users/user/Desktop/qunity/diagrams:/qunity/diagrams qunity:latest
 ```
 
-This should start a Docker container. Now, inside the container, run the following:
-```bash
-sudo chmod -R 777 qasm_out/
-sudo chmod -R 777 diagrams/
-```
-Now, to test if everything works correctly, run the following:
+This should start a Docker container. Now, to test if everything works correctly, run the following in the container:
 ```bash
 ./qunity-compile examples/bit0.qunity --analyze
 ```
@@ -56,6 +54,13 @@ Gates: 1
 Simulating circuit
 Results in diagrams/sim_results/bit0_sim_results.png
 ```
+
+If you get permission errors when running the above, try running the following inside the container:
+```bash
+sudo chmod -R 777 qasm_out/
+sudo chmod -R 777 diagrams/
+```
+
 You should now be able to see the compiled QASM file in `qasm_out/bit0.qasm`. You should also be able to see the generated circuit diagram in `diagrams/circuits` and `diagrams/sim_results`. All subsequent commands in the instructions should be run inside the Docker container.
 
 # Step by Step Instructions
