@@ -17,6 +17,11 @@ You should have Docker installed. Download the and unzip the provided `qunity.zi
 docker compose build
 docker run -it -v ./qasm_out:/qunity/qasm_out -v ./diagrams:/qunity/diagrams qunity:latest
 ```
+If you are using Windows or otherwise if you don't see the compiled files and generated images appearing on your host machine, you might need to use absolute paths instead of relative paths in the above command. For instance, if you put the `qunity` folder on your desktop, then the command would have to be
+```bash
+docker run -it -v C:/Users/user/Desktop/qunity/qasm_out:/qunity/qasm_out -v C:/Users/user/Desktop/qunity/diagrams:/qunity/diagrams qunity:latest
+```
+
 This should start a Docker container. Now, inside the container, run the following:
 ```bash
 sudo chmod -R 777 qasm_out/
