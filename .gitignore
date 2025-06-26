@@ -2,4 +2,5 @@ _build
 _opam
 .venv
 .vscode
-*.tar
+qasm_out
+diagrams

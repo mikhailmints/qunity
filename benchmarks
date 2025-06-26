@@ -10,17 +10,19 @@ NC="\033[0m"
 run_benchmark () {
     echo -e "${PURPLE}====== $1: Qunity (unoptimized) ======${NC}"
     if $3; then
-        ./qunity-compile "examples/$2.qunity" -o "qasm_out/${2}_unoptimized.qasm" --unoptimized
+        ./qunity-compile "examples/$2.qunity" -o "qasm_out/${2}_unoptimized.qasm" --nobuild --unoptimized
         python3 qasm_analyze.py "qasm_out/${2}_unoptimized.qasm"
     else
         echo "Not supported by old compiler"
     fi
     echo -e "${YELLOW}====== $1: Qunity (optimized) ======${NC}"
-    ./qunity-compile "examples/$2.qunity"
-    python3 qasm_analyze.py "qasm_out/$2.qasm"
+    ./qunity-compile "examples/$2.qunity" --nobuild
+    python3 qasm_analyze.py "qasm_out/$2.qasm" --draw --simulate
     echo -e "${CYAN}====== $1: Qiskit ======${NC}"
     python3 benchmarks_qiskit.py $2
 }
+
+dune build
 
 run_benchmark "Phase conditioned on AND of 5 qubits" "multi_and" true
 run_benchmark "Quantum Fourier Transform (5 qubits)" "fourier_transform" true

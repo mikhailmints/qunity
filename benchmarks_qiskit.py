@@ -1,6 +1,7 @@
 import sys
 import math
-from qiskit import transpile, QuantumCircuit
+from analyze_circuit import draw_circuit, simulate_circuit
+from qiskit import QuantumCircuit, transpile
 from qiskit.circuit.library import (
     QFT,
     CDKMRippleCarryAdder,
@@ -24,63 +25,64 @@ def transpile_check(circuit):
 
 
 testcase = sys.argv[1]
+basename = testcase + "_qiskit"
+
+circuit = None
 
 if testcase == "multi_and":
-    circ_and5 = QuantumCircuit(5, 5)
-    circ_and5.h(range(5))
-    circ_and5.mcp(math.pi, [0, 1, 2, 3], [4])
-    circ_and5.measure(range(5), range(5))
-    transpile_check(circ_and5)
+    circuit = QuantumCircuit(5, 5)
+    circuit.h(range(5))
+    circuit.mcp(math.pi, [0, 1, 2, 3], [4])
+    circuit.measure(range(5), range(5))
 elif testcase == "fourier_transform":
-    circ_qft = QuantumCircuit(5, 5)
-    circ_qft.h([1, 2])
-    circ_qft.append(QFT(5), [0, 1, 2, 3, 4])
-    circ_qft.measure([0, 1, 2, 3, 4], [4, 3, 2, 1, 0])
-    transpile_check(circ_qft)
+    circuit = QuantumCircuit(5, 5)
+    circuit.h([1, 2])
+    circuit.append(QFT(5), [0, 1, 2, 3, 4])
+    circuit.measure([0, 1, 2, 3, 4], [4, 3, 2, 1, 0])
 elif testcase == "phase_estimation":
-    pe_circ = QuantumCircuit(5, 5)
-    pe_circ.h(range(5))
-    pe_circ.append(PhaseEstimation(5, GlobalPhaseGate(1 / 3)), range(5))
-    pe_circ.measure(range(5), range(5))
-    transpile_check(pe_circ)
+    circuit = QuantumCircuit(5, 5)
+    circuit.append(PhaseEstimation(5, GlobalPhaseGate(2 * math.pi / 3)), range(5))
+    circuit.measure(range(5), range(5))
 elif testcase == "order_finding":
     print("No Qiskit reference implementation")
 elif testcase == "adder_reversible":
-    circ_add = QuantumCircuit(11, 10)
-    circ_add.h(range(11))
-    circ_add.append(CDKMRippleCarryAdder(5, kind="fixed"), range(11))
-    circ_add.measure(range(10), range(10))
-    transpile_check(circ_add)
+    circuit = QuantumCircuit(11, 10)
+    circuit.h(range(10))
+    circuit.append(CDKMRippleCarryAdder(5, kind="fixed"), range(11))
+    circuit.measure(range(10), range(10))
+    transpile_check(circuit)
 elif testcase == "grover":
-    circ_grover = QuantumCircuit(6, 5)
-    circ_grover.x(5)
-    circ_grover.h(range(6))
-    circ_grover.mcx([0, 1, 2, 3, 4], 5)
-    circ_grover.h(range(5))
-    circ_grover.mcx([0, 1, 2, 3, 4], 5, ctrl_state="01100")
-    circ_grover.h(range(5))
-    circ_grover.measure(range(5), range(5))
-    transpile_check(circ_grover)
+    circuit = QuantumCircuit(6, 5)
+    circuit.x(5)
+    circuit.h(range(6))
+    circuit.mcx([0, 1, 2, 3, 4], 5)
+    circuit.h(range(5))
+    circuit.mcx([0, 1, 2, 3, 4], 5, ctrl_state="01100")
+    circuit.h(range(5))
+    circuit.measure(range(5), range(5))
 elif testcase == "grover_with_lists":
-    circ_grover_list = QuantumCircuit(5, 4)
-    circ_grover_list.x(4)
-    circ_grover_list.h(4)
-    circ_grover_list.ry(2 * math.acos(math.sqrt(1 / (2**3 - 1))), 0)
-    circ_grover_list.ch(0, 1)
-    circ_grover_list.cry(2 * math.acos(math.sqrt(1 / (2**2 - 1))), 0, 2)
-    circ_grover_list.ch(2, 3)
-    circ_grover_list.cx(1, 4)
-    circ_grover_list.cx(3, 4)
-    circ_grover_list.ch(2, 3)
-    circ_grover_list.cry(-2 * math.acos(math.sqrt(1 / (2**2 - 1))), 0, 2)
-    circ_grover_list.ch(0, 1)
-    circ_grover_list.ry(-2 * math.acos(math.sqrt(1 / (2**3 - 1))), 0)
-    circ_grover_list.mcx([0, 1, 2, 3], 4, ctrl_state="0000")
-    circ_grover_list.ry(2 * math.acos(math.sqrt(1 / (2**3 - 1))), 0)
-    circ_grover_list.ch(0, 1)
-    circ_grover_list.cry(2 * math.acos(math.sqrt(1 / (2**2 - 1))), 0, 2)
-    circ_grover_list.ch(2, 3)
-    circ_grover_list.measure([0, 1, 2, 3], [0, 1, 2, 3])
-    transpile_check(circ_grover_list)
+    circuit = QuantumCircuit(5, 4)
+    circuit.x(4)
+    circuit.h(4)
+    circuit.ry(2 * math.acos(math.sqrt(1 / (2**3 - 1))), 0)
+    circuit.ch(0, 1)
+    circuit.cry(2 * math.acos(math.sqrt(1 / (2**2 - 1))), 0, 2)
+    circuit.ch(2, 3)
+    circuit.cx(1, 4)
+    circuit.cx(3, 4)
+    circuit.ch(2, 3)
+    circuit.cry(-2 * math.acos(math.sqrt(1 / (2**2 - 1))), 0, 2)
+    circuit.ch(0, 1)
+    circuit.ry(-2 * math.acos(math.sqrt(1 / (2**3 - 1))), 0)
+    circuit.mcx([0, 1, 2, 3], 4, ctrl_state="0000")
+    circuit.ry(2 * math.acos(math.sqrt(1 / (2**3 - 1))), 0)
+    circuit.ch(0, 1)
+    circuit.cry(2 * math.acos(math.sqrt(1 / (2**2 - 1))), 0, 2)
+    circuit.ch(2, 3)
+    circuit.measure([0, 1, 2, 3], [0, 1, 2, 3])
 else:
     print(f'Unknown testcase "{testcase}"')
+
+if circuit is not None:
+    draw_circuit(circuit, basename)
+    simulate_circuit(circuit, basename)

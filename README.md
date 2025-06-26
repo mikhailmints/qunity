@@ -8,7 +8,7 @@ This is the artifact for the paper "Compositional Quantum Control Flow with Effi
 
 # Hardware Dependencies
 
-An x86-64 processor.
+No specialized hardware is required.
 
 # Getting Started Guide
 
@@ -20,7 +20,7 @@ This should set up all necessary dependencies. It may take about 5 minutes to do
 ```bash
 docker run -it -v ./qasm_out:/qunity/qasm_out -v ./diagrams:/qunity/diagrams qunity:latest
 ```
-If you are using Windows or otherwise if you don't see the compiled files and generated images appearing on your host machine, you might need to use absolute paths instead of relative paths in the above command. For instance, if you put the `qunity` folder on your desktop, then the command would have to be
+The `-v` flags create a bind mount linking your host machine and the Docker container, so that you can directly see the compiled files and generated images in the `qasm_out` and `diagrams` directories on your host machine. If you are using Windows or otherwise if you don't see these files appearing on your host machine, you might need to use absolute paths instead of relative paths in the above command. For instance, if you put the `qunity` folder on your desktop, then the command would have to be
 ```bash
 docker run -it -v C:/Users/user/Desktop/qunity/qasm_out:/qunity/qasm_out -v C:/Users/user/Desktop/qunity/diagrams:/qunity/diagrams qunity:latest
 ```
@@ -70,7 +70,9 @@ To reproduce the benchmark results from Table 3 and verify the circuit efficienc
 ```bash
 ./benchmarks
 ```
-This script should take approximately 10 minutes to run. It will output the qubit and gate counts for the unoptimized and optimized Qunity compiler, as well as the reference Qiskit implementation when available. Note that the optimized Qunity results for "Grover with list sum oracle" should be 11 qubits and 13,470 gates instead of the 19 qubits and 215,104 listed in Table 3 - this was due to the fact that the implementation used in the original evaluation had a trivially fixable issue that prevented some optimization from occurring. This will be corrected in the revised version of the paper. Also, note that the evaluation of the unoptimized Grover's algorithm example should time out as the generated circuit is too large - the number of qubits can be confirmed by looking at the generated `qasm_out/grover_unoptimized.qasm` file. The order finding example will not have a Qiskit implementation and is not supported by the unoptimized compiler, and the list sum oracle example is also not supported by the unoptimized compiler.
+This script should take approximately 10 minutes to run. It will output the qubit and gate counts for the unoptimized and optimized Qunity compiler, as well as the reference Qiskit implementation when available. It will also draw and simulate the optimized Qunity and Qiskit circuits, and you can check that the generated results histograms look nearly identical (with minor differences due to random sampling), although these histograms are not very useful for some of the examples where the measurement outcomes are uniform over a large number of states.
+
+Note that the optimized Qunity results for "Grover with list sum oracle" should be 11 qubits and 13,470 gates instead of the 19 qubits and 215,104 listed in Table 3 - this was due to the fact that the implementation used in the original evaluation had a trivially fixable issue that prevented some optimization from occurring. Additionally, the Qiskit implementation of the adder circuit should have 179 gates instead of 159 - this was due to a mistake when writing the data in the table. Both of these will be corrected in the revised version of the paper. Also, note that the evaluation of the unoptimized Grover's algorithm example should time out as the generated circuit is too large - the number of qubits can be confirmed by looking at the generated `qasm_out/grover_unoptimized.qasm` file. The order finding example will not have a Qiskit implementation and is not supported by the unoptimized compiler, and the list sum oracle example is also not supported by the unoptimized compiler.
 
 ## Running the Tests
 
@@ -99,7 +101,7 @@ To start an interactive Qunity REPL:
 ```bash
 ./qunity-interact
 ```
-You can enter Qunity expressions or create definitions in the interpreter. Inputs should be terminated by a double semicolon: `;;`. Here is an example of a REPL session:
+You can enter Qunity expressions or create definitions in the interpreter. Inputs should be terminated by a double semicolon: `;;`. You can exit the REPL by typing `%quit;;`. Here is an example of a REPL session:
 ```
 ./qunity-interact
 <qunity> $0;;
@@ -153,7 +155,7 @@ Possible measurement outcomes:
 Probability 0.500000: @ListCons{2, Bit}(($0, @ListCons{1, Bit}(($0, $ListEmpty{0, Bit}))))
 Probability 0.500000: @ListCons{2, Bit}(($0, @ListCons{1, Bit}(($1, $ListEmpty{0, Bit}))))
 ```
-The interpreter will output the type of the provided expression, whether or not it is considered an isometry by the typechecker, the computed semantics, and the possible measurement outcomes with their probabilities. The operator/superoperator semantics are represented in matrix form, with pure semantics written in bra-ket notation if the matrix is internally represented as sparse. The first prompt given in the above example simply prepared a $|0\rangle$ state. The next two prompts defined a "share" operation and used it to prepare a Bell state by sharing a $|+\rangle$ state in the computational basis. The last prompt above demonstrated the use of Qunity's list data structure, appending $|0\rangle$ and $|+\rangle$ to an empty list of capacity 2: the measurement outcomes show that the second element is equally likely to be measured as $|0\rangle$ or $|1\rangle$.
+The interpreter will output the type of the provided expression, whether or not it is considered an isometry by the typechecker, the computed semantics, and the possible measurement outcomes with their probabilities. The operator semantics is represented in matrix form, with pure semantics written in bra-ket notation if the matrix is internally represented as sparse. The first prompt given in the above example simply prepared a $|0\rangle$ state. The next two prompts defined a "share" operation and used it to prepare a Bell state by sharing a $|+\rangle$ state in the computational basis. The last prompt above demonstrated the use of Qunity's list data structure, appending $|0\rangle$ and $|+\rangle$ to an empty list of capacity 2: the measurement outcomes show that the second element is equally likely to be measured as $|0\rangle$ or $|1\rangle$.
 
 ## Running the Qunity Compiler
 
@@ -191,8 +193,10 @@ Results in diagrams/sim_results/grover_sim_results.svg
 ```
 The corresponding files in the `diagrams` directory should then display the generated circuit diagram and the simulation results histogram. The resulting histogram should have a high frequency associated with the bit string `01100`, which is the "correct answer" for the oracle in this example, and a low frequency for all other bit strings.
 
+> **Note on interpreting the outputs**: while in the above example, it is clear that the bit string `01100` corresponds to `($0, ($1, ($1, ($0, ($0, ())))))` in the Qunity source code, the encoding of Qunity types into bit strings when considering variant types may not be as obvious. If a type has two constructors taking types `'a` and `'b`, then the first bit (or qubit) in the encoding specifies which constructor is used, and the rest of the bits contain either a value of type `'a` or one of type `'b`. If one type is larger than the other, the unused bits must be zero in a valid encoding. Data types with multiple constructors are treated as a sum type of the first constructor with the remaining ones. So, for instance, when you compile and simulate `examples/equal_superpos_trit.qunity`, the results should show an equal frequency of `00`, `10`, and `11`, since these correspond to `$Nothing{Bit}`, `@Just{Bit}($0)`, and `@Just{Bit}($1)` respectively. There is no `01`, since that would be an invalid encoding for the type `Maybe{Bit}`. Similarly, for `examples/grover_with_lists.qunity`, the bit strings that have nonzero frequencies correspond to the lists `[]`, `[0]`, `[0, 0]`, `[0, 1]`, `[1]`, `[1, 0]`, and `[1, 1]`. Those with the higher frequency have an odd number of ones.
+
 To compile all the example Qunity programs:
 ```bash
 ./compile-all-examples [--analyze] [--unoptimized] [--nopost] [--img-format={png|jpeg|svg}]
 ```
-Note that while running `./compile-all-examples` should only take about 20 seconds, running it with `--analyze` to generate all diagrams and perform all simulations can take approximately 20 minutes.
+Note that while running `./compile-all-examples` should only take about 20 seconds, running it with `--analyze` to generate all diagrams and perform all simulations can take approximately 5 minutes. Several of the examples are explicitly skipped during this process because they take too long to simulate.

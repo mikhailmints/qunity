@@ -58,11 +58,8 @@ if $dobuild; then
 fi
 
 mkdir -p qasm_out
-
-if $analyze; then
-    mkdir -p diagrams/circuits
-    mkdir -p diagrams/sim_results
-fi
+mkdir -p diagrams/circuits
+mkdir -p diagrams/sim_results
 
 echo "Starting compiler"
 if $oldversion; then
