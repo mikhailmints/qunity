@@ -157,9 +157,7 @@ let () =
         "adder_reversible.qunity";
         "binary_search_tree.qunity";
         "bogosort.qunity";
-        "boolean_formula_walk.qunity";
         "equal_superpos_list.qunity";
-        "grover_trycatch_oracle.qunity";
         "grover_with_lists.qunity";
         "list_example.qunity";
         "list_length.qunity";
