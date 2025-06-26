@@ -1,27 +1,13 @@
 import sys
 import math
 from analyze_circuit import draw_circuit, simulate_circuit
-from qiskit import QuantumCircuit, transpile
+from qiskit import QuantumCircuit
 from qiskit.circuit.library import (
     QFT,
     CDKMRippleCarryAdder,
     PhaseEstimation,
     GlobalPhaseGate,
 )
-
-
-def transpile_check(circuit):
-    print("Transpiling circuit")
-    circuit = transpile(
-        circuit,
-        basis_gates=("u3", "cx"),
-        optimization_level=3,
-        seed_transpiler=0,
-    )
-    print("Qubits:", circuit.num_qubits)
-    print("Depth:", circuit.depth())
-    print("Gates:", sum(circuit.count_ops().values()))
-    return circuit
 
 
 testcase = sys.argv[1]
@@ -50,7 +36,6 @@ elif testcase == "adder_reversible":
     circuit.h(range(10))
     circuit.append(CDKMRippleCarryAdder(5, kind="fixed"), range(11))
     circuit.measure(range(10), range(10))
-    transpile_check(circuit)
 elif testcase == "grover":
     circuit = QuantumCircuit(6, 5)
     circuit.x(5)
