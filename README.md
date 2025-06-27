@@ -14,22 +14,22 @@ No specialized hardware is required.
 
 ## Getting Started Guide
 
-You should have Docker installed. Download the and unzip the provided file `54.zip`. Then, go to the `qunity` directory. Run the following command:
+You should have Docker installed. Download the and unzip the provided file `54.zip`. Then, go to the `qunity` directory. Run the following command (note that the dollar signs throughout these instructions just indicate the start of the command and are not to be entered):
 ```bash
-docker compose build
+$ docker compose build
 ```
 This should set up all necessary dependencies. It may take about 5 minutes to do this. Then, run the following:
 ```bash
-docker run -it -v ./qasm_out:/qunity/qasm_out -v ./diagrams:/qunity/diagrams qunity:latest
+$ docker run -it -v ./qasm_out:/qunity/qasm_out -v ./diagrams:/qunity/diagrams qunity:latest
 ```
 The `-v` flags create a bind mount linking your host machine and the Docker container, so that you can directly see the compiled files and generated images in the `qasm_out` and `diagrams` directories on your host machine. If you are using Windows or otherwise if you don't see these files appearing on your host machine, you might need to use absolute paths instead of relative paths in the above command. For instance, if you put the `qunity` folder on your desktop, then the command would have to be
 ```bash
-docker run -it -v C:/Users/user/Desktop/qunity/qasm_out:/qunity/qasm_out -v C:/Users/user/Desktop/qunity/diagrams:/qunity/diagrams qunity:latest
+$ docker run -it -v C:/Users/user/Desktop/qunity/qasm_out:/qunity/qasm_out -v C:/Users/user/Desktop/qunity/diagrams:/qunity/diagrams qunity:latest
 ```
 
 This should start a Docker container. Now, to test if everything works correctly, run the following in the container:
 ```bash
-./qunity-compile examples/bit0.qunity --analyze
+$ ./qunity-compile examples/bit0.qunity --analyze
 ```
 The expected output is the following:
 ```
@@ -59,7 +59,7 @@ Results in diagrams/sim_results/bit0_sim_results.png
 
 If you get permission errors when running the above, try running the following in the container:
 ```bash
-sudo chmod -R 777 .
+$ sudo chmod -R 777 .
 ```
 
 You should now be able to see the compiled QASM file in `qasm_out/bit0.qasm`. You should also be able to see the generated circuit diagram in `diagrams/circuits` and `diagrams/sim_results`. All subsequent commands in the instructions should be run inside the Docker container.
@@ -70,7 +70,7 @@ You should now be able to see the compiled QASM file in `qasm_out/bit0.qasm`. Yo
 
 To reproduce the benchmark results from Table 3 and verify the circuit efficiency claim, you can simply run:
 ```bash
-./benchmarks
+$ ./benchmarks
 ```
 This script should take approximately 10 minutes to run. It will output the qubit and gate counts for the unoptimized and optimized Qunity compiler, as well as the reference Qiskit implementation when available. It will also draw and simulate the optimized Qunity and Qiskit circuits, and you can check that the generated results histograms look nearly identical (with minor differences due to random sampling), although these histograms are not very useful for some of the examples where the measurement outcomes are uniform over a large number of states.
 
@@ -80,7 +80,7 @@ Note that the optimized Qunity results for "Grover with list sum oracle" should 
 
 To run the tests, use the following:
 ```bash
-./run-tests
+$ ./run-tests
 ```
 This should take approximately 1 minute to run. This script runs some basic unit tests, and also performs the differential unit testing mentioned in Section 7. The results of this can be seen in the tests labeled `compile_file_correctness`. These run the Qunity compiler on the listed files and simulate the resulting circuit, comparing the result to the output of the Qunity interpreter. For files that output circuits too large to simulate classically, the compiler is run without comparing the results, just to check that no exceptions are raised in the compilation process - these tests are labeled `compile_file_no_error`. All tests should say "passed".
 
@@ -96,16 +96,16 @@ The main parts of the code for the Qunity parser, preprocessor, typechecker, com
 
 To run a single program using the interpreter:
 ```bash
-./qunity-run <filename>
+$ ./qunity-run <filename>
 ```
 
 To start an interactive Qunity REPL:
 ```bash
-./qunity-interact
+$ ./qunity-interact
 ```
 You can enter Qunity expressions or create definitions in the interpreter. Inputs should be terminated by a double semicolon: `;;`. You can exit the REPL by typing `%quit;;`. Here is an example of a REPL session:
 ```
-./qunity-interact
+$ ./qunity-interact
 <qunity> $0;;
 Expression type: Bit
 Isometry: true
@@ -163,13 +163,13 @@ The interpreter will output the type of the provided expression, whether or not 
 
 To compile a single Qunity file into OpenQASM 3:
 ```bash
-./qunity-compile <filename> [-o <out_filename>] [--analyze] [--unoptimized] [--nopost] [--img-format={png|jpeg|svg}]
+$ ./qunity-compile <filename> [-o <out_filename>] [--analyze] [--unoptimized] [--nopost] [--img-format={png|jpeg|svg}]
 ```
 If no output filename is specified, by default it goes in the `qasm_out` directory. If `--analyze` is used, a circuit diagram will be generated, and the circuit will be simulated using Qiskit. If `--unoptimized` is used, the old version of the compiler will be run (does not support features present in some of the examples). If `--nopost` is used, postprocessing optimizations are not applied. The `--img-format` option allows the user to specify the desired format of the generated circuit diagram and results histogram images, which can be `png` (default), `jpeg`, or `svg`.
 
 For instance:
 ```
-./qunity-compile examples/grover.qunity --analyze
+$ ./qunity-compile examples/grover.qunity --analyze
 Starting compiler                     
 Preprocessing
 Typechecking
@@ -199,6 +199,12 @@ The corresponding files in the `diagrams` directory should then display the gene
 
 To compile all the example Qunity programs:
 ```bash
-./compile-all-examples [--analyze] [--unoptimized] [--nopost] [--img-format={png|jpeg|svg}]
+$ ./compile-all-examples [--analyze] [--unoptimized] [--nopost] [--img-format={png|jpeg|svg}]
 ```
 Note that while running `./compile-all-examples` should only take about 20 seconds, running it with `--analyze` to generate all diagrams and perform all simulations can take approximately 5 minutes. Several of the examples are explicitly skipped during this process because they take too long to simulate.
+
+
+<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({ tex2jax: {inlineMath: [['$', '$']]}, messageStyle: "none" });
+</script>
