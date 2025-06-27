@@ -202,9 +202,3 @@ To compile all the example Qunity programs:
 $ ./compile-all-examples [--analyze] [--unoptimized] [--nopost] [--img-format={png|jpeg|svg}]
 ```
 Note that while running `./compile-all-examples` should only take about 20 seconds, running it with `--analyze` to generate all diagrams and perform all simulations can take approximately 5 minutes. Several of the examples are explicitly skipped during this process because they take too long to simulate.
-
-
-<script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({ tex2jax: {inlineMath: [['$', '$']]}, messageStyle: "none" });
-</script>
