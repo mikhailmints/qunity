@@ -1,0 +1,5 @@
+services:
+  qunity:
+    command: ["sleep", "infinity"]
+    build: .
+    image: qunity

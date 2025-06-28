@@ -198,9 +198,7 @@ def @rev_adder_helper{#n} : Num{#n} * Num{#n} * Bit -> Num{#n} * Num{#n} * Bit :
 end
 
 def @rev_adder{#n} : Num{#n} * Num{#n} -> Num{#n} * Num{#n} :=
-    lambda (a, b) -> ((a, b), $0) |> @rev_adder_helper{#n} |> pmatch [
-        (x, $0) -> x
-    ]
+    lambda (a, b) -> ((a, b), $0) |> @rev_adder_helper{#n} |> lambda (x, $0) -> x
 end
 
 def @add_helper{#n} : Num{#n} * Num{#n} * Bit -> Num{#n} :=

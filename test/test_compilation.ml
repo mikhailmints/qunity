@@ -157,18 +157,15 @@ let () =
         "adder_reversible.qunity";
         "binary_search_tree.qunity";
         "bogosort.qunity";
-        "boolean_formula_walk.qunity";
         "equal_superpos_list.qunity";
-        "grover_trycatch_oracle.qunity";
         "grover_with_lists.qunity";
         "list_example.qunity";
         "list_length.qunity";
+        "multi_and.qunity";
         "multiply.qunity";
         "order_finding.qunity";
+        "pmatch_fourier.qunity";
         "retry_example.qunity";
-        "walk_1d.qunity";
-        "walk_1d_alt.qunity";
-        "walk_1d_alt1.qunity";
       ]
     in
       Array.iter

@@ -12,4 +12,4 @@ def @f : Num{#n} -> Bit :=
     ]
 end
 
-$grover{Num{#n}, $repeated{#n, Bit, $plus}, @f, 4}
+$grover{Num{#n}, $repeated{#n, Bit, $plus}, @f, 1}

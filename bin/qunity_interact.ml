@@ -21,6 +21,7 @@ let () =
                 curinput := !curinput ^ line ^ "\n";
               if String.ends_with ~suffix:";;" line then begin
                 curinput := String.sub !curinput 0 (String.length !curinput - 3);
+                if !curinput = "%quit" then exit 0;
                 match
                   ( parse_with_err parse_string_qunitylib !curinput,
                     parse_with_err parse_string_qunityfile !curinput )
@@ -39,7 +40,6 @@ let () =
                     | SomeE (e, xt, _) -> begin
                         if show_ocaml_string then
                           Printf.printf "%s\n" (ocaml_string_of_expr e);
-                        Printf.printf "xtype: %s\n" (string_of_xtype xt);
                         execute_expr e !dm xt
                       end
                     | NoneE err ->

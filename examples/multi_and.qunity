@@ -1,1 +1,12 @@
-@and($plus, @and($plus, @and($plus, @and($plus, $plus))))
+def @multi_and{#n} : Array{#n, Bit} -> Bit :=
+    if #n = 0 then
+        lambda () -> $1
+    else
+        lambda (x0, x1) -> @and(x0, @multi_and{#n - 1}(x1))
+    endif
+end
+
+$repeated{5, Bit, $plus} |> lambda x -> ctrl @multi_and{5}(x) [
+    $0 -> x;
+    $1 -> x |> gphase{pi}
+]
