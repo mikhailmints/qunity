@@ -123,10 +123,10 @@ type inter_op =
   | IDirsum of inter_op * inter_op  (** Direct sum of two operators. *)
   | IAssoc of exprtype * exprtype * exprtype
       (** Direct sum associativity isomorphism
-          {m (T_0 \oplus T1) \oplus T_2 \rarr T_0 \oplus (T_1 \oplus T_2)}. *)
+          {m (T_0 \oplus T_1) \oplus T_2 \rarr T_0 \oplus (T_1 \oplus T_2)}. *)
   | ICommute of exprtype * exprtype
       (** Direct sum commutativity isomorphism
-          {m (T_0 \oplus T1) \rarr T_1 \oplus T_0}. *)
+          {m (T_0 \oplus T_1) \rarr T_1 \oplus T_0}. *)
   | IConditionalCommute of exprtype * exprtype * bool list
       (** In a direct sum tree type, commutes data lying along the same given
           path in the left and right subspace. *)
@@ -136,7 +136,7 @@ type inter_op =
       *)
   | IDistrRight of exprtype * exprtype * exprtype
       (** Right distributivity isomorphism
-          {m (T_0 \oplus T1) \otimes T \rarr T_0 \otimes T \oplus T_1 \otimes T}.
+          {m (T_0 \oplus T_1) \otimes T \rarr T_0 \otimes T \oplus T_1 \otimes T}.
       *)
   | IMixedErr of inter_op  (** Mixed error handling circuit. *)
   | IPureErr of inter_op  (** Pure error handling circuit. *)
@@ -184,7 +184,7 @@ let inter_func_marked (name : string) (iso : bool) (un : bool)
   if un && not iso then failwith "If un holds, iso must also hold";
   IMarkAsIso (iso, un, IFunc (name, arglist, body, ret))
 
-(** Alias for construcing an [inter_com]. *)
+(** Alias for constructing an [inter_com]. *)
 let inter_letapp (target : string list) (op : inter_op) (args : string list) :
     inter_com =
   (target, op, args)
@@ -993,7 +993,7 @@ let circuit_assoc (t0 : exprtype) (t1 : exprtype) (t2 : exprtype) :
     }
 
 (** Direct sum commutativity isomorphism
-    {m (T_0 \oplus T1) \rarr T_1 \oplus T_0}. *)
+    {m (T_0 \oplus T_1) \rarr T_1 \oplus T_0}. *)
 let circuit_commute (t0 : exprtype) (t1 : exprtype) : circuit_spec =
   let size = type_size (SumType (t0, t1)) in
     {
