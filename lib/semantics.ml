@@ -465,7 +465,10 @@ and mixed_expr_semantics (tp : mixed_expr_typing_proof) (sigma : valuation) :
                     let j1 = basis_index_restriction d_whole fv1 j in
                     let mtry = superop_on_basis e0sem i0 j0 in
                     let mcatch = superop_on_basis e1sem i1 j1 in
-                      mat_plus mtry
+                      mat_plus
+                        (mat_scalar_mul
+                           (if i1 = j1 then Complex.one else Complex.zero)
+                           mtry)
                         (mat_scalar_mul
                            (Complex.sub
                               (if i0 = j0 then Complex.one else Complex.zero)

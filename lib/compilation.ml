@@ -2010,7 +2010,7 @@ let rec compile_spanning_to_inter_op (sp : spanning_proof) :
   match sp with
   | SVoid -> (IIdentity Void, Leaf, [])
   | SUnit -> (IIdentity Qunit, Leaf, [StringMap.empty])
-  | SUnApp (f, sp') -> begin
+  | SIsoApp (f, sp') -> begin
       let op, tree, gl = compile_spanning_to_inter_op sp' in
         (IAdjoint (compile_pure_prog_to_inter_op f) @&& op, tree, gl)
     end
@@ -2661,13 +2661,24 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
                 ]
                 [("g", gsize); ("t1", tsize)]
       end
-    | TTry { t; d0; e0; e1; iso; _ } -> begin
+    | TTry { t; d0; d1; e0; e1; iso; _ } -> begin
         let op0 = compile_mixed_expr_to_inter_op e0 in
         let op1 = compile_mixed_expr_to_inter_op e1 in
         let iso0 = is_iso_mixed_expr_proof e0 in
         let iso1 = is_iso_mixed_expr_proof e1 in
           if iso0 then
-            compile_mixed_expr_to_inter_op e0
+            inter_func_marked "TTry" iso false
+              [("g", gsize); ("d", dsize)]
+              [
+                inter_comment "Starting TTry";
+                inter_letapp ["d0"; "d1"]
+                  (IContextPartition (d_whole, map_dom d0))
+                  ["d"];
+                inter_letapp ["g"; "t"] op0 ["g"; "d0"];
+                inter_letapp [] (IContextDiscard d1) ["d1"];
+                inter_comment "Finished TTry";
+              ]
+              [("g", gsize); ("t", tsize)]
           else if iso1 then
             inter_func_marked "TTry" iso false
               [("g", gsize); ("d", dsize)]

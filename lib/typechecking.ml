@@ -152,7 +152,7 @@ and erasure_proof =
 and spanning_proof =
   | SVoid
   | SUnit
-  | SUnApp of pure_prog_typing_proof * spanning_proof
+  | SIsoApp of pure_prog_typing_proof * spanning_proof
   | SVar of string * exprtype
   | SSum of spanning_proof * spanning_proof
   | SPair of exprtype * exprtype * spanning_proof * spanning_proof list
@@ -342,11 +342,24 @@ and prog_is_classical (f : prog) : bool =
         (fun (ej, ej') -> expr_is_classical ej && expr_is_classical ej')
         l
 
+(** Check if a spanning proof actually corresponds to a full spanning set (if
+    all program applications are unitary) *)
+let rec is_fully_spanning (sp : spanning_proof) : bool =
+  match sp with
+  | SIsoApp (tpf, sp') -> is_un_pure_prog_proof tpf && is_fully_spanning sp'
+  | SVoid
+  | SUnit
+  | SVar _ ->
+      true
+  | SSum (sp0, sp1) -> is_fully_spanning sp0 && is_fully_spanning sp1
+  | SPair (_, _, sp0, l) ->
+      is_fully_spanning sp0 && List.for_all is_fully_spanning l
+
 (** Checks if an orthogonality proof directly corresponds to a spanning proof
     (if the corresponding expressions form a full spanning set). *)
 let is_spanning_ortho_proof (orp : ortho_proof) : bool =
-  let _, selection = orp in
-    List.for_all (fun x -> x) selection
+  let sp, selection = orp in
+    is_fully_spanning sp && List.for_all (fun x -> x) selection
 
 (** Finds the free variables in an expression e. *)
 let rec free_vars (e : expr) : StringSet.t =
@@ -471,9 +484,9 @@ let rec expr_compare (e0 : expr) (e1 : expr) =
   | _ -> 0
 
 (** Checks if every element in the given list is an application of the same
-    unitary program to something, and if so, returns the program, its typing
+    isometric program to something, and if so, returns the program, its typing
     proof, and the list with the applications removed. *)
-let rec check_unapp (l : expr list) :
+let rec check_isoapp (l : expr list) :
     (prog * pure_prog_typing_proof * expr list) option =
   match
     all_or_nothing
@@ -500,7 +513,11 @@ let rec check_unapp (l : expr list) :
                 | TLeft _
                 | TRight _ ->
                     None
-                | _ -> Some (f, tpf, l')
+                | _ ->
+                    if is_iso_pure_prog_proof tpf then
+                      Some (f, tpf, l')
+                    else
+                      None
               end
             | _ -> None
     end
@@ -512,14 +529,14 @@ and missing_span (t : exprtype) (l : expr list) (allow_quantum : bool) :
     (expr list * spanning_proof) option =
   let rec missing_span_helper (t : exprtype) (l : expr list) (fv : StringSet.t)
       : (expr list * spanning_proof) option =
-    match (t, l, check_unapp l) with
+    match (t, l, check_isoapp l) with
     | _, _, Some (f, tpf, l') when allow_quantum -> begin
         match
           missing_span_helper (fst (type_of_prog_proof (PureProg tpf))) l' fv
         with
         | None -> None
         | Some (l'', sp) ->
-            Some (List.map (fun e -> Apply (f, e)) l'', SUnApp (tpf, sp))
+            Some (List.map (fun e -> Apply (f, e)) l'', SIsoApp (tpf, sp))
       end
     | Void, [], _ -> Some ([], SVoid)
     | Qunit, [], _ -> Some ([Null], SUnit)
@@ -776,9 +793,14 @@ and mixed_type_check (g : context) (d : context) (e : expr) :
               else
                 let d = map_exclusion dd1 (map_dom d1) in
                 let d0 = map_exclusion dd0 (map_dom d) in
-                  match ortho_check t0 ejs false with
-                  | None -> NoneE ("Ortho check failed" ^ error_addition)
-                  | Some orp -> begin
+                  match
+                    ( ortho_check t0 ejs true,
+                      List.for_all expr_is_classical ejs )
+                  with
+                  | None, _ -> NoneE ("Ortho check failed" ^ error_addition)
+                  | _, false ->
+                      NoneE ("LHS of match must be classical" ^ error_addition)
+                  | Some orp, _ -> begin
                       let pattern_result =
                         List.map (mixed_pattern_type_check g dd1 t0 t1) l
                       in
@@ -789,6 +811,7 @@ and mixed_type_check (g : context) (d : context) (e : expr) :
                         | Some l' ->
                             let iso =
                               expr_is_classical e'
+                              && List.for_all expr_is_classical ejs
                               && is_iso_mixed_expr_proof tpe'
                               && is_spanning_ortho_proof orp
                               && List.for_all
@@ -991,9 +1014,13 @@ and pure_type_check (g : context) (d : context) (e : expr) :
           begin
             match mixed_type_check g d0 e' with
             | SomeE tpe' when type_of_mixed_expr_proof tpe' = t0 -> begin
-                match ortho_check t0 ejs false with
-                | None -> NoneE ("Ortho check failed" ^ error_addition)
-                | Some orp -> begin
+                match
+                  (ortho_check t0 ejs true, List.for_all expr_is_classical ejs)
+                with
+                | None, _ -> NoneE ("Ortho check failed" ^ error_addition)
+                | _, false ->
+                    NoneE ("LHS of ctrl must be classical" ^ error_addition)
+                | Some orp, _ -> begin
                     match
                       map_all_or_nothing
                         (StringMap.mapi (fun x _ -> erases_check x ej's t1) d0)
@@ -1187,7 +1214,7 @@ and pure_context_check (g : context) (t : exprtype) (e : expr) :
                     let ej, ej' = List.split l in
                       if not (map_is_inclusion d gd0) then
                         NoneE ("Context inclusion failed" ^ error_addition)
-                      else if ortho_check t0 ej false = None then
+                      else if ortho_check t0 ej true = None then
                         NoneE ("Ortho check failed" ^ error_addition)
                       else
                         match

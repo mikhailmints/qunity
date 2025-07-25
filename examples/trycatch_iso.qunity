@@ -1,0 +1,1 @@
+($plus, $plus) |> lambda (x, y) -> try x catch y
