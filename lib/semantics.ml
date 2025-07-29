@@ -188,40 +188,6 @@ let basis_index_extension (g : context) (sigma : valuation) (d : context)
       Hashtbl.add basis_index_extension_memo (g, sigma, d, i) res;
       res
 
-(** In a density matrix [m] corresponding to the context [d], traces out all
-    variables that are not in the specified set [fv]. *)
-let context_partial_trace (d : context) (fv : StringSet.t) (m : matrix) :
-    matrix =
-  let d', d0 = map_partition d fv in
-  let fv0 = map_dom d0 in
-  let d'_dim = context_dimension d' in
-    match m.ent with
-    | Dense f ->
-        let d0_val = Array.to_list (all_context_basis_valuations d0) in
-          mat_from_fun d'_dim d'_dim
-            begin
-              fun i j ->
-                complex_sum
-                  (List.map
-                     (fun tau ->
-                       let i0 = basis_index_extension d0 tau d' i in
-                       let j0 = basis_index_extension d0 tau d' j in
-                         f i0 j0)
-                     d0_val)
-            end
-    | Sparse s ->
-        mat_sum d'_dim d'_dim
-          ((List.map (fun ((i, j), z) ->
-                let i' = basis_index_restriction d fv i in
-                let j' = basis_index_restriction d fv j in
-                let i0 = basis_index_restriction d fv0 i in
-                let j0 = basis_index_restriction d fv0 j in
-                  if i0 = j0 then
-                    mat_from_map d'_dim d'_dim (Int2Map.singleton (i', j') z)
-                  else
-                    mat_zero d'_dim d'_dim))
-             (Int2Map.bindings s))
-
 (** Memoization cache for [pure_expr_semantics]. *)
 let pure_expr_sem_memo : (pure_expr_typing_proof * valuation, matrix) Hashtbl.t
     =
@@ -429,12 +395,22 @@ and mixed_expr_semantics (tp : mixed_expr_typing_proof) (sigma : valuation) :
           | TDiscard { d; d0; e; _ } -> begin
               let dd0 = map_merge_noopt false d d0 in
               let fve = map_dom d in
+              let fv_discard = map_dom d0 in
               let e_sem = mixed_expr_semantics e sigma in
                 superop_from_basis_action tdim ddim (fun i j ->
-                    let v = index_to_context_basis_state dd0 i in
-                    let v' = index_to_context_basis_state dd0 j in
+                    let ie = basis_index_restriction dd0 fve i in
+                    let je = basis_index_restriction dd0 fve j in
+                    let i_discard = basis_index_restriction dd0 fv_discard i in
+                    let j_discard = basis_index_restriction dd0 fv_discard j in
+                    let v = index_to_context_basis_state d ie in
+                    let v' = index_to_context_basis_state d je in
                       superop_apply e_sem
-                        (context_partial_trace dd0 fve (v *@ mat_adjoint v')))
+                        (mat_scalar_mul
+                           (if i_discard = j_discard then
+                              Complex.one
+                            else
+                              Complex.zero)
+                           (v *@ mat_adjoint v')))
             end
           | TMixedPair { d; d0; d1; e0; e1; _ } -> begin
               let dd0 = map_merge_noopt false d d0 in

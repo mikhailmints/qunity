@@ -1,0 +1,3 @@
+def @share : Bit -> Bit * Bit := lambda x -> (x, x) end
+
+($plus, $plus) |> lambda x -> ctrl x [@share(y) -> (x, y)]

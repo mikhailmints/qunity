@@ -2518,7 +2518,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
     | TMatch { t1; g; d; d0; d1; e; l; orp; iso; _ } -> begin
         let n = List.length l in
           if n = 0 then
-            inter_func_marked "TCtrl_Void" iso false
+            inter_func_marked "TMatch_Void" iso false
               [("g", gsize); ("dd*", dsize)]
               [
                 inter_comment "Starting TMatch";
@@ -2617,7 +2617,7 @@ and compile_mixed_expr_to_inter_op (tp : mixed_expr_typing_proof) : inter_op =
                        (fake_type_of_context gj, fake_type_of_size garb_size))
                    (List.combine gjs garb_sizes))
             in
-              inter_func_marked "TCtrl" iso false
+              inter_func_marked "TMatch" iso false
                 [("g", gsize); ("dd0d1", dsize)]
                 [
                   inter_comment "Starting TMatch";
